@@ -14,8 +14,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/robertoaracil/goarb/caller"
-	"github.com/robertoaracil/goarb/utils"
+	"github.com/g3459/goarb/caller"
+	"github.com/g3459/goarb/utils"
 )
 
 type Configuration struct {
