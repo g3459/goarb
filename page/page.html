@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Swap Tokens</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            width: 400px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        select,
+        button {
+            width: 100%;
+            padding: 15px;
+            margin-top: 10px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            text-align-last: center;
+        }
+
+        input {
+            width: calc(100% - 30px);
+            padding: 15px;
+            margin: 10px 0;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .swap-icon {
+            text-align: center;
+            font-size: 2em;
+            margin: 10px 0;
+            color: #007bff;
+            cursor: pointer;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .amount-out {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 18px;
+        }
+
+        .loading-icon {
+            margin: auto;
+            display: block;
+            border: 3px solid #007bff;
+            border-radius: 50%;
+            border-top: 3px solid #f4f4f4;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Dark Mode Styles */
+        .dark-mode {
+            background-color: #222;
+            color: white;
+        }
+
+        .dark-mode .container {
+            background-color: #333;
+            color: white;
+        }
+
+        .dark-mode .swap-icon {
+            color: #007bff;
+        }
+
+        .dark-mode button {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .dark-mode button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Dark Mode Switch */
+        .switch {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            -webkit-transition: .4s;
+            transition: .4s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            -webkit-transition: .4s;
+            transition: .4s;
+        }
+
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px #2196F3;
+        }
+
+        input:checked + .slider:before {
+            -webkit-transform: translateX(26px);
+            -ms-transform: translateX(26px);
+            transform: translateX(26px);
+        }
+
+        .slider.round {
+            border-radius: 34px;
+        }
+
+        .slider.round:before {
+            border-radius: 50%;
+        }
+
+        .sun-icon,
+        .moon-icon {
+            position: absolute;
+            top: 10px;
+            right: 70px;
+            font-size: 24px;
+        }
+
+        .moon-icon {
+            display: none;
+        }
+
+        .dark-mode .sun-icon {
+            display: none;
+        }
+
+        .dark-mode .moon-icon {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="switch">
+        <span class="sun-icon">&#9728;</span>
+        <span class="moon-icon">&#127769;</span>
+        <input type="checkbox" id="darkModeSwitch">
+        <label class="slider round" for="darkModeSwitch"></label>
+    </div>
+    <div class="container">
+        <h1 style="text-align: center; color: #007bff;">Swap Tokens</h1>
+        <select id="tokenIn">
+            <option value="0xc2132d05d31c914a87c6611c10748aeb04b58e8f">USD</option>
+            <option value="0x7ceb23fd6bc0add59e62ac25578270cff1b9f619">ETH</option>
+            <option value="0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6">BTC</option>
+            <option value="0xe0b52e49357fd4daf2c15e02058dce6bc0057db4">EUR</option>
+            <option value="0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270">MATIC</option>
+            <option value="0x53e0bca35ec356bd5dddfebbd1fc0fd03fabad39">LINK</option>
+            <option value="0xd6df932a45c0f255f85145f286ea0b292b21c90b">AAVE</option>
+            <option value="0xb33eaad8d922b1083446dc23f610c2567fb5180f">UNI</option>
+            <option value="0xbbba073c31bf03b8acf7c28ef0738decf3695683">SAND</option>
+
+        </select>
+        <div class="swap-icon" id="swapIcon">&#8646;</div>
+        <select id="tokenOut">
+            <option value="0xc2132d05d31c914a87c6611c10748aeb04b58e8f">USD</option>
+            <option value="0x7ceb23fd6bc0add59e62ac25578270cff1b9f619">ETH</option>
+            <option value="0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6">BTC</option>
+            <option value="0xe0b52e49357fd4daf2c15e02058dce6bc0057db4">EUR</option>
+            <option value="0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270">MATIC</option>
+            <option value="0x53e0bca35ec356bd5dddfebbd1fc0fd03fabad39">LINK</option>
+            <option value="0xd6df932a45c0f255f85145f286ea0b292b21c90b">AAVE</option>
+            <option value="0xb33eaad8d922b1083446dc23f610c2567fb5180f">UNI</option>
+            <option value="0xbbba073c31bf03b8acf7c28ef0738decf3695683">SAND</option>
+        </select>
+        <input type="number" id="amountIn" min="0.01" step="0.01" placeholder="Amount">
+        <button id="swapButton">Swap</button>
+        <div class="amount-out" id="amountOut"></div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js/dist/web3.min.js"></script>
+    <script>
+        document.getElementById('darkModeSwitch').addEventListener('change', function () {
+            document.body.classList.toggle('dark-mode');
+        });
+
+        document.getElementById('swapButton').addEventListener('click', function () {
+            var tokenIn = document.getElementById('tokenIn').value;
+            var amountIn = document.getElementById('amountIn').value;
+            var tokenOut = document.getElementById('tokenOut').value;
+            if (tokenIn === tokenOut) {
+                alert("Please select different tokens");
+                return;
+            }
+            if (amountIn === "" || isNaN(amountIn) || amountIn <= 0) {
+                alert("Please enter a valid amount");
+                return;
+            }
+            document.getElementById('amountOut').innerHTML = "<div class=\"loading-icon\"></div>";
+            fetch(`http://127.0.0.1:8081/swap?tokenIn=${tokenIn}&amountIn=${amountIn}&tokenOut=${tokenOut}`, {
+                method: 'GET',
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log("Transaction to be signed and executed: ", data.tx);
+                    document.getElementById('amountOut').innerHTML = `You will receive: ${data.amountOut}`;
+                    if (window.ethereum) {
+                        console.log(window.ethereum)
+                        const web3 = new Web3(window.ethereum);
+                        window.ethereum.request({ method: 'eth_requestAccounts' }).then(accounts=>{
+                            const account = accounts[0];
+                            data.tx.from=account
+                            web3.eth.sendTransaction(data.tx, function (err, transactionHash) {
+                                if (err)
+                                    console.log(err);
+                                else
+                                    console.log(transactionHash);
+                            });
+                        });
+                    } else {
+                        console.log('Metamask not installed.');
+                    }
+                } else {
+                    console.error("Error: ", data.message);
+                    document.getElementById('amountOut').innerHTML = "Error: " + data.message;
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                document.getElementById('amountOut').innerHTML = "Error: " + error;
+            });
+        });
+
+        document.getElementById('swapIcon').addEventListener('click', function () {
+            var tokenIn = document.getElementById('tokenIn');
+            var tokenOut = document.getElementById('tokenOut');
+            var temp = tokenIn.value;
+            tokenIn.value = tokenOut.value;
+            tokenOut.value = temp;
+        });
+    </script>
+</body>
+
+</html>

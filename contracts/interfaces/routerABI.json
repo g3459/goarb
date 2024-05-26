@@ -1,0 +1,228 @@
+[
+	{
+		"inputs": [
+			{
+				"internalType": "address[]",
+				"name": "tokens",
+				"type": "address[]"
+			},
+			{
+				"components": [
+					{
+						"internalType": "uint24[]",
+						"name": "fees",
+						"type": "uint24[]"
+					},
+					{
+						"internalType": "address",
+						"name": "factory",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "poolInitCode",
+						"type": "bytes32"
+					}
+				],
+				"internalType": "struct Arouter.UniProtocol[]",
+				"name": "protocols",
+				"type": "tuple[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "ethPricesX64",
+				"type": "uint256[]"
+			},
+			{
+				"internalType": "uint256",
+				"name": "minEth",
+				"type": "uint256"
+			}
+		],
+		"name": "allTokensWithBalances",
+		"outputs": [
+			{
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "amIn",
+						"type": "uint256"
+					},
+					{
+						"components": [
+							{
+								"internalType": "uint256",
+								"name": "amOut",
+								"type": "uint256"
+							},
+							{
+								"internalType": "bytes",
+								"name": "calls",
+								"type": "bytes"
+							}
+						],
+						"internalType": "struct Arouter.Route[]",
+						"name": "routes",
+						"type": "tuple[]"
+					}
+				],
+				"internalType": "struct Arouter.Routes[][]",
+				"name": "routes",
+				"type": "tuple[][]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address[]",
+				"name": "tokens",
+				"type": "address[]"
+			},
+			{
+				"components": [
+					{
+						"internalType": "uint24[]",
+						"name": "fees",
+						"type": "uint24[]"
+					},
+					{
+						"internalType": "address",
+						"name": "factory",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "poolInitCode",
+						"type": "bytes32"
+					}
+				],
+				"internalType": "struct Arouter.UniProtocol[]",
+				"name": "protocols",
+				"type": "tuple[]"
+			}
+		],
+		"name": "findPools",
+		"outputs": [
+			{
+				"components": [
+					{
+						"internalType": "uint128",
+						"name": "reserve0",
+						"type": "uint128"
+					},
+					{
+						"internalType": "uint128",
+						"name": "reserve1",
+						"type": "uint128"
+					},
+					{
+						"internalType": "uint128",
+						"name": "reserve0Limit",
+						"type": "uint128"
+					},
+					{
+						"internalType": "uint128",
+						"name": "reserve1Limit",
+						"type": "uint128"
+					},
+					{
+						"internalType": "address",
+						"name": "pool",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes4",
+						"name": "stateHash",
+						"type": "bytes4"
+					},
+					{
+						"internalType": "uint24",
+						"name": "fee",
+						"type": "uint24"
+					},
+					{
+						"internalType": "uint8",
+						"name": "prot",
+						"type": "uint8"
+					}
+				],
+				"internalType": "struct Arouter.Pool[][][]",
+				"name": "pools",
+				"type": "tuple[][][]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address[]",
+				"name": "tokens",
+				"type": "address[]"
+			},
+			{
+				"components": [
+					{
+						"internalType": "uint24[]",
+						"name": "fees",
+						"type": "uint24[]"
+					},
+					{
+						"internalType": "address",
+						"name": "factory",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "poolInitCode",
+						"type": "bytes32"
+					}
+				],
+				"internalType": "struct Arouter.UniProtocol[]",
+				"name": "protocols",
+				"type": "tuple[]"
+			},
+			{
+				"internalType": "uint256",
+				"name": "ethPriceInX64",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amIn",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tIn",
+				"type": "uint256"
+			}
+		],
+		"name": "singleToken",
+		"outputs": [
+			{
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "amOut",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "calls",
+						"type": "bytes"
+					}
+				],
+				"internalType": "struct Arouter.Route[]",
+				"name": "routes",
+				"type": "tuple[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+]
