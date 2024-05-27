@@ -200,10 +200,12 @@ contract Arouter{
                                             if(amOut>routeOut.amOut){
                                                 routeOut.amOut=amOut;
                                                 uint rLen;
-                                                while(rLen<routeIn.calls.length){ 
+                                                bytes memory rInCalls=routeIn.calls;
+                                                bytes memory rOutCalls=routeOut.calls;
+                                                while(rLen<rInCalls.length){
                                                     bool empty=true;
                                                     for (uint j;j<4;j++){
-                                                        if(routeIn.calls[rLen+j]!=bytes1(0)){
+                                                        if(rInCalls[rLen+j]!=bytes1(0)){
                                                             empty=false;
                                                             break;
                                                         }
@@ -213,20 +215,25 @@ contract Arouter{
                                                     }
                                                     rLen+=24;
                                                 }
-                                                if(rLen>=routeOut.calls.length){
-                                                    routeOut.calls=new bytes(rLen+24);
+                                                if(rLen+24>rOutCalls.length){
+                                                    rOutCalls=(routeOut.calls=new bytes((((rLen-1)>>5)<<5)+32));
                                                 }else{
-                                                    for(uint i=rLen+24;i<routeOut.calls.length;i++)
-                                                        delete routeOut.calls[i];
+                                                    delete routeOut.calls;
                                                 }
-                                                for(uint i;i<rLen;i++)
-                                                    routeOut.calls[i]=routeIn.calls[i];
-                                                for(uint i;i<20;i++)
-                                                    routeOut.calls[rLen+i]=bytes20(pool.pool)[i];
-                                                for(uint i;i<4;i++)
-                                                    routeOut.calls[rLen+20+i]=pool.stateHash[i];
-                                                direc?routeOut.calls[rLen+23]|=bytes1(0x01):routeOut.calls[rLen+23]&=bytes1(0xfe);
-                                                assembly{updated:=and(updated,not(shl(t0,0x01)))}
+                                                
+                                                for(uint i=32;i<rLen+64;i+=32){
+                                                    assembly{
+                                                        mstore(add(rOutCalls,i),mload(add(rInCalls,i)))
+                                                    }
+                                                }
+                                                bytes24 callbytes;
+                                                callbytes|=bytes20(pool.pool);
+                                                bytes4 stateHash=pool.stateHash;
+                                                direc?stateHash|=bytes4(0x00000001):stateHash&=bytes4(0xfffffffe);
+                                                callbytes|=bytes24(stateHash)>>160;
+                                                assembly{
+                                                    mstore(add(add(rOutCalls,0x20),rLen),callbytes)
+                                                }
                                             }
                                         }
                                     }
@@ -234,27 +241,40 @@ contract Arouter{
                             }
                         }
                     }
-                    
                 }
                 if(updated==bytes32(uint(0x01<<tokens.length)-1)) return;
             }
         }
     }
 
-    function checkPool(bytes memory calls, address pool) internal pure returns(bool){
-        unchecked{
-            for (uint i;i<calls.length;i+=24){
-                bool dif;
-                for (uint j;j<4;j++){
-                    if (bytes20(pool)[j] != calls[j+i]){
-                        dif=true;
-                        break;
-                    }
+    function checkPool(bytes memory calls, address pool) internal pure returns (bool) {
+        unchecked {
+            for (uint i; i < calls.length; i += 24) {
+                address _pool;
+                assembly {
+                    _pool := mload(add(add(calls, 0x20), i))
                 }
-                if(!dif)return true;
+                if (pool == _pool) return true;
             }
             return false;
         }
+    }
+
+    function test()public view returns(bytes32 a){
+        bytes memory bb =new bytes(1);
+        assembly{
+            mstore(bb,32)
+            mstore(add(bb,32),0x123123)
+            a:=mload(add(bb,32))
+        }
+        //a|=(bytes20(address(this))|((bytes4(0xfffffffe))>>160));
+        // {
+        //     bytes20 _pool=bytes20(address(this));
+        //     assembly{
+        //         mstore(add(add(bb,0x20),24),_pool)
+        //         a:=mload(add(add(bb,0x20),24))
+        //     }
+        // }
     }
 
     function tSqrtPX64(int t) internal pure returns(uint) {

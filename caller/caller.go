@@ -1,6 +1,7 @@
 package caller
 
 import (
+	"log"
 	"math/big"
 	"os"
 
@@ -58,7 +59,7 @@ func S(res interface{}, decoder func(interface{}) interface{}, method string, ar
 }
 
 func (batch Batch) AddCall(txParams map[string]interface{}, block string, decode func(interface{}) interface{}) Batch {
-	return append(batch, S(new(string), decode, "eth_call", txParams, block))
+	return append(batch, S(new(string), decode, "eth_estimateGas", txParams, block))
 }
 
 func (batch Batch) AddBalances(tokens []string, account string) Batch {
@@ -144,7 +145,7 @@ func (batch Batch) Execute(rpcclient *rpc.Client) ([]interface{}, error) {
 		if batchElems[i].Error == nil {
 			res[i] = batch[i].Decode(batchElems[i].Result)
 		} else {
-			//log.Println("Error:", batchElems[i].Error, res[i])
+			log.Println("Error:", batchElems[i].Error, res[i])
 		}
 	}
 	return res, nil

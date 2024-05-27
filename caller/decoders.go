@@ -1,6 +1,7 @@
 package caller
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/g3459/goarb/utils"
@@ -19,6 +20,7 @@ func mapStringDecoder(result interface{}) interface{} {
 }
 
 func allTokensDecoder(result interface{}) interface{} {
+	fmt.Println(*result.(*string))
 	res, _ := routerABI.Unpack("allTokensWithBalances", utils.HexToBytes(*result.(*string)))
 	if len(res) == 0 {
 		return nil
