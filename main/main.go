@@ -37,8 +37,8 @@ type ChainInfo struct {
 
 var chainsInfo = map[uint]ChainInfo{
 	137: {
-		router: "0x8b352Effe9674A6b863681fcaa69C77ED6552c4d",
-		caller: "0xE90986BdD42AC95b935D10568765Bff79074EA98",
+		router: "0x658cb8B2a1C06Ff12C3b0139b07c464D1e9E512E",
+		caller: "0xF3baF39C64732126Af6bf34e887D430d7F4aD78a",
 	},
 }
 
@@ -65,6 +65,7 @@ var tokensInfo = map[string]TokenInfo{
 }
 
 func main() {
+	http.Handle("/", http.FileServer(http.Dir("../page")))
 	rawConf, err := os.ReadFile("../conf.json")
 	fmt.Println(string(rawConf))
 	if err != nil {
@@ -140,21 +141,24 @@ func main() {
 		amInF.Mul(amInF, new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokensInfo[tokenIn].decimals)), nil))).Int(amIn)
 		var response map[string]interface{}
 		for _, rpcclient := range wsrpcclients {
+			fmt.Println(amIn)
 			call2, err := new(caller.Batch).AddFindRoutesForSingleToken(tokenList, protocols, ethPricesX64[tInIx], amIn, big.NewInt(tInIx), chainsInfo[conf.ChainId].caller, chainsInfo[conf.ChainId].router, "latest").Execute(rpcclient)
 			if err == nil && call2[0] != nil {
 				routes := call2[0].([]caller.Route)
+				fmt.Println(routes)
 				r := new(big.Float).SetInt(routes[tOutIx].AmOut)
+				log.Println(r)
 				decDivisor := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokensInfo[tokenOut].decimals)), nil))
 				r.Quo(r, decDivisor)
 				rr, _ := r.Float64()
 				response = map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": chainsInfo[conf.ChainId].caller, "input": utils.BytesToHex(append(append(make([]byte, 16-len(amIn.Bytes())), amIn.Bytes()...), routes[tOutIx].Calls...)), "gas": 1000000}, "amountOut": rr}
 				break
 			} else {
+				log.Println(err)
 				response = map[string]interface{}{"success": false, "message": err}
 			}
 		}
 		json.NewEncoder(w).Encode(response)
 	})
-
-	log.Fatal(http.ListenAndServe(":8081", nil))
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }

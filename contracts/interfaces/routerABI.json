@@ -107,51 +107,9 @@
 		"name": "findPools",
 		"outputs": [
 			{
-				"components": [
-					{
-						"internalType": "uint128",
-						"name": "reserve0",
-						"type": "uint128"
-					},
-					{
-						"internalType": "uint128",
-						"name": "reserve1",
-						"type": "uint128"
-					},
-					{
-						"internalType": "uint128",
-						"name": "reserve0Limit",
-						"type": "uint128"
-					},
-					{
-						"internalType": "uint128",
-						"name": "reserve1Limit",
-						"type": "uint128"
-					},
-					{
-						"internalType": "address",
-						"name": "pool",
-						"type": "address"
-					},
-					{
-						"internalType": "bytes4",
-						"name": "stateHash",
-						"type": "bytes4"
-					},
-					{
-						"internalType": "uint24",
-						"name": "fee",
-						"type": "uint24"
-					},
-					{
-						"internalType": "uint8",
-						"name": "prot",
-						"type": "uint8"
-					}
-				],
-				"internalType": "struct Arouter.Pool[][][]",
+				"internalType": "bytes[][]",
 				"name": "pools",
-				"type": "tuple[][][]"
+				"type": "bytes[][]"
 			}
 		],
 		"stateMutability": "view",

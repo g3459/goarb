@@ -59,7 +59,7 @@ func S(res interface{}, decoder func(interface{}) interface{}, method string, ar
 }
 
 func (batch Batch) AddCall(txParams map[string]interface{}, block string, decode func(interface{}) interface{}) Batch {
-	return append(batch, S(new(string), decode, "eth_estimateGas", txParams, block))
+	return append(batch, S(new(string), decode, "eth_call", txParams, block))
 }
 
 func (batch Batch) AddBalances(tokens []string, account string) Batch {

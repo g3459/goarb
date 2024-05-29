@@ -16,122 +16,81 @@ contract Arouter{
         bytes32 poolInitCode;
     }
 
-    struct Pool {
-        uint128 reserve0;
-        uint128 reserve1;
-        uint128 reserve0Limit;
-        uint128 reserve1Limit;
-        address pool;
-        bytes4 stateHash;
-        uint24 fee;
-        uint8 prot;
-    }
+    // function findPoolsTest()public view returns(bytes[][] memory pools){
+    //     address[] memory tokens=new address[](2);
+    //     tokens[0]=0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    //     tokens[1]=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    //     UniProtocol[] memory protocols=new UniProtocol[](1);
+    //     protocols[0].fees=new uint24[](1);
+    //     protocols[0].fees[0]=uint24(100);
+    //     protocols[0].factory=0x1F98431c8aD98523631AE4a59f267346ea31F984;
+    //     protocols[0].poolInitCode=bytes32(0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54);
+    //     return this.findPools(tokens,protocols);
+    // }
 
-    function findPools(address[] calldata tokens, UniProtocol[] calldata protocols)public view returns(Pool[][][] memory pools){
+
+    function findPools(address[] calldata tokens, UniProtocol[] calldata protocols)public view returns(bytes[][] memory pools){
         unchecked {
-            pools=new Pool[][][](tokens.length);
+            pools=new bytes[][](tokens.length);
             for (uint t0; t0 < tokens.length; t0++)
-                pools[t0]=new Pool[][](tokens.length);
-            {
-                uint poolsLen;
-                for(uint p; p<protocols.length;p++)
-                    poolsLen+=protocols[p].fees.length;
-                for (uint t0; t0 < tokens.length; t0++)
-                    for (uint t1; t1 < tokens.length; t1++)
-                        if(tokens[t0]<tokens[t1])
-                            pools[t1][t0]=(pools[t0][t1]=new Pool[](poolsLen));
+                pools[t0]=new bytes[](tokens.length);
+            bytes32 fmp;
+            assembly{
+                fmp:=mload(0x40)
             }
             for (uint t0; t0 < tokens.length; t0++){
                 for (uint t1; t1 < tokens.length; t1++){
                     if(tokens[t0]<tokens[t1]){
-                        uint i;
+                        bytes32 stp;
+                        assembly{
+                            stp:=fmp
+                            fmp:=add(fmp,0x20)
+                        }
                         for (uint p; p < protocols.length; p++) {
-                            UniProtocol calldata protocol=protocols[p];
-                                // if ((pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',protocol.factory, keccak256(abi.encodePacked(tokens[t0], tokens[t1])) ,protocol.poolInitCode)))))).code.length > 0) {
-                                //     (, bytes memory state) = pool.staticcall(abi.encodeWithSelector(IUniV2Pool.getReserves.selector));
-                                //     (uint128 reserve0, uint128 reserve1)=abi.decode(state,(uint128,uint128));
-                                //     if(reserve0>0&&reserve1>0){
-                                //         pools[t0][t1][i++]=PoolParams(
-                                //             reserve0,
-                                //             reserve1,
-                                //             reserve0,
-                                //             reserve1,
-                                //             1e6-protocol.fees[0],
-                                //             pool,
-                                //             0x00,
-                                //             bytes4(keccak256(state))
-                                //         );
-                                //     }
-                                // }
-                                // else{
-                                    for (uint f; f < protocol.fees.length; f++) {
-                                        address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',protocol.factory, keccak256(abi.encode(tokens[t0], tokens[t1],protocol.fees[f])),protocol.poolInitCode)))));
-                                        if (pool.code.length > 0) {
-                                            uint liquidity=IUniV3Pool(pool).liquidity();
-                                            if(liquidity>0){
-                                                uint128 reserve0;uint128 reserve1;uint128 reserve0Limit;uint128 reserve1Limit;bytes4 stateHash;
-                                                {
-                                                    (, bytes memory state) = pool.staticcall(abi.encodeWithSelector(IUniV3Pool.slot0.selector));
-                                                    stateHash=bytes4(keccak256(state));
-                                                    int t;
-                                                    int s = IUniV3Pool(pool).tickSpacing();
-                                                    {
-                                                        uint sqrtPX64;
-                                                        (sqrtPX64,t) = abi.decode(state, (uint, int));
-                                                        sqrtPX64>>=32;
-                                                        reserve0=uint128((liquidity<<64)/sqrtPX64);
-                                                        reserve1=uint128((liquidity*sqrtPX64)>>64);
-                                                    }
-                                                    reserve0Limit=uint128((liquidity<<64)/tSqrtPX64(t < 0 ? int((t + 1) / s - 1) * s : int(t / s) * s)) - reserve0;
-                                                    reserve1Limit=uint128((liquidity*tSqrtPX64(t < 0 ? int((t + 1) / s) * s : int(t / s + 1) * s))>>64) - reserve1;
-                                                }
-                                                if(reserve0>(reserve0Limit<<1)&&reserve1>(reserve1Limit<<1)){
-                                                    pools[t0][t1][i++]=Pool(
-                                                        reserve0,
-                                                        reserve1,
-                                                        reserve0Limit,
-                                                        reserve1Limit,
-                                                        pool,
-                                                        stateHash,
-                                                        uint24(1e6-protocol.fees[f]),
-                                                        1
-                                                    );
-                                                }
+                            for (uint f; f < protocols[p].fees.length; f++) {
+                                UniProtocol memory protocol=protocols[p];
+                                address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',protocol.factory, keccak256(abi.encode(tokens[t0], tokens[t1],protocol.fees[f])),protocol.poolInitCode)))));
+                                if (pool.code.length > 0) {
+                                    uint liquidity=IUniV3Pool(pool).liquidity();
+                                    if(liquidity>2){
+                                        uint reserve0;uint reserve1;uint reserve0Limit;uint reserve1Limit;bytes4 stateHash;
+                                        {
+                                            (, bytes memory state) = pool.staticcall(abi.encodeWithSelector(IUniV3Pool.slot0.selector));
+                                            stateHash=bytes4(keccak256(state));
+                                            int t;
+                                            int s = IUniV3Pool(pool).tickSpacing();
+                                            {
+                                                uint sqrtPX64;
+                                                (sqrtPX64,t) = abi.decode(state, (uint, int));
+                                                sqrtPX64>>=32;
+                                                reserve0=(liquidity<<64)/sqrtPX64;
+                                                reserve1=(liquidity*sqrtPX64)>>64;
+                                            }
+                                            reserve0Limit=((liquidity<<64)/tSqrtPX64(t < 0 ? int((t + 1) / s - 1) * s : int(t / s) * s)) - reserve0;
+                                            reserve1Limit=((liquidity*tSqrtPX64(t < 0 ? int((t + 1) / s) * s : int(t / s + 1) * s))>>64) - reserve1;
+                                        }
+                                        if(reserve0>(reserve0Limit<<1)&&reserve1>(reserve1Limit<<1)){
+                                            uint fee=1e6-protocol.fees[f];
+                                            assembly{
+                                                mstore(fmp,or(shl(128,reserve0),reserve1))
+                                                fmp:=add(fmp,0x20)
+                                                mstore(fmp,or(shl(128,reserve0Limit),reserve1Limit))
+                                                fmp:=add(fmp,0x20)
+                                                mstore(fmp,or(or(stateHash,shl(160,fee)),pool))
+                                                fmp:=add(fmp,0x20)
                                             }
                                         }
                                     }
-                                // }
-                            
-                            // else{
-                            //     if ((pool = address(uint160(uint(keccak256(abi.encodePacked(hex'ff', protocol.factory, keccak256(abi.encodePacked(tokens[t0], tokens[t1])), protocol.poolInitCode)))))).code.length > 0) {
-                            //         uint liquidity =IAlgebraV3Pool(pool).liquidity();
-                            //         if(liquidity>0){
-                            //             int s = IAlgebraV3Pool(pool).tickSpacing();
-                            //             (, bytes memory state) = pool.staticcall(abi.encodeWithSelector(IAlgebraV3Pool.globalState.selector));
-                            //             int t; uint24 fee;uint128 reserve0;uint128 reserve1;
-                            //             {
-                            //                 uint sqrtPX64;
-                            //                 (sqrtPX64, t, fee) = abi.decode(state, (uint, int, uint24));
-                            //                 sqrtPX64>>=32;
-                            //                 reserve0=uint128((liquidity<<64)/sqrtPX64);
-                            //                 reserve1=uint128((liquidity*sqrtPX64)>>64);
-                            //             }
-                            //             if(reserve0>0&&reserve1>0){
-                            //                 pools[t0][t1][i++]=PoolParams(
-                            //                     reserve0,
-                            //                     reserve1,
-                            //                     uint128((liquidity<<64)/tSqrtPX64(t < 0 ? int((t + 1) / s - 1) * s : int(t / s) * s)) - reserve0,
-                            //                     uint128((liquidity*tSqrtPX64(t < 0 ? int((t + 1) / s) * s : int(t / s + 1) * s))>>64) - reserve1,
-                            //                     1e6-fee,
-                            //                     pool,
-                            //                     0x02,
-                            //                     bytes4(keccak256(state))
-                            //                 );
-                            //             }
-                            //         }
-                            //     }
-                            // }
+                                }
+                            }
                         }
+                        bytes memory _pools;
+                        assembly{
+                            _pools:=stp
+                            mstore(_pools,sub(sub(fmp,stp),0x20))
+                        }
+                        pools[t0][t1]=_pools;
+
                     }
                 }
             }
@@ -141,7 +100,7 @@ contract Arouter{
     function allTokensWithBalances(address[] calldata tokens,UniProtocol[] calldata protocols,uint[] calldata ethPricesX64,uint minEth) public view returns (Routes[][] memory routes){
         unchecked{
             routes=new Routes[][](tokens.length);
-            Pool[][][] memory pools=findPools(tokens,protocols);
+            bytes[][] memory pools=findPools(tokens,protocols);
             for(uint i;i<tokens.length;i++){
                 uint b = IERC20(tokens[i]).balanceOf(msg.sender);
                 uint n;
@@ -171,12 +130,12 @@ contract Arouter{
             routes=new Route[](tokens.length);
             uint gasPQ=((amIn*ethPriceInX64) / (tx.gasprice>0?tx.gasprice:(block.basefee+30e9)))>>64;
             routes[tIn].amOut=amIn-(amIn*21000)/gasPQ;
-            Pool[][][] memory pools=findPools(tokens,protocols);
+            bytes[][] memory pools=findPools(tokens,protocols);
             findRoutes(tokens,routes,pools,gasPQ);
         }
     }
 
-    function findRoutes(address[] calldata tokens,Route[] memory routes,/*Route[] memory routes2,*/Pool[][][] memory pools,uint gasPQ) internal pure{
+    function findRoutes(address[] calldata tokens,Route[] memory routes,/*Route[] memory routes2,*/bytes[][] memory pools,uint gasPQ) internal pure{
         unchecked{
             bytes32 updated;
             while(true){
@@ -188,29 +147,41 @@ contract Arouter{
                                 Route memory routeIn = routes[t0];
                                 Route memory routeOut = routes[t1];
                                 bool direc = tokens[t0] < tokens[t1];
-                                for(uint p;p<pools[t0][t1].length;p++){
-                                    Pool memory pool=pools[t0][t1][p];
+                                    bytes memory _pools=pools[t0][t1];
+                                    for(uint p;p<_pools.length;p+=32){
                                     uint amOut=routeIn.amOut;
-                                    if((direc?pool.reserve0:pool.reserve1)>amOut<<3 && !checkPool(routeIn.calls,pool.pool)){
-                                        amOut=(amOut-(amOut*85000)/gasPQ)*pool.fee;
+                                    uint128 reserve0;uint128 reserve1;address pool;
+                                    assembly{
+                                        reserve1:=mload(add(add(_pools,32),p))
+                                        reserve0:=shr(128,reserve1)
+                                        pool:=mload(add(add(_pools,96),p))
+                                    }
+                                    if((direc?reserve0:reserve1)>amOut<<3 && !checkPool(routeIn.calls,pool)){
+                                        uint24 fee;
+                                        assembly{
+                                            fee:=shr(pool,160)
+                                        }
+                                        amOut=(amOut-(amOut*85000)/gasPQ)*fee;
                                         amOut = (direc
-                                            ? (amOut * pool.reserve1) / (pool.reserve0 * 1e6 + amOut)
-                                            : (amOut * pool.reserve0) / (pool.reserve1 * 1e6 + amOut));
-                                        if((direc?pool.reserve1Limit:pool.reserve0Limit)>amOut){
+                                            ? (amOut * reserve1) / (reserve0 * 1e6 + amOut)
+                                            : (amOut * reserve0) / (reserve1 * 1e6 + amOut));
+                                        uint128 reserve0Limit;uint128 reserve1Limit;
+                                        assembly{
+                                            reserve1Limit:=mload(add(add(_pools,64),p))
+                                            reserve0Limit:=shr(128,reserve1Limit)
+                                        }
+                                        if((direc?reserve1Limit:reserve0Limit)>amOut){
                                             if(amOut>routeOut.amOut){
                                                 routeOut.amOut=amOut;
-                                                uint rLen;
                                                 bytes memory rInCalls=routeIn.calls;
                                                 bytes memory rOutCalls=routeOut.calls;
+                                                uint rLen;
                                                 while(rLen<rInCalls.length){
-                                                    bool empty=true;
-                                                    for (uint j;j<4;j++){
-                                                        if(rInCalls[rLen+j]!=bytes1(0)){
-                                                            empty=false;
-                                                            break;
-                                                        }
+                                                    bytes8 _call;
+                                                    assembly {
+                                                        _call := mload(add(add(rInCalls, 0x20), rLen))
                                                     }
-                                                    if(empty){
+                                                    if(_call==0){
                                                         break;
                                                     }
                                                     rLen+=24;
@@ -218,7 +189,11 @@ contract Arouter{
                                                 if(rLen+24>rOutCalls.length){
                                                     rOutCalls=(routeOut.calls=new bytes((((rLen-1)>>5)<<5)+32));
                                                 }else{
-                                                    delete routeOut.calls;
+                                                    for(uint i=rLen+32;i<rOutCalls.length+64;i+=32){
+                                                        assembly{
+                                                            mstore(add(rOutCalls,i),0)
+                                                        }
+                                                    }
                                                 }
                                                 
                                                 for(uint i=32;i<rLen+64;i+=32){
@@ -226,9 +201,11 @@ contract Arouter{
                                                         mstore(add(rOutCalls,i),mload(add(rInCalls,i)))
                                                     }
                                                 }
-                                                bytes24 callbytes;
-                                                callbytes|=bytes20(pool.pool);
-                                                bytes4 stateHash=pool.stateHash;
+                                                bytes32 callbytes=bytes20(pool);
+                                                bytes4 stateHash;
+                                                assembly{
+                                                    stateHash:=pool
+                                                }
                                                 direc?stateHash|=bytes4(0x00000001):stateHash&=bytes4(0xfffffffe);
                                                 callbytes|=bytes24(stateHash)>>160;
                                                 assembly{
@@ -260,22 +237,30 @@ contract Arouter{
         }
     }
 
-    function test()public view returns(bytes32 a){
-        bytes memory bb =new bytes(1);
-        assembly{
-            mstore(bb,32)
-            mstore(add(bb,32),0x123123)
-            a:=mload(add(bb,32))
-        }
-        //a|=(bytes20(address(this))|((bytes4(0xfffffffe))>>160));
-        // {
-        //     bytes20 _pool=bytes20(address(this));
-        //     assembly{
-        //         mstore(add(add(bb,0x20),24),_pool)
-        //         a:=mload(add(add(bb,0x20),24))
-        //     }
-        // }
-    }
+    // function test()public view returns(bytes24 a,bytes24 b,bytes memory c){
+    //     a=bytes20(address(this));
+    //     b=a|bytes24(bytes4(0xffffffff))>>160;
+    //     // assembly{
+    //     //     a:=mload(0x40)
+    //     //     b:=add(a,0x20)
+    //     //     mstore(b,b)
+    //     //     b:=add(b,0x20)
+    //     //     mstore(b,b)
+    //     //     b:=add(b,0x20)
+    //     //     mstore(b,b)
+    //     //     b:=add(b,0x20)
+    //     //     mstore(b,b)
+    //     //     b:=add(b,0x20)
+    //     // }
+    //     // bytes memory bb;
+    //     // assembly{
+    //     //     mstore(a,sub(b,add(a,0x20)))
+    //     //     bb:=a
+    //     // }
+    //     // c=bb;
+        
+    
+    // }
 
     function tSqrtPX64(int t) internal pure returns(uint) {
         unchecked{
