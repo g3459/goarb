@@ -37,8 +37,8 @@ type ChainInfo struct {
 
 var chainsInfo = map[uint]ChainInfo{
 	137: {
-		router: "0x658cb8B2a1C06Ff12C3b0139b07c464D1e9E512E",
-		caller: "0xF3baF39C64732126Af6bf34e887D430d7F4aD78a",
+		router: "0xa755F59A9b4a3A133867B898a5EA67136c3cbAF3",
+		caller: "0x6c49C09bE5d85d03Ff40fC7B5a275a198e32F213",
 	},
 }
 
@@ -139,19 +139,26 @@ func main() {
 		amInF := big.NewFloat(amountIn)
 		amIn := new(big.Int)
 		amInF.Mul(amInF, new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokensInfo[tokenIn].decimals)), nil))).Int(amIn)
+
 		var response map[string]interface{}
 		for _, rpcclient := range wsrpcclients {
-			fmt.Println(amIn)
-			call2, err := new(caller.Batch).AddFindRoutesForSingleToken(tokenList, protocols, ethPricesX64[tInIx], amIn, big.NewInt(tInIx), chainsInfo[conf.ChainId].caller, chainsInfo[conf.ChainId].router, "latest").Execute(rpcclient)
-			if err == nil && call2[0] != nil {
-				routes := call2[0].([]caller.Route)
-				fmt.Println(routes)
+			call2, err := new(caller.Batch).AddBlockByNumber("latest").AddFindRoutesForSingleToken(tokenList, protocols, ethPricesX64[tInIx], amIn, big.NewInt(tInIx), chainsInfo[conf.ChainId].caller, chainsInfo[conf.ChainId].router, "latest").Execute(rpcclient)
+			if err == nil && call2[0] != nil && call2[1] != nil {
+				block := call2[0].(map[string]interface{})
+				baseFeeHex, _ := block["baseFeePerGas"].(string)
+				if baseFeeHex == "" {
+					return
+				}
+				baseFee := new(big.Int).SetBytes(utils.HexToBytes(baseFeeHex))
+				gasPrice := new(big.Int).Add(baseFee, big.NewInt(30e9))
+				routes := call2[1].([]caller.Route)
 				r := new(big.Float).SetInt(routes[tOutIx].AmOut)
-				log.Println(r)
 				decDivisor := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokensInfo[tokenOut].decimals)), nil))
 				r.Quo(r, decDivisor)
 				rr, _ := r.Float64()
-				response = map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": chainsInfo[conf.ChainId].caller, "input": utils.BytesToHex(append(append(make([]byte, 16-len(amIn.Bytes())), amIn.Bytes()...), routes[tOutIx].Calls...)), "gas": 1000000}, "amountOut": rr}
+				gasPQ := new(big.Int).Mul(amIn, ethPricesX64[tInIx])
+				gasPQ.Div(gasPQ, gasPrice)
+				response = map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": chainsInfo[conf.ChainId].caller, "input": utils.BytesToHex(append(append(append(make([]byte, 16-len(amIn.Bytes())), amIn.Bytes()...), append(make([]byte, 16-len(gasPQ.Bytes())), gasPQ.Bytes()...)...), routes[tOutIx].Calls...)), "gas": 1000000}, "amountOut": rr}
 				break
 			} else {
 				log.Println(err)
@@ -160,5 +167,6 @@ func main() {
 		}
 		json.NewEncoder(w).Encode(response)
 	})
+	log.Println("Starting webserver on:", "http://127.0.0.1:8080/page")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

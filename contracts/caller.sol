@@ -20,9 +20,9 @@ contract Caller {
         unchecked{
             bytes calldata _calls=msg.data[32:];
             while(_calls.length>0){
-                (, bytes memory state)=address(bytes20(_calls)).staticcall(abi.encodeWithSelector(IUniV3Pool.slot0.selector));
-                require(bytes4(keccak256(state))&0xfffffffe==bytes4(_calls[20:24])&0xfffffffe,"1");
-                _calls=_calls[24:];
+                (, bytes memory state)=address(uint160(uint(bytes32(_calls)))).staticcall(abi.encodeWithSelector(IUniV3Pool.slot0.selector));
+                require(bytes4(keccak256(state))==bytes4(_calls),"1");
+                _calls=_calls[32:];
             }
             executeRoute(msg.data);
         }
@@ -35,11 +35,11 @@ contract Caller {
             uint gasPQ=uint256(uint128(bytes16(calls)));
             calls=calls[16:];
             while(calls.length>0){
-                bool direc=bytes1(calls[23:24])&0x01==bytes1(0x01);
+                bool direc=bytes1(calls[4:5])==bytes1(0x01);
                 amIn-=(amIn*85000)/gasPQ;
-                (int am0,int am1)=IUniV3Pool(address(bytes20(calls))).swap(address(this), direc, int(amIn) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
+                (int am0,int am1)=IUniV3Pool(address(uint160(uint(bytes32(calls))))).swap(address(this), direc, int(amIn) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
                 amIn=uint(-(am0>am1?am1:am0));
-                calls=calls[24:];
+                calls=calls[32:];
             }
         }
     }

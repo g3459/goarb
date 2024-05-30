@@ -1,7 +1,6 @@
 package caller
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/g3459/goarb/utils"
@@ -12,7 +11,7 @@ func sliceDecoder(result interface{}) interface{} {
 }
 
 func stringDecoder(result interface{}) interface{} {
-	fmt.Println("\n\nString:", *result.(*string))
+	//fmt.Println("\n\nString:", *result.(*string))
 	return *result.(*string)
 }
 
