@@ -1,7 +1,6 @@
 package caller
 
 import (
-	"log"
 	"math/big"
 	"os"
 
@@ -145,7 +144,7 @@ func (batch Batch) Execute(rpcclient *rpc.Client) ([]interface{}, error) {
 		if batchElems[i].Error == nil {
 			res[i] = batch[i].Decode(batchElems[i].Result)
 		} else {
-			log.Println("Error:", batchElems[i].Error, res[i])
+			//log.Println("Error:", batchElems[i].Error, res[i])
 		}
 	}
 	return res, nil

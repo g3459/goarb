@@ -158,6 +158,7 @@ func main() {
 				rr, _ := r.Float64()
 				gasPQ := new(big.Int).Mul(amIn, ethPricesX64[tInIx])
 				gasPQ.Div(gasPQ, gasPrice)
+				gasPQ.Rsh(gasPQ, 64)
 				response = map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": chainsInfo[conf.ChainId].caller, "input": utils.BytesToHex(append(append(append(make([]byte, 16-len(amIn.Bytes())), amIn.Bytes()...), append(make([]byte, 16-len(gasPQ.Bytes())), gasPQ.Bytes()...)...), routes[tOutIx].Calls...)), "gas": 1000000}, "amountOut": rr}
 				break
 			} else {
