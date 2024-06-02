@@ -37,7 +37,7 @@ type ChainInfo struct {
 
 var chainsInfo = map[uint]ChainInfo{
 	137: {
-		router: "0xa755F59A9b4a3A133867B898a5EA67136c3cbAF3",
+		router: "0xD141D37A40d576182FBf5Ea04474db0c05D01799",
 		caller: "0x6c49C09bE5d85d03Ff40fC7B5a275a198e32F213",
 	},
 }
@@ -52,16 +52,18 @@ var tokensInfo = map[string]TokenInfo{
 	"0xc2132d05d31c914a87c6611c10748aeb04b58e8f": {"USD", 1, 6},
 	"0x2791bca1f2de4661ed88a30c99a7a9449aa84174": {"USD", 1, 6},
 	"0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270": {"MATIC", 1, 18},
-	"0xe0b52e49357fd4daf2c15e02058dce6bc0057db4": {"EUR", 1, 18},
 	"0x7ceb23fd6bc0add59e62ac25578270cff1b9f619": {"ETH", 3000, 18},
 	"0x8f3cf7ad23cd3cadbd9735aff958023239c6a063": {"USD", 1, 18},
 	"0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6": {"BTC", 60000, 8},
 	"0x53e0bca35ec356bd5dddfebbd1fc0fd03fabad39": {"LINK", 19, 18},
 	"0x3c499c542cef5e3811e1192ce70d8cc03d5c3359": {"USD", 1, 6},
-	"0x385eeac5cb85a38a9a07a70c73e0a3271cfb54a7": {"GHST", 1, 18},
 	"0xd6df932a45c0f255f85145f286ea0b292b21c90b": {"AAVE", 100, 18},
-	"0xbbba073c31bf03b8acf7c28ef0738decf3695683": {"SAND", 0.5, 18},
+	"0x61299774020da444af134c82fa83e3810b309991": {"RNDR", 14, 18},
+	"0xc3c7d422809852031b44ab29eec9f1eff2a58756": {"LDO", 3.2, 18},
+	"0xe5417af564e4bfda1c483642db72007871397896": {"GNS", 4.2, 18},
 	"0xb33eaad8d922b1083446dc23f610c2567fb5180f": {"UNI", 10, 18},
+	"0x172370d5cd63279efa6d502dab29171933a610af": {"CRV", 0.65, 18},
+	"0xd0258a3fD00f38aa8090dfee343f10A9D4d30D3F": {"VOXEL", 0.25, 18},
 }
 
 func main() {
@@ -143,26 +145,28 @@ func main() {
 		var response map[string]interface{}
 		for _, rpcclient := range wsrpcclients {
 			call2, err := new(caller.Batch).AddBlockByNumber("latest").AddFindRoutesForSingleToken(tokenList, protocols, ethPricesX64[tInIx], amIn, big.NewInt(tInIx), chainsInfo[conf.ChainId].caller, chainsInfo[conf.ChainId].router, "latest").Execute(rpcclient)
-			if err == nil && call2[0] != nil && call2[1] != nil {
-				block := call2[0].(map[string]interface{})
-				baseFeeHex, _ := block["baseFeePerGas"].(string)
-				if baseFeeHex == "" {
-					return
+			if err == nil {
+				if call2[0] != nil && call2[1] != nil {
+					block := call2[0].(map[string]interface{})
+					baseFeeHex, _ := block["baseFeePerGas"].(string)
+					if baseFeeHex == "" {
+						return
+					}
+					baseFee := new(big.Int).SetBytes(utils.HexToBytes(baseFeeHex))
+					gasPrice := new(big.Int).Add(baseFee, big.NewInt(30e9))
+					routes := call2[1].([]caller.Route)
+					r := new(big.Float).SetInt(routes[tOutIx].AmOut)
+					decDivisor := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokensInfo[tokenOut].decimals)), nil))
+					r.Quo(r, decDivisor)
+					rr, _ := r.Float64()
+					gasPQ := new(big.Int).Mul(amIn, ethPricesX64[tInIx])
+					gasPQ.Div(gasPQ, gasPrice)
+					gasPQ.Rsh(gasPQ, 64)
+					response = map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": chainsInfo[conf.ChainId].caller, "input": utils.BytesToHex(append(append(append(make([]byte, 16-len(amIn.Bytes())), amIn.Bytes()...), append(make([]byte, 16-len(gasPQ.Bytes())), gasPQ.Bytes()...)...), routes[tOutIx].Calls...)), "gas": 1000000}, "amountOut": rr}
+					break
 				}
-				baseFee := new(big.Int).SetBytes(utils.HexToBytes(baseFeeHex))
-				gasPrice := new(big.Int).Add(baseFee, big.NewInt(30e9))
-				routes := call2[1].([]caller.Route)
-				r := new(big.Float).SetInt(routes[tOutIx].AmOut)
-				decDivisor := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokensInfo[tokenOut].decimals)), nil))
-				r.Quo(r, decDivisor)
-				rr, _ := r.Float64()
-				gasPQ := new(big.Int).Mul(amIn, ethPricesX64[tInIx])
-				gasPQ.Div(gasPQ, gasPrice)
-				gasPQ.Rsh(gasPQ, 64)
-				response = map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": chainsInfo[conf.ChainId].caller, "input": utils.BytesToHex(append(append(append(make([]byte, 16-len(amIn.Bytes())), amIn.Bytes()...), append(make([]byte, 16-len(gasPQ.Bytes())), gasPQ.Bytes()...)...), routes[tOutIx].Calls...)), "gas": 1000000}, "amountOut": rr}
-				break
 			} else {
-				log.Println(err)
+				log.Println("Error:", err)
 				response = map[string]interface{}{"success": false, "message": err}
 			}
 		}

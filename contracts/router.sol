@@ -165,6 +165,7 @@ contract Arouter{
                                             ? (amOut * uint128(slot0)) / ((slot0>>128) * 1e6 + amOut)
                                             : (amOut * (slot0>>128)) / (uint128(slot0) * 1e6 + amOut));
                                         if(amOut>routeOut.amOut){
+                                            assembly{updated:=and(updated,not(shl(t0,0x01)))}
                                             routeOut.amOut=amOut;
                                             bytes memory rInCalls=routeIn.calls;
                                             bytes memory rOutCalls=routeOut.calls;

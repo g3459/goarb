@@ -82,7 +82,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Dark Mode Styles */
         .dark-mode {
             background-color: #222;
             color: white;
@@ -106,7 +105,6 @@
             background-color: #0056b3;
         }
 
-        /* Dark Mode Switch */
         .switch {
             position: absolute;
             top: 10px;
@@ -200,28 +198,37 @@
     <div class="container">
         <h1 style="text-align: center; color: #007bff;">Swap Tokens</h1>
         <select id="tokenIn">
-            <option value="0xc2132d05d31c914a87c6611c10748aeb04b58e8f">USD</option>
+            <option value="0xc2132d05d31c914a87c6611c10748aeb04b58e8f">USDT</option>
+            <option value="0x3c499c542cef5e3811e1192ce70d8cc03d5c3359">USDC</option>
+            <option value="0x8f3cf7ad23cd3cadbd9735aff958023239c6a063">DAI</option>
             <option value="0x7ceb23fd6bc0add59e62ac25578270cff1b9f619">ETH</option>
             <option value="0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6">BTC</option>
-            <option value="0xe0b52e49357fd4daf2c15e02058dce6bc0057db4">EUR</option>
             <option value="0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270">MATIC</option>
             <option value="0x53e0bca35ec356bd5dddfebbd1fc0fd03fabad39">LINK</option>
             <option value="0xd6df932a45c0f255f85145f286ea0b292b21c90b">AAVE</option>
+            <option value="0x2791bca1f2de4661ed88a30c99a7a9449aa84174">USDC.E</option>
+            <option value="0x61299774020da444af134c82fa83e3810b309991">RNDR</option>
+            <option value="0xc3c7d422809852031b44ab29eec9f1eff2a58756">LDO</option>
             <option value="0xb33eaad8d922b1083446dc23f610c2567fb5180f">UNI</option>
-            <option value="0xbbba073c31bf03b8acf7c28ef0738decf3695683">SAND</option>
-
+            <option value="0x172370d5cd63279efa6d502dab29171933a610af">CRV</option>
+            <option value="0xe5417af564e4bfda1c483642db72007871397896">GNS</option>
         </select>
         <div class="swap-icon" id="swapIcon">&#8646;</div>
         <select id="tokenOut">
-            <option value="0xc2132d05d31c914a87c6611c10748aeb04b58e8f">USD</option>
+            <option value="0xc2132d05d31c914a87c6611c10748aeb04b58e8f">USDT</option>
+            <option value="0x3c499c542cef5e3811e1192ce70d8cc03d5c3359">USDC</option>
+            <option value="0x8f3cf7ad23cd3cadbd9735aff958023239c6a063">DAI</option>
             <option value="0x7ceb23fd6bc0add59e62ac25578270cff1b9f619">ETH</option>
             <option value="0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6">BTC</option>
-            <option value="0xe0b52e49357fd4daf2c15e02058dce6bc0057db4">EUR</option>
             <option value="0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270">MATIC</option>
             <option value="0x53e0bca35ec356bd5dddfebbd1fc0fd03fabad39">LINK</option>
             <option value="0xd6df932a45c0f255f85145f286ea0b292b21c90b">AAVE</option>
+            <option value="0x2791bca1f2de4661ed88a30c99a7a9449aa84174">USDC.E</option>
+            <option value="0x61299774020da444af134c82fa83e3810b309991">RNDR</option>
+            <option value="0xc3c7d422809852031b44ab29eec9f1eff2a58756">LDO</option>
             <option value="0xb33eaad8d922b1083446dc23f610c2567fb5180f">UNI</option>
-            <option value="0xbbba073c31bf03b8acf7c28ef0738decf3695683">SAND</option>
+            <option value="0x172370d5cd63279efa6d502dab29171933a610af">CRV</option>
+            <option value="0xe5417af564e4bfda1c483642db72007871397896">GNS</option>
         </select>
         <input type="number" id="amountIn" min="0.01" step="0.01" placeholder="Amount">
         <button id="swapButton">Swap</button>
