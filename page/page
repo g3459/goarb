@@ -210,8 +210,6 @@
             <option value="0x61299774020da444af134c82fa83e3810b309991">RNDR</option>
             <option value="0xc3c7d422809852031b44ab29eec9f1eff2a58756">LDO</option>
             <option value="0xb33eaad8d922b1083446dc23f610c2567fb5180f">UNI</option>
-            <option value="0x172370d5cd63279efa6d502dab29171933a610af">CRV</option>
-            <option value="0xe5417af564e4bfda1c483642db72007871397896">GNS</option>
         </select>
         <div class="swap-icon" id="swapIcon">&#8646;</div>
         <select id="tokenOut">
@@ -227,8 +225,6 @@
             <option value="0x61299774020da444af134c82fa83e3810b309991">RNDR</option>
             <option value="0xc3c7d422809852031b44ab29eec9f1eff2a58756">LDO</option>
             <option value="0xb33eaad8d922b1083446dc23f610c2567fb5180f">UNI</option>
-            <option value="0x172370d5cd63279efa6d502dab29171933a610af">CRV</option>
-            <option value="0xe5417af564e4bfda1c483642db72007871397896">GNS</option>
         </select>
         <input type="number" id="amountIn" min="0.01" step="0.01" placeholder="Amount">
         <button id="swapButton">Swap</button>

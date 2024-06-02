@@ -58,12 +58,9 @@ var tokensInfo = map[string]TokenInfo{
 	"0x53e0bca35ec356bd5dddfebbd1fc0fd03fabad39": {"LINK", 19, 18},
 	"0x3c499c542cef5e3811e1192ce70d8cc03d5c3359": {"USD", 1, 6},
 	"0xd6df932a45c0f255f85145f286ea0b292b21c90b": {"AAVE", 100, 18},
+	"0xb33eaad8d922b1083446dc23f610c2567fb5180f": {"UNI", 10, 18},
 	"0x61299774020da444af134c82fa83e3810b309991": {"RNDR", 14, 18},
 	"0xc3c7d422809852031b44ab29eec9f1eff2a58756": {"LDO", 3.2, 18},
-	"0xe5417af564e4bfda1c483642db72007871397896": {"GNS", 4.2, 18},
-	"0xb33eaad8d922b1083446dc23f610c2567fb5180f": {"UNI", 10, 18},
-	"0x172370d5cd63279efa6d502dab29171933a610af": {"CRV", 0.65, 18},
-	"0xd0258a3fD00f38aa8090dfee343f10A9D4d30D3F": {"VOXEL", 0.25, 18},
 }
 
 func main() {
