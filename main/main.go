@@ -19,15 +19,12 @@ import (
 )
 
 type Configuration struct {
-	PrivateKey      string                   `json:"privateKey"`
-	Tokens          []string                 `json:"tokens"`
-	HttpRpcs        []string                 `json:"httpRpcs"`
-	WsRpcs          []string                 `json:"wsRpcs"`
-	ChainId         uint                     `json:"chainId"`
-	MinEth          float64                  `json:"minEth"`
-	PollingInterval uint                     `json:"pollingInterval"`
-	CallTimeout     uint                     `json:"callTimeout"`
-	Protocols       []map[string]interface{} `json:"protocols"`
+	PrivateKey string                   `json:"privateKey"`
+	Tokens     []string                 `json:"tokens"`
+	HttpRpcs   []string                 `json:"httpRpcs"`
+	WsRpcs     []string                 `json:"wsRpcs"`
+	ChainId    uint                     `json:"chainId"`
+	Protocols  []map[string]interface{} `json:"protocols"`
 }
 
 type ChainInfo struct {
@@ -65,7 +62,7 @@ var tokensInfo = map[string]TokenInfo{
 
 func main() {
 	http.Handle("/", http.FileServer(http.Dir("../page")))
-	rawConf, err := os.ReadFile("../conf.json")
+	rawConf, err := os.ReadFile(os.Args[1])
 	fmt.Println(string(rawConf))
 	if err != nil {
 		panic(err)
@@ -96,7 +93,6 @@ func main() {
 	wsrpcclients := make(map[string]*rpc.Client)
 	for _, url := range conf.WsRpcs {
 		client, err := rpc.Dial(url)
-		//c.Subscribe(context.Background(), "eth", ch, "newPendingTransactions",true)
 		if err == nil {
 			wsrpcclients[url] = client
 		} else {
