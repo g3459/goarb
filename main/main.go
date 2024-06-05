@@ -31,7 +31,7 @@ type ChainInfo struct {
 
 var chainsInfo = map[uint]ChainInfo{
 	137: {
-		router: "0x60999e359Fc2377D4a06FCA4F573fA289940Ea1d",
+		router: "0x543172d170141A6630360BE1Bf19C5056717e567",
 		caller: "0x2213F075c552Aa26A5eeD66775973f96741beFAa",
 	},
 }

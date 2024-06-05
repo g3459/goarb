@@ -29,10 +29,10 @@ contract Arouter{
                         }
                         fmp=mstoreUniV2Pool(fmp,token0,token1,0x5757371414417b8C6CAad45bAeF941aBc7d3Ab32,0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f);
                         fmp=mstoreUniV2Pool(fmp,token0,token1,0xc35DADB65012eC5796536bD9864eD8773aBc74C4,0xe18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303);
-                        fmp=mstoreUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,100);
-                        fmp=mstoreUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,500);
-                        fmp=mstoreUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,3000);
-                        fmp=mstoreUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,10000);
+                        fmp=mstoreUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,100,1);
+                        fmp=mstoreUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,500,10);
+                        fmp=mstoreUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,3000,60);
+                        fmp=mstoreUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,10000,200);
                         bytes memory _pools;
                         assembly{
                             _pools:=smp
@@ -67,7 +67,7 @@ contract Arouter{
         return fmp;
     }
 
-    function mstoreUniV3Pool(bytes32 fmp,address t0,address t1, address factory, bytes32 poolInitCode,uint fee)internal view returns (bytes32){
+    function mstoreUniV3Pool(bytes32 fmp,address t0,address t1, address factory, bytes32 poolInitCode,uint fee,int s)internal view returns (bytes32){
         address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',factory, keccak256(abi.encode(t0, t1,fee)),poolInitCode)))));
         if(pool.code.length>0){
             uint liquidity=IUniV3Pool(pool).liquidity();
@@ -77,7 +77,6 @@ contract Arouter{
                     (, bytes memory state) = pool.staticcall(abi.encodeWithSelector(IUniV3Pool.slot0.selector));
                     stateHash=keccak256(state);
                     int t;
-                    int s=int(uint(fee==500?10:(fee==3000?60:(fee==10000?200:1))));
                     {
                         uint sqrtPX64;
                         (sqrtPX64,t) = abi.decode(state, (uint, int));
@@ -208,8 +207,8 @@ contract Arouter{
                                                 }
                                                 uint rsh;
                                                 while(uint48(amIn)!=amIn){
-                                                    rsh+=4;
-                                                    amIn>>=4;
+                                                    rsh+=8;
+                                                    amIn>>=8;
                                                 }
                                                 amIn<<=8;
                                                 amIn|=rsh;
