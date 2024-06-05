@@ -22,27 +22,21 @@ contract Arouter{
                 for (uint t1; t1 < tokens.length; t1++){
                     address token1=tokens[t1];
                     if(token0<token1){
-                        bytes32 stp;
+                        bytes32 smp;
                         assembly{
-                            stp:=fmp
+                            smp:=fmp
                             fmp:=add(fmp,0x20)
                         }
-                        fmp=storeUniV2Pool(fmp,token0,token1,0x5757371414417b8C6CAad45bAeF941aBc7d3Ab32,0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f);
-                        fmp=storeUniV2Pool(fmp,token0,token1,0xc35DADB65012eC5796536bD9864eD8773aBc74C4,0xe18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303);
-                        fmp=storeUniV3Pool(fmp,token0,token1,0x917933899c6a5F8E37F31E19f92CdBFF7e8FF0e2,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,100);
-                        fmp=storeUniV3Pool(fmp,token0,token1,0x91e1B99072f238352f59e58de875691e20Dc19c1,0x817e07951f93017a93327ac8cc31e946540203a19e1ecc37bc1761965c2d1090,100);
-                        fmp=storeUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,100);
-                        fmp=storeUniV3Pool(fmp,token0,token1,0x917933899c6a5F8E37F31E19f92CdBFF7e8FF0e2,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,500);
-                        fmp=storeUniV3Pool(fmp,token0,token1,0x91e1B99072f238352f59e58de875691e20Dc19c1,0x817e07951f93017a93327ac8cc31e946540203a19e1ecc37bc1761965c2d1090,500);
-                        fmp=storeUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,500);  
-                        fmp=storeUniV3Pool(fmp,token0,token1,0x917933899c6a5F8E37F31E19f92CdBFF7e8FF0e2,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,3000);
-                        fmp=storeUniV3Pool(fmp,token0,token1,0x91e1B99072f238352f59e58de875691e20Dc19c1,0x817e07951f93017a93327ac8cc31e946540203a19e1ecc37bc1761965c2d1090,3000);
-                        fmp=storeUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,3000);
-                        fmp=storeUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,10000);
+                        fmp=mstoreUniV2Pool(fmp,token0,token1,0x5757371414417b8C6CAad45bAeF941aBc7d3Ab32,0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f);
+                        fmp=mstoreUniV2Pool(fmp,token0,token1,0xc35DADB65012eC5796536bD9864eD8773aBc74C4,0xe18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303);
+                        fmp=mstoreUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,100);
+                        fmp=mstoreUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,500);
+                        fmp=mstoreUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,3000);
+                        fmp=mstoreUniV3Pool(fmp,token0,token1,0x1F98431c8aD98523631AE4a59f267346ea31F984,0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54,10000);
                         bytes memory _pools;
                         assembly{
-                            _pools:=stp
-                            mstore(_pools,sub(sub(fmp,stp),0x20))
+                            _pools:=smp
+                            mstore(_pools,sub(sub(fmp,smp),0x20))
                         }
                         pools[t1][t0]=pools[t0][t1]=_pools;
                     }
@@ -52,7 +46,7 @@ contract Arouter{
         }
     }
 
-    function storeUniV2Pool(bytes32 fmp,address t0,address t1, address factory, bytes32 poolInitCode) internal view returns (bytes32){
+    function mstoreUniV2Pool(bytes32 fmp,address t0,address t1, address factory, bytes32 poolInitCode) internal view returns (bytes32){
         address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',factory, keccak256(abi.encodePacked(t0, t1)) ,poolInitCode)))));
         if(pool.code.length>0){
             bytes32 stateHash;uint reserve0; uint reserve1;
@@ -73,7 +67,7 @@ contract Arouter{
         return fmp;
     }
 
-    function storeUniV3Pool(bytes32 fmp,address t0,address t1, address factory, bytes32 poolInitCode,uint fee)internal view returns (bytes32){
+    function mstoreUniV3Pool(bytes32 fmp,address t0,address t1, address factory, bytes32 poolInitCode,uint fee)internal view returns (bytes32){
         address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',factory, keccak256(abi.encode(t0, t1,fee)),poolInitCode)))));
         if(pool.code.length>0){
             uint liquidity=IUniV3Pool(pool).liquidity();
@@ -168,7 +162,7 @@ contract Arouter{
                                         uint amIn=routeIn.amOut;
                                         uint slot0;uint slot1;uint slot2;
                                         assembly{
-                                            slot0:=mload(add(add(_pools,0x20),p))
+                                            slot0:=add(add(_pools,0x20),p)
                                             slot1:=mload(add(add(_pools,0x40),p))
                                         }
                                         if(uint8(uint(slot1)>>216)==0){
@@ -179,6 +173,9 @@ contract Arouter{
                                             p+=0x40;
                                         }
                                         if((direc?(slot2>>128):uint128(slot2))>amIn && !checkPool(routeIn.calls,address(uint160(slot1)))){
+                                            assembly{
+                                                slot0:=mload(slot0)
+                                            }
                                             amIn-=(amIn*90000)/gasPQ;
                                             uint amOut=amIn*uint24(slot1>>160);
                                             amOut = (direc
@@ -189,14 +186,14 @@ contract Arouter{
                                                 routeOut.amOut=amOut;
                                                 bytes memory rInCalls=routeIn.calls;
                                                 bytes memory rOutCalls=routeOut.calls;
-                                                uint rLen=0;
-                                                while(rLen<rInCalls.length){
+                                                uint rLen=rInCalls.length;
+                                                while(rLen>0){
                                                     bytes32 _call;
                                                     assembly {_call := mload(add(rInCalls, rLen))}
-                                                    if(_call==0){
+                                                    if(_call!=0){
                                                         break;
                                                     }
-                                                    rLen+=0x20;
+                                                    rLen-=0x20;
                                                 }
                                                 rLen+=0x20;
                                                 if(rLen>rOutCalls.length){

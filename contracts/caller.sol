@@ -26,19 +26,14 @@ contract Caller {
             address pool;
             assembly{pool:=poolCall}
             uint t=uint8(uint(poolCall)>>216);
-            if(t==0){
-                (, bytes memory state)=pool.call(abi.encodeWithSelector(IUniV3Pool.slot0.selector));
+            (, bytes memory state)=pool.call(abi.encodeWithSelector(t==0?IUniV3Pool.slot0.selector:IUniV2Pool.getReserves.selector));
                 require(bytes4(keccak256(state))<<1==bytes4(poolCall)<<1,"1");
                 if(calls.length>32)
                     executeRoute(calls[:calls.length-32]);
-                bool direc=bytes1(poolCall)&bytes1(0x80)==bytes1(0x80);
+            bool direc=bytes1(poolCall)&bytes1(0x80)==bytes1(0x80);
+            if(t==0){
                 IUniV3Pool(pool).swap(address(this), direc, int(uint(uint56(uint(poolCall)>>168))<<uint8(uint(poolCall)>>160)) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
             }else{
-                (, bytes memory state) = pool.call(abi.encodeWithSelector(IUniV2Pool.getReserves.selector));
-                require(bytes4(keccak256(state))<<1==bytes4(poolCall)<<1,"1");
-                if(calls.length>32)
-                    executeRoute(calls[:calls.length-32]);
-                bool direc=bytes1(poolCall)&bytes1(0x80)==bytes1(0x80);
                 (uint reserve0, uint reserve1)=abi.decode(state,(uint,uint));
                 uint amIn=uint(uint56(uint(poolCall)>>168))<<uint8(uint(poolCall)>>160);
                 uint amOut=amIn*997000;
