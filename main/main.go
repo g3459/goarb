@@ -19,10 +19,9 @@ import (
 )
 
 type Configuration struct {
-	PrivateKey string   `json:"privateKey"`
-	Tokens     []string `json:"tokens"`
-	WsRpcs     []string `json:"wsRpcs"`
-	ChainId    uint     `json:"chainId"`
+	Tokens  []string `json:"tokens"`
+	WsRpcs  []string `json:"wsRpcs"`
+	ChainId uint     `json:"chainId"`
 }
 
 type ChainInfo struct {

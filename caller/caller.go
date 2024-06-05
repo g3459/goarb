@@ -11,13 +11,6 @@ import (
 	"github.com/g3459/goarb/utils"
 )
 
-type RouterParams struct {
-	Tokens       []common.Address
-	Protocols    []Protocol
-	EthPricesX64 []*big.Int
-	Amounts      [][]*big.Int
-}
-
 type Route struct {
 	AmOut *big.Int
 	//Gas   *big.Int
@@ -27,12 +20,6 @@ type Route struct {
 type Routes struct {
 	AmIn   *big.Int
 	Routes []Route
-}
-
-type Protocol struct {
-	Fees         []*big.Int
-	Factory      common.Address
-	PoolInitCode [32]byte
 }
 
 type Step struct {
