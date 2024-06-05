@@ -7,28 +7,6 @@
 				"type": "address[]"
 			},
 			{
-				"components": [
-					{
-						"internalType": "uint24[]",
-						"name": "fees",
-						"type": "uint24[]"
-					},
-					{
-						"internalType": "address",
-						"name": "factory",
-						"type": "address"
-					},
-					{
-						"internalType": "bytes32",
-						"name": "poolInitCode",
-						"type": "bytes32"
-					}
-				],
-				"internalType": "struct Arouter.UniProtocol[]",
-				"name": "protocols",
-				"type": "tuple[]"
-			},
-			{
 				"internalType": "uint256[]",
 				"name": "ethPricesX64",
 				"type": "uint256[]"
@@ -80,28 +58,6 @@
 				"internalType": "address[]",
 				"name": "tokens",
 				"type": "address[]"
-			},
-			{
-				"components": [
-					{
-						"internalType": "uint24[]",
-						"name": "fees",
-						"type": "uint24[]"
-					},
-					{
-						"internalType": "address",
-						"name": "factory",
-						"type": "address"
-					},
-					{
-						"internalType": "bytes32",
-						"name": "poolInitCode",
-						"type": "bytes32"
-					}
-				],
-				"internalType": "struct Arouter.UniProtocol[]",
-				"name": "protocols",
-				"type": "tuple[]"
 			}
 		],
 		"name": "findPools",
@@ -121,28 +77,6 @@
 				"internalType": "address[]",
 				"name": "tokens",
 				"type": "address[]"
-			},
-			{
-				"components": [
-					{
-						"internalType": "uint24[]",
-						"name": "fees",
-						"type": "uint24[]"
-					},
-					{
-						"internalType": "address",
-						"name": "factory",
-						"type": "address"
-					},
-					{
-						"internalType": "bytes32",
-						"name": "poolInitCode",
-						"type": "bytes32"
-					}
-				],
-				"internalType": "struct Arouter.UniProtocol[]",
-				"name": "protocols",
-				"type": "tuple[]"
 			},
 			{
 				"internalType": "uint256",

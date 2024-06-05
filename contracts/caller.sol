@@ -16,30 +16,37 @@ contract Caller {
         }
     }
 
-    fallback() external payable{
-        unchecked{
-            bytes calldata _calls=msg.data[32:];
-            while(_calls.length>0){
-                (, bytes memory state)=address(uint160(uint(bytes32(_calls)))).staticcall(abi.encodeWithSelector(IUniV3Pool.slot0.selector));
-                require(bytes4(keccak256(state))==bytes4(_calls),"1");
-                _calls=_calls[32:];
-            }
-            executeRoute(msg.data);
-        }
+    fallback() external payable locked{
+        executeRoute(msg.data);
     }
 
-    function executeRoute(bytes calldata calls) internal locked{
+    function executeRoute(bytes calldata calls) internal{
         unchecked{
-            uint amIn=uint256(uint128(bytes16(calls)));
-            calls=calls[16:];
-            uint gasPQ=uint256(uint128(bytes16(calls)));
-            calls=calls[16:];
-            while(calls.length>0){
-                bool direc=bytes1(calls[4:5])==bytes1(0x01);
-                amIn-=(amIn*85000)/gasPQ;
-                (int am0,int am1)=IUniV3Pool(address(uint160(uint(bytes32(calls))))).swap(address(this), direc, int(amIn) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
-                amIn=uint(-(am0>am1?am1:am0));
-                calls=calls[32:];
+            bytes32 poolCall=bytes32(calls[calls.length-32:]);
+            address pool;
+            assembly{pool:=poolCall}
+            uint t=uint8(uint(poolCall)>>216);
+            if(t==0){
+                (, bytes memory state)=pool.call(abi.encodeWithSelector(IUniV3Pool.slot0.selector));
+                require(bytes4(keccak256(state))<<1==bytes4(poolCall)<<1,"1");
+                if(calls.length>32)
+                    executeRoute(calls[:calls.length-32]);
+                bool direc=bytes1(poolCall)&bytes1(0x80)==bytes1(0x80);
+                IUniV3Pool(pool).swap(address(this), direc, int(uint(uint56(uint(poolCall)>>168))<<uint8(uint(poolCall)>>160)) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
+            }else{
+                (, bytes memory state) = pool.call(abi.encodeWithSelector(IUniV2Pool.getReserves.selector));
+                require(bytes4(keccak256(state))<<1==bytes4(poolCall)<<1,"1");
+                if(calls.length>32)
+                    executeRoute(calls[:calls.length-32]);
+                bool direc=bytes1(poolCall)&bytes1(0x80)==bytes1(0x80);
+                (uint reserve0, uint reserve1)=abi.decode(state,(uint,uint));
+                uint amIn=uint(uint56(uint(poolCall)>>168))<<uint8(uint(poolCall)>>160);
+                uint amOut=amIn*997000;
+                amOut = (direc
+                    ? (amOut * reserve1) / (reserve0 * 1e6 + amOut)
+                    : (amOut * reserve0) / (reserve1 * 1e6 + amOut));
+                IERC20(direc?IUniV2Pool(pool).token0():IUniV2Pool(pool).token1()).transfer(pool,amIn);
+                IUniV2Pool(pool).swap(direc?0:amOut, direc?amOut:0, address(this), "");
             }
         }
     }
@@ -70,17 +77,14 @@ contract Caller {
 
     function uniswapV3SwapCallback(int am0 , int am1, bytes calldata) external payable{
         unchecked{
-            require(lock,"3");     
-            address token=am0>am1?IUniV3Pool(msg.sender).token0():IUniV3Pool(msg.sender).token1();
-            IERC20(token).transfer(msg.sender,uint(am0>am1?am0:am1));
+            require(lock,"3");
+            IERC20(am0>am1?IUniV3Pool(msg.sender).token0():IUniV3Pool(msg.sender).token1()).transfer(msg.sender,uint(am0>am1?am0:am1));
         }
     }
 
     // function swapCallback(int, int, bytes calldata data) external payable {unchecked{address(this).call(data);} }
 
     // function algebraSwapCallback(int, int, bytes calldata data) external payable {unchecked{address(this).call(data);} }
-
-    // function uniswapV2Call(address, uint, uint, bytes calldata data) external payable {unchecked{address(this).call(data);} }
 
     // function apeCall(address, uint, uint, bytes calldata data) external payable {unchecked{address(this).call(data);} }
 
@@ -97,4 +101,11 @@ interface IUniV3Pool{
     function token1() external view returns ( address );
     function swap(address recipient, bool zeroForOne, int amountSpecified, uint160 sqrtPriceLimitX96, bytes calldata data) external returns(int amount0, int amount1);
     function slot0() external view returns(uint sqrtPX96, int t, uint observationIndex, uint observationCardinality, uint observationCardinalityNext, uint feeProtocol, bool unlocked);
+}
+
+interface IUniV2Pool{
+    function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
+    function getReserves()external view returns(uint reserve0, uint reserve1, uint blockTimestampLast);
+    function token0() external view returns ( address );
+    function token1() external view returns ( address );
 }

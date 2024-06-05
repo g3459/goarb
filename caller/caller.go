@@ -69,18 +69,18 @@ func (batch Batch) AddBalances(tokens []string, account string) Batch {
 	return batch
 }
 
-func (batch Batch) AddFindRoutesForAllTokensWithBalances(tokens []common.Address, protocols []Protocol, ethPricesX64 []*big.Int, minEth *big.Int, caller string, router string, block string) Batch {
-	data, _ := routerABI.Pack("allTokensWithBalances", tokens, protocols, ethPricesX64, minEth)
+func (batch Batch) AddFindRoutesForAllTokensWithBalances(tokens []common.Address, ethPricesX64 []*big.Int, minEth *big.Int, caller string, router string, block string) Batch {
+	data, _ := routerABI.Pack("allTokensWithBalances", tokens, ethPricesX64, minEth)
 	return batch.AddCall(map[string]interface{}{"from": caller, "to": router, "input": utils.BytesToHex(data)}, block, allTokensDecoder)
 }
 
-func (batch Batch) AddFindRoutesForSingleToken(tokens []common.Address, protocols []Protocol, ethPriceInX64 *big.Int, amIn *big.Int, tIn *big.Int, caller string, router string, block string) Batch {
-	data, _ := routerABI.Pack("singleToken", tokens, protocols, ethPriceInX64, amIn, tIn)
+func (batch Batch) AddFindRoutesForSingleToken(tokens []common.Address, ethPriceInX64 *big.Int, amIn *big.Int, tIn *big.Int, caller string, router string, block string) Batch {
+	data, _ := routerABI.Pack("singleToken", tokens, ethPriceInX64, amIn, tIn)
 	return batch.AddCall(map[string]interface{}{"from": caller, "to": router, "input": utils.BytesToHex(data)}, block, singleTokenDecoder)
 }
 
-func (batch Batch) AddCallFindPools(tokens []common.Address, protocols []Protocol, router string, block string) Batch {
-	data, _ := routerABI.Pack("findPools", tokens, protocols)
+func (batch Batch) AddCallFindPools(tokens []common.Address, router string, block string) Batch {
+	data, _ := routerABI.Pack("findPools", tokens)
 	return batch.AddCall(map[string]interface{}{"from": ADDRZERO, "to": router, "input": utils.BytesToHex(data)}, block, stringDecoder)
 }
 
@@ -97,11 +97,11 @@ func (batch Batch) AddNonce(account string) Batch {
 }
 
 func (batch Batch) AddExecuteRoute(amIn *big.Int, gasPQ *big.Int, calls []byte, nonce uint64, caller string, gasPrice *big.Int, chainId uint, privateKey string) Batch {
-	return batch.AddSendRawTx(utils.SignTx(types.NewTransaction(nonce, common.HexToAddress(caller), big.NewInt(0), 1000000, gasPrice, append(append(append(make([]byte, 16-len(amIn.Bytes())), amIn.Bytes()...), append(make([]byte, 16-len(gasPQ.Bytes())), gasPQ.Bytes()...)...), calls...)), chainId, privateKey))
+	return batch.AddSendRawTx(utils.SignTx(types.NewTransaction(nonce, common.HexToAddress(caller), big.NewInt(0), 1000000, gasPrice, calls), chainId, privateKey))
 }
 
 func (batch Batch) AddExecuteRoutePrivate(amIn *big.Int, calls []byte, nonce uint64, caller string, gasPrice *big.Int, chainId uint, privateKey string) Batch {
-	return batch.AddSendRawTxPrivate(utils.SignTx(types.NewTransaction(nonce, common.HexToAddress(caller), big.NewInt(0), 1000000, gasPrice, append(append(make([]byte, 16-len(amIn.Bytes())), amIn.Bytes()...), calls...)), chainId, privateKey))
+	return batch.AddSendRawTxPrivate(utils.SignTx(types.NewTransaction(nonce, common.HexToAddress(caller), big.NewInt(0), 1000000, gasPrice, calls), chainId, privateKey))
 }
 
 func (batch Batch) AddExecuteCall(to string, call []byte, caller string, gasPrice *big.Int, nonce uint64, chainId uint, privateKey string) Batch {
