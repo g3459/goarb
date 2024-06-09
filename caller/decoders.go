@@ -11,7 +11,7 @@ func sliceDecoder(result interface{}) interface{} {
 }
 
 func stringDecoder(result interface{}) interface{} {
-	//fmt.Println("\n\nString:", *result.(*string))
+	// fmt.Println("\n\nString:", *result.(*string))
 	return *result.(*string)
 }
 
@@ -20,7 +20,6 @@ func mapStringDecoder(result interface{}) interface{} {
 }
 
 func allTokensDecoder(result interface{}) interface{} {
-	//fmt.Println("\n\nRoutes:", *result.(*string))
 	res, _ := routerABI.Unpack("allTokensWithBalances", utils.HexToBytes(*result.(*string)))
 	if len(res) == 0 {
 		return nil
@@ -66,7 +65,7 @@ func singleTokenDecoder(result interface{}) interface{} {
 }
 
 func bigIntDecoder(result interface{}) interface{} {
-	return new(big.Int).SetBytes(utils.HexToBytes(*result.(*string)))
+	return new(big.Int).SetBytes(utils.HexNumToBytes(*result.(*string)))
 }
 
 func uint64Decoder(result interface{}) interface{} {

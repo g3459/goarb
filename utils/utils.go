@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -20,21 +21,17 @@ func HexToBytes(val string) []byte {
 	return res
 }
 
+func HexNumToBytes(val string) []byte {
+	return common.TrimLeftZeroes(HexToBytes(val))
+}
+
 func BytesToHex(val []byte) string {
 	res := hex.EncodeToString(val)
 	return "0x" + res
 }
 
 func BytesToHexNum(val []byte) string {
-	res := hex.EncodeToString(val)
-	for _, v := range res {
-		if v == '0' {
-			res = res[1:]
-		} else {
-			break
-		}
-	}
-	return "0x" + res
+	return BytesToHex(common.TrimLeftZeroes(val))
 }
 
 func SignTx(tx *types.Transaction, chainId uint, privateKey string) string {
@@ -47,7 +44,7 @@ func SignTx(tx *types.Transaction, chainId uint, privateKey string) string {
 
 func RouteGas(calls []byte) (gas uint) {
 	gas = 21000
-	gas += uint((len(calls) / 24) * 85000)
+	gas += uint((len(calls) / 24) * 95000)
 	// for i := range calls {
 	// 	stateSelector := utils.BytesToHex(calls[i].StateSelector[:])
 	// 	if stateSelector == "0x3850c7bd" || stateSelector == "0x0902f1ac" {

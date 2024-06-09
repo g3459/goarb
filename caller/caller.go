@@ -79,8 +79,8 @@ func (batch Batch) AddBlockNumber() Batch {
 	return append(batch, S(new(string), uint64Decoder, "eth_blockNumber"))
 }
 
-func (batch Batch) AddNonce(account string) Batch {
-	return append(batch, S(new(string), uint64Decoder, "eth_getTransactionCount", account, "latest"))
+func (batch Batch) AddNonce(account common.Address, block string) Batch {
+	return append(batch, S(new(string), uint64Decoder, "eth_getTransactionCount", account, block))
 }
 
 func (batch Batch) AddExecuteRoute(amIn *big.Int, gasPQ *big.Int, calls []byte, nonce uint64, caller string, gasPrice *big.Int, chainId uint, privateKey string) Batch {
