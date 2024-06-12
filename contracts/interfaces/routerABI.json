@@ -49,26 +49,7 @@
 				"type": "tuple[][]"
 			}
 		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address[]",
-				"name": "tokens",
-				"type": "address[]"
-			}
-		],
-		"name": "findPools",
-		"outputs": [
-			{
-				"internalType": "bytes[][]",
-				"name": "pools",
-				"type": "bytes[][]"
-			}
-		],
-		"stateMutability": "view",
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
@@ -79,9 +60,38 @@
 				"type": "address[]"
 			},
 			{
+				"internalType": "uint256[]",
+				"name": "ethPricesX64",
+				"type": "uint256[]"
+			},
+			{
 				"internalType": "uint256",
-				"name": "ethPriceInX64",
+				"name": "minEth",
 				"type": "uint256"
+			}
+		],
+		"name": "findPools",
+		"outputs": [
+			{
+				"internalType": "bytes[][]",
+				"name": "pools",
+				"type": "bytes[][]"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address[]",
+				"name": "tokens",
+				"type": "address[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "ethPricesX64",
+				"type": "uint256[]"
 			},
 			{
 				"internalType": "uint256",
@@ -114,7 +124,26 @@
 				"type": "tuple[]"
 			}
 		],
-		"stateMutability": "view",
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "int256",
+				"name": "tick",
+				"type": "int256"
+			}
+		],
+		"name": "tSqrtPX64",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "sqrtPriceX64",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "pure",
 		"type": "function"
 	}
 ]

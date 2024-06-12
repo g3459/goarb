@@ -18,22 +18,12 @@ import (
 )
 
 type Configuration struct {
+	Router       common.Address   `json:"router"`
+	Caller       common.Address   `json:"caller"`
 	Tokens       []common.Address `json:"tokens"`
 	EthPricesX64 []*big.Int       `json:"ethPricesX64"`
 	WsRpcs       []string         `json:"wsRpcs"`
 	ChainId      uint             `json:"chainId"`
-}
-
-type ChainInfo struct {
-	router string
-	caller string
-}
-
-var chainsInfo = map[uint]ChainInfo{
-	137: {
-		router: "0x47627914800158eFa7AE4a9CD775Fa4dA983f900",
-		caller: "0xAfD2Fb854993D3D6c028E5B0A3E90dc7518b1b01",
-	},
 }
 
 type TokenInfo struct {
@@ -109,7 +99,7 @@ func main() {
 
 		var response map[string]interface{}
 		for _, rpcclient := range wsrpcclients {
-			call2, err := new(caller.Batch).AddBlockByNumber("latest").AddFindRoutesForSingleToken(conf.Tokens, conf.EthPricesX64[tInIx], amIn, big.NewInt(tInIx), chainsInfo[conf.ChainId].caller, chainsInfo[conf.ChainId].router, "latest").Execute(rpcclient)
+			call2, err := new(caller.Batch).AddBlockByNumber("latest").AddFindRoutesForSingleToken(conf.Tokens, conf.EthPricesX64, amIn, big.NewInt(tInIx), conf.Caller, conf.Router, "latest").Execute(rpcclient)
 			if err == nil {
 				if call2[0] != nil && call2[1] != nil {
 					block := call2[0].(map[string]interface{})
@@ -124,7 +114,7 @@ func main() {
 					decDivisor := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokensInfo[tokenOut].decimals)), nil))
 					r.Quo(r, decDivisor)
 					rr, _ := r.Float64()
-					response = map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": chainsInfo[conf.ChainId].caller, "input": utils.BytesToHex(routes[tOutIx].Calls), "gas": 1000000, "gasPrice": gasPrice.Mul(gasPrice, big.NewInt(2)).Uint64()}, "amountOut": rr}
+					response = map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": conf.Caller, "input": utils.BytesToHex(routes[tOutIx].Calls), "gas": 1000000, "gasPrice": gasPrice.Mul(gasPrice, big.NewInt(2)).Uint64()}, "amountOut": rr}
 					break
 				}
 			} else {
