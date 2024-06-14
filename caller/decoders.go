@@ -3,7 +3,7 @@ package caller
 import (
 	"math/big"
 
-	"github.com/g3459/goarb/utils"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 func sliceDecoder(result interface{}) interface{} {
@@ -21,7 +21,8 @@ func mapStringDecoder(result interface{}) interface{} {
 
 func allTokensDecoder(result interface{}) interface{} {
 	// fmt.Println(*result.(*string))
-	res, _ := routerABI.Unpack("allTokensWithBalances", utils.HexToBytes(*result.(*string)))
+	dec, _ := hexutil.Decode(*result.(*string))
+	res, _ := routerABI.Unpack("allTokensWithBalances", dec)
 	if len(res) == 0 {
 		return nil
 	}
@@ -48,7 +49,8 @@ func allTokensDecoder(result interface{}) interface{} {
 }
 
 func singleTokenDecoder(result interface{}) interface{} {
-	res, _ := routerABI.Unpack("singleToken", utils.HexToBytes(*result.(*string)))
+	dec, _ := hexutil.Decode(*result.(*string))
+	res, _ := routerABI.Unpack("singleToken", dec)
 	if len(res) == 0 {
 		return nil
 	}
@@ -66,7 +68,8 @@ func singleTokenDecoder(result interface{}) interface{} {
 }
 
 func bigIntDecoder(result interface{}) interface{} {
-	return new(big.Int).SetBytes(utils.HexNumToBytes(*result.(*string)))
+	b, _ := hexutil.DecodeBig(*result.(*string))
+	return b
 }
 
 func uint64Decoder(result interface{}) interface{} {

@@ -42,6 +42,7 @@ contract Arouter{
                         mstoreUniV3Pool(token0,token1,0x91e1B99072f238352f59e58de875691e20Dc19c1,0x817e07951f93017a93327ac8cc31e946540203a19e1ecc37bc1761965c2d1090,r0,r1,500,10);
                         mstoreUniV3Pool(token0,token1,0x91e1B99072f238352f59e58de875691e20Dc19c1,0x817e07951f93017a93327ac8cc31e946540203a19e1ecc37bc1761965c2d1090,r0,r1,3000,60);
                         mstoreUniV3Pool(token0,token1,0x91e1B99072f238352f59e58de875691e20Dc19c1,0x817e07951f93017a93327ac8cc31e946540203a19e1ecc37bc1761965c2d1090,r0,r1,10000,200);
+                        mstoreAlgebraV3Pool(token0,token1,0x2D98E2FA9da15aa6dC9581AB097Ced7af697CB92,0x6ec6c9c8091d160c0aa74b2b14ba9c1717e95093bd3ac085cee99a49aab294a4,r0,r1);
                         assembly{
                             mstore(_pools,sub(sub(mload(0x40),_pools),0x20))
                         }
@@ -56,7 +57,9 @@ contract Arouter{
         unchecked{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
+            
             address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',factory, keccak256(abi.encodePacked(t0, t1)) ,poolInitCode)))));
+
             if(pool.code.length>0){
                 bytes32 stateHash;uint reserve0; uint reserve1;
                 {
@@ -96,8 +99,12 @@ contract Arouter{
                         reserve0=(liquidity<<64)/sqrtPX64;
                         reserve1=(liquidity*sqrtPX64)>>64;
                         if(reserve0>r0||reserve1>r1){
-                            reserve0Limit=(liquidity<<64)/tSqrtPX64(t < 0 ? ((t + 1) / s - 1) * s : (t / s) * s) - reserve0;
-                            reserve1Limit=((liquidity*tSqrtPX64(t < 0 ? ((t + 1) / s) * s : (t / s + 1) * s))>>64) - reserve1;
+                            int tl;
+                            assembly {
+                                tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)
+                            }
+                            reserve0Limit=(liquidity<<64)/tSqrtPX64(tl) - reserve0;
+                            reserve1Limit=((liquidity*tSqrtPX64(tl+s))>>64) - reserve1;
                         }
                     }
                     if(reserve0>reserve0Limit&&reserve1>reserve1Limit){
@@ -113,6 +120,48 @@ contract Arouter{
                 }
             }
             assembly{mstore(0x40,fmp)}
+        }
+    }
+
+    function mstoreAlgebraV3Pool(address t0,address t1, address factory, bytes32 poolInitCode,uint r0,uint r1)internal {
+        unchecked{
+            bytes32 fmp;
+            assembly{fmp:=mload(0x40)}
+            address pool =  address(uint160(uint(keccak256(abi.encodePacked(hex'ff',factory,keccak256(abi.encode(t0, t1)),poolInitCode)))));
+            if(pool.code.length>0){
+                uint liquidity =IAlgebraV3Pool(pool).liquidity();
+                if(liquidity>2){
+                    uint reserve0;uint reserve1;uint reserve0Limit;uint reserve1Limit;bytes32 stateHash;uint fee;
+                    {
+                        (, bytes memory state) = pool.call(abi.encodeWithSelector(IAlgebraV3Pool.globalState.selector));
+                        stateHash=keccak256(state);
+                        int t;
+                        uint sqrtPX64;
+                        (sqrtPX64, t, fee) = abi.decode(state, (uint, int, uint));
+                        sqrtPX64>>=32;
+                        reserve0=(liquidity<<64)/sqrtPX64;
+                        reserve1=(liquidity*sqrtPX64)>>64;
+                        if(reserve0>r0||reserve1>r1){
+                            int s = 60;
+                            assembly {
+                                t := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)
+                            }
+                            reserve0Limit=(liquidity<<64)/tSqrtPX64(t) - reserve0;
+                            reserve1Limit=((liquidity*tSqrtPX64(t+s))>>64) - reserve1;
+                        }
+                    }
+                    if(reserve0>reserve0Limit&&reserve1>reserve1Limit){
+                        assembly{
+                            mstore(fmp,or(shl(128,reserve0),reserve1))
+                            fmp:=add(fmp,0x20)
+                            mstore(fmp,or(and(stateHash,0xffffffff00000000000000000000000000000000000000000000000000000000),or(shl(216,2),or(shl(160,sub(1000000,fee)),and(pool,0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff)))))
+                            fmp:=add(fmp,0x20)
+                            mstore(fmp,or(shl(128,reserve0Limit),reserve1Limit))
+                            fmp:=add(fmp,0x20)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -177,14 +226,15 @@ contract Arouter{
                                             slot1:=mload(add(add(_pools,0x40),p))
                                         }
                                         p+=0x40;
-                                        if(uint8(uint(slot1)>>216)==0){
+                                        uint prot=uint8(uint(slot1)>>216);
+                                        if(prot==0){
                                             assembly{slot2:=mload(add(add(_pools,0x60),p))}
                                             p+=0x20;
                                         }else{
                                             slot2=slot0;
                                         }
                                         if((direc?(slot2>>128):uint128(slot2))>amIn && !checkPool(routeIn.calls,address(uint160(slot1)))){
-                                            amIn-=(amIn*95000)/gasPQ;
+                                            amIn-=(amIn*prot<2?95000:160000)/gasPQ;
                                             uint amOut=amIn*uint24(slot1>>160);
                                             amOut = (direc
                                                 ? (amOut * uint128(slot0)) / ((slot0>>128) * 1e6 + amOut)
@@ -286,10 +336,6 @@ contract Arouter{
             }
         }
     }
-
-
-    
-
 }
 
 
@@ -303,11 +349,11 @@ interface IUniV2Pool{
 
 interface IUniV3Pool{
     function swap(address recipient, bool zeroForOne, int amountSpecified, uint160 sqrtPriceLimitX96, bytes calldata data) external returns(int amount0, int amount1);
-    function fee() external view returns(uint24 fee);
+    // function fee() external view returns(uint24 fee);
     function slot0() external view returns(uint sqrtPX96, int t, uint observationIndex, uint observationCardinality, uint observationCardinalityNext, uint feeProtocol, bool unlocked);
     function liquidity() external view returns(uint liquidity);
-    function tickSpacing() external view returns(int s);
-    function flash(address recipient, uint amount0, uint amount1, bytes calldata data) external;
+    // function tickSpacing() external view returns(int s);
+    // function flash(address recipient, uint amount0, uint amount1, bytes calldata data) external;
 }
 
 interface IAlgebraV3Pool{

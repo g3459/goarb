@@ -32,13 +32,13 @@ contract Caller {
             address pool;
             assembly{pool:=poolCall}
             uint t=uint8(uint(poolCall)>>216);
-            (, bytes memory state)=pool.call(abi.encodeWithSelector(t==0?IUniV3Pool.slot0.selector:IUniV2Pool.getReserves.selector));
-                require(bytes4(keccak256(state))<<1==bytes4(poolCall)<<1,"1");
-                if(calls.length>32)
-                    executeRoute(calls[:calls.length-32]);
+            (, bytes memory state)=pool.call(abi.encodeWithSelector(t==0?IUniV3Pool.slot0.selector:(t==1?IUniV2Pool.getReserves.selector:IAlgebraV3Pool.globalState.selector)));
+            require(bytes4(keccak256(state))<<1==bytes4(poolCall)<<1,"1");
+            if(calls.length>32)
+                executeRoute(calls[:calls.length-32]);
             bool direc=bytes1(poolCall)&bytes1(0x80)==bytes1(0x80);
             uint amIn=uint(uint48(uint(poolCall)>>168))<<uint8(uint(poolCall)>>160);
-            if(t==0){
+            if(t==0 || t==2){
                 IUniV3Pool(pool).swap(address(this), direc, int(amIn) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
             }else{
                 (uint reserve0, uint reserve1)=abi.decode(state,(uint,uint));
@@ -85,7 +85,12 @@ contract Caller {
 
     // function swapCallback(int, int, bytes calldata data) external payable {unchecked{address(this).call(data);} }
 
-    // function algebraSwapCallback(int, int, bytes calldata data) external payable {unchecked{address(this).call(data);} }
+    function algebraSwapCallback(int am0, int am1, bytes calldata) external payable {
+        unchecked{
+            require(lock,"3");
+            IERC20(am0>am1?IUniV3Pool(msg.sender).token0():IUniV3Pool(msg.sender).token1()).transfer(msg.sender,uint(am0>am1?am0:am1));
+        }
+    }
 
     // function apeCall(address, uint, uint, bytes calldata data) external payable {unchecked{address(this).call(data);} }
 
@@ -109,4 +114,11 @@ interface IUniV2Pool{
     function getReserves()external view returns(uint reserve0, uint reserve1, uint blockTimestampLast);
     function token0() external view returns ( address );
     function token1() external view returns ( address );
+}
+
+interface IAlgebraV3Pool{
+    function swap(address recipient, bool zeroForOne, int amountSpecified, uint160 sqrtPriceLimitX96, bytes calldata data) external returns(int amount0, int amount1);
+    function globalState() external view returns(uint sqrtPX96, int t, uint fee, uint timePointIndex, uint comunityFeet0, uint comunityFeeT1, bool unlocked);
+    function tickSpacing() external view returns(int s);
+    function liquidity() external view returns(uint liquidity);
 }

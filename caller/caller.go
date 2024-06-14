@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/g3459/goarb/utils"
@@ -49,27 +50,27 @@ func (batch Batch) AddCall(txParams map[string]interface{}, block string, decode
 	return append(batch, S(new(string), decode, "eth_call", txParams, block))
 }
 
-func (batch Batch) AddBalances(tokens []string, account string) Batch {
+func (batch Batch) AddBalances(tokens []common.Address, account common.Address) Batch {
 	for i := range tokens {
-		data, _ := erc20ABI.Pack("balanceOf", common.HexToAddress(account))
-		batch = batch.AddCall(map[string]interface{}{"from": ADDRZERO, "to": common.HexToAddress(tokens[i]), "input": utils.BytesToHex(data)}, "latest", bigIntDecoder)
+		data, _ := erc20ABI.Pack("balanceOf", account)
+		batch = batch.AddCall(map[string]interface{}{"from": ADDRZERO, "to": tokens[i], "input": hexutil.Encode(data)}, "latest", bigIntDecoder)
 	}
 	return batch
 }
 
 func (batch Batch) AddFindRoutesForAllTokensWithBalances(tokens []common.Address, ethPricesX64 []*big.Int, minEth *big.Int, caller common.Address, router common.Address, block string) Batch {
 	data, _ := routerABI.Pack("allTokensWithBalances", tokens, ethPricesX64, minEth)
-	return batch.AddCall(map[string]interface{}{"from": caller, "to": router, "input": utils.BytesToHex(data)}, block, allTokensDecoder)
+	return batch.AddCall(map[string]interface{}{"from": caller, "to": router, "input": hexutil.Encode(data)}, block, allTokensDecoder)
 }
 
-func (batch Batch) AddFindRoutesForSingleToken(tokens []common.Address, ethPricesX64 []*big.Int, amIn *big.Int, tIn *big.Int, caller common.Address, router common.Address, block string) Batch {
+func (batch Batch) AddFindRoutesForSingleToken(tokens []common.Address, ethPricesX64 []*big.Int, amIn *big.Int, tIn *big.Int, router common.Address, block string) Batch {
 	data, _ := routerABI.Pack("singleToken", tokens, ethPricesX64, amIn, tIn)
-	return batch.AddCall(map[string]interface{}{"from": caller, "to": router, "input": utils.BytesToHex(data)}, block, singleTokenDecoder)
+	return batch.AddCall(map[string]interface{}{"to": router, "input": hexutil.Encode(data)}, block, singleTokenDecoder)
 }
 
 func (batch Batch) AddCallFindPools(tokens []common.Address, ethPricesX64 []*big.Int, minEth *big.Int, router common.Address, block string) Batch {
 	data, _ := routerABI.Pack("findPools", tokens, ethPricesX64, minEth)
-	return batch.AddCall(map[string]interface{}{"from": ADDRZERO, "to": router, "input": utils.BytesToHex(data)}, block, stringDecoder)
+	return batch.AddCall(map[string]interface{}{"from": ADDRZERO, "to": router, "input": hexutil.Encode(data)}, block, stringDecoder)
 }
 
 func (batch Batch) AddGasPrice() Batch {
@@ -88,17 +89,17 @@ func (batch Batch) AddExecuteRoute(amIn *big.Int, gasPQ *big.Int, calls []byte, 
 	return batch.AddSendRawTx(utils.SignTx(types.NewTransaction(nonce, common.HexToAddress(caller.Hex()), big.NewInt(0), 1000000, gasPrice, calls), chainId, privateKey))
 }
 
-func (batch Batch) AddExecuteRoutePrivate(amIn *big.Int, calls []byte, nonce uint64, caller string, gasPrice *big.Int, chainId uint, privateKey string) Batch {
-	return batch.AddSendRawTxPrivate(utils.SignTx(types.NewTransaction(nonce, common.HexToAddress(caller), big.NewInt(0), 1000000, gasPrice, calls), chainId, privateKey))
+func (batch Batch) AddExecuteRoutePrivate(amIn *big.Int, calls []byte, nonce uint64, caller common.Address, gasPrice *big.Int, chainId uint, privateKey string) Batch {
+	return batch.AddSendRawTxPrivate(utils.SignTx(types.NewTransaction(nonce, caller, big.NewInt(0), 1000000, gasPrice, calls), chainId, privateKey))
 }
 
-func (batch Batch) AddExecuteCall(to string, call []byte, caller string, gasPrice *big.Int, nonce uint64, chainId uint, privateKey string) Batch {
-	data, _ := callerABI.Pack("execute", common.HexToAddress(to), call)
-	return batch.AddSendRawTx(utils.SignTx(types.NewTransaction(nonce, common.HexToAddress(caller), big.NewInt(0), 1000000, gasPrice, data), chainId, privateKey))
+func (batch Batch) AddExecuteCall(to common.Address, call []byte, caller common.Address, gasPrice *big.Int, nonce uint64, chainId uint, privateKey string) Batch {
+	data, _ := callerABI.Pack("execute", to, call)
+	return batch.AddSendRawTx(utils.SignTx(types.NewTransaction(nonce, caller, big.NewInt(0), 1000000, gasPrice, data), chainId, privateKey))
 }
 
-func (batch Batch) AddExecuteTransfer(caller string, token string, to string, amount *big.Int, gasPrice *big.Int, nonce uint64, chainId uint, privateKey string) Batch {
-	data, _ := erc20ABI.Pack("transfer", common.HexToAddress(to), amount)
+func (batch Batch) AddExecuteTransfer(caller common.Address, token common.Address, to common.Address, amount *big.Int, gasPrice *big.Int, nonce uint64, chainId uint, privateKey string) Batch {
+	data, _ := erc20ABI.Pack("transfer", to, amount)
 	return batch.AddExecuteCall(token, data, caller, gasPrice, nonce, chainId, privateKey)
 }
 

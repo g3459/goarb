@@ -1,3 +1,5 @@
 polygonconf.json
 arbitrumconf.json
 arb
+contracts/artifacts
+.states
