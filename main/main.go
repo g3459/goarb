@@ -12,9 +12,9 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/g3459/goarb/caller"
-	"github.com/g3459/goarb/utils"
 )
 
 type Configuration struct {
@@ -99,7 +99,7 @@ func main() {
 
 		var response map[string]interface{}
 		for _, rpcclient := range wsrpcclients {
-			call2, err := new(caller.Batch).AddBlockByNumber("latest").AddFindRoutesForSingleToken(conf.Tokens, conf.EthPricesX64, amIn, big.NewInt(tInIx), conf.Caller, conf.Router, "latest").Execute(rpcclient)
+			call2, err := new(caller.Batch).AddBlockByNumber("latest").AddFindRoutesForSingleToken(conf.Tokens, conf.EthPricesX64, amIn, big.NewInt(tInIx), conf.Router, "latest").Execute(rpcclient)
 			if err == nil {
 				if call2[0] != nil && call2[1] != nil {
 					block := call2[0].(map[string]interface{})
@@ -107,18 +107,18 @@ func main() {
 					if baseFeeHex == "" {
 						return
 					}
-					baseFee := new(big.Int).SetBytes(utils.HexNumToBytes(baseFeeHex))
-					gasPrice := new(big.Int).Add(baseFee, big.NewInt(30e9))
+					baseFee, _ := hexutil.DecodeBig(baseFeeHex)
+					gasPrice := new(big.Int).Add(new(big.Int).Mul(baseFee, big.NewInt(10)).Div(baseFee, big.NewInt(5)), big.NewInt(31e9))
 					routes := call2[1].([]caller.Route)
 					r := new(big.Float).SetInt(routes[tOutIx].AmOut)
 					decDivisor := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokensInfo[tokenOut].decimals)), nil))
 					r.Quo(r, decDivisor)
 					rr, _ := r.Float64()
-					response = map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": conf.Caller, "input": utils.BytesToHex(routes[tOutIx].Calls), "gas": 1000000, "gasPrice": gasPrice.Mul(gasPrice, big.NewInt(2)).Uint64()}, "amountOut": rr}
+					response = map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": conf.Caller, "input": hexutil.Encode(routes[tOutIx].Calls), "gas": 1000000, "gasPrice": gasPrice.Uint64()}, "amountOut": rr}
 					break
 				}
 			} else {
-				log.Println("Error:", err)
+				//+log.Println("Error:", err)
 				response = map[string]interface{}{"success": false, "message": err}
 			}
 		}

@@ -38,16 +38,16 @@ contract Caller {
                 executeRoute(calls[:calls.length-32]);
             bool direc=bytes1(poolCall)&bytes1(0x80)==bytes1(0x80);
             uint amIn=uint(uint48(uint(poolCall)>>168))<<uint8(uint(poolCall)>>160);
-            if(t==0 || t==2){
-                IUniV3Pool(pool).swap(address(this), direc, int(amIn) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
-            }else{
+            if(t==1){
                 (uint reserve0, uint reserve1)=abi.decode(state,(uint,uint));
-                uint amOut=(amIn-1)*997000;
+                uint amOut=amIn*997000;
                 amOut = (direc
                     ? (amOut * reserve1) / (reserve0 * 1e6 + amOut)
-                    : (amOut * reserve0) / (reserve1 * 1e6 + amOut))-1;
+                    : (amOut * reserve0) / (reserve1 * 1e6 + amOut));
                 IERC20(direc?IUniV2Pool(pool).token0():IUniV2Pool(pool).token1()).transfer(pool,amIn);
                 IUniV2Pool(pool).swap(direc?0:amOut, direc?amOut:0, address(this), "");
+            }else{
+                IUniV3Pool(pool).swap(address(this), direc, int(amIn) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
             }
         }
     }

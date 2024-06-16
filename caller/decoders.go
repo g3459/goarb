@@ -20,7 +20,7 @@ func mapStringDecoder(result interface{}) interface{} {
 }
 
 func allTokensDecoder(result interface{}) interface{} {
-	// fmt.Println(*result.(*string))
+	//fmt.Println(*result.(*string))
 	dec, _ := hexutil.Decode(*result.(*string))
 	res, _ := routerABI.Unpack("allTokensWithBalances", dec)
 	if len(res) == 0 {

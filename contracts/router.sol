@@ -162,6 +162,7 @@ contract Arouter{
                     }
                 }
             }
+            assembly{mstore(0x40,fmp)}
         }
     }
 
@@ -225,16 +226,16 @@ contract Arouter{
                                             slot0:=mload(add(add(_pools,0x20),p))
                                             slot1:=mload(add(add(_pools,0x40),p))
                                         }
-                                        p+=0x40;
                                         uint prot=uint8(uint(slot1)>>216);
-                                        if(prot==0){
+                                        if(prot==0 || prot==2){
                                             assembly{slot2:=mload(add(add(_pools,0x60),p))}
-                                            p+=0x20;
+                                            p+=0x60;
                                         }else{
                                             slot2=slot0;
+                                            p+=0x40;
                                         }
                                         if((direc?(slot2>>128):uint128(slot2))>amIn && !checkPool(routeIn.calls,address(uint160(slot1)))){
-                                            amIn-=(amIn*prot<2?95000:160000)/gasPQ;
+                                            amIn-=(amIn*(prot<2?95000:160000))/gasPQ;
                                             uint amOut=amIn*uint24(slot1>>160);
                                             amOut = (direc
                                                 ? (amOut * uint128(slot0)) / ((slot0>>128) * 1e6 + amOut)
@@ -255,13 +256,26 @@ contract Arouter{
                                                 }
                                                 rLen+=0x20;
                                                 if(rLen>rOutCalls.length){
+                                                    // for(uint i=0;i<=rOutCalls.length;i+=32){
+                                                    //     assembly{mstore(add(rOutCalls,i),0)}
+                                                    // }
                                                     rOutCalls=(routeOut.calls=new bytes(rLen));
                                                 }else{
+                                                    // assembly{
+                                                    //     let fm:=mload(0x40)
+                                                    //     let rm:=add(add(rOutCalls,0x20),len)
+                                                    //     if gt(rm,fm){
+                                                    //         mstore(0x40,rm)
+                                                    //     }
+                                                    // }
                                                     for(uint i=rLen;i<rOutCalls.length;i+=0x20){
                                                         assembly{mstore(add(add(rOutCalls,0x20),i),0)}
                                                     }
+                                                    // assembly{
+                                                    //     mstore(rOutCalls,rLen)
+                                                    // }
                                                 }
-                                                for(uint i=0x20;i<=rInCalls.length;i+=0x20){
+                                                for(uint i=0x20;i<rLen;i+=0x20){
                                                     assembly{mstore(add(rOutCalls,i),mload(add(rInCalls,i)))}
                                                 }
                                                 uint rsh;

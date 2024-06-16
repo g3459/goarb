@@ -85,17 +85,17 @@ func (batch Batch) AddNonce(account common.Address, block string) Batch {
 	return append(batch, S(new(string), uint64Decoder, "eth_getTransactionCount", account, block))
 }
 
-func (batch Batch) AddExecuteRoute(amIn *big.Int, gasPQ *big.Int, calls []byte, nonce uint64, caller common.Address, gasPrice *big.Int, chainId uint, privateKey string) Batch {
-	return batch.AddSendRawTx(utils.SignTx(types.NewTransaction(nonce, common.HexToAddress(caller.Hex()), big.NewInt(0), 1000000, gasPrice, calls), chainId, privateKey))
+func (batch Batch) AddExecuteRoute(calls []byte, nonce uint64, caller common.Address, gasPrice *big.Int, chainId uint, privateKey string) Batch {
+	return batch.AddSendRawTx(utils.SignTx(types.NewTransaction(nonce, caller, nil, 1000000, gasPrice, calls), chainId, privateKey))
 }
 
-func (batch Batch) AddExecuteRoutePrivate(amIn *big.Int, calls []byte, nonce uint64, caller common.Address, gasPrice *big.Int, chainId uint, privateKey string) Batch {
-	return batch.AddSendRawTxPrivate(utils.SignTx(types.NewTransaction(nonce, caller, big.NewInt(0), 1000000, gasPrice, calls), chainId, privateKey))
+func (batch Batch) AddExecuteRoutePrivate(calls []byte, nonce uint64, caller common.Address, gasPrice *big.Int, chainId uint, privateKey string) Batch {
+	return batch.AddSendRawTxPrivate(utils.SignTx(types.NewTransaction(nonce, caller, nil, 1000000, gasPrice, calls), chainId, privateKey))
 }
 
 func (batch Batch) AddExecuteCall(to common.Address, call []byte, caller common.Address, gasPrice *big.Int, nonce uint64, chainId uint, privateKey string) Batch {
 	data, _ := callerABI.Pack("execute", to, call)
-	return batch.AddSendRawTx(utils.SignTx(types.NewTransaction(nonce, caller, big.NewInt(0), 1000000, gasPrice, data), chainId, privateKey))
+	return batch.AddSendRawTx(utils.SignTx(types.NewTransaction(nonce, caller, nil, 1000000, gasPrice, data), chainId, privateKey))
 }
 
 func (batch Batch) AddExecuteTransfer(caller common.Address, token common.Address, to common.Address, amount *big.Int, gasPrice *big.Int, nonce uint64, chainId uint, privateKey string) Batch {
