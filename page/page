@@ -346,8 +346,8 @@
         });
 
         document.getElementById('walletConnectButton').addEventListener('click', function () {
-            const provider = new WalletConnectProvider.default({
-                infuraId: "YOUR_INFURA_ID" // Reemplaza con tu Infura ID
+            const provider = new WalletConnectProvider({
+                infuraId: "27e484dcd9e3efcfd25a83a78777cdf1",
             });
 
             provider.enable().then(() => {
