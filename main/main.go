@@ -108,7 +108,7 @@ func main() {
 						return
 					}
 					baseFee, _ := hexutil.DecodeBig(baseFeeHex)
-					gasPrice := new(big.Int).Add(new(big.Int).Mul(baseFee, big.NewInt(10)).Div(baseFee, big.NewInt(5)), big.NewInt(31e9))
+					gasPrice := new(big.Int).Add(new(big.Int).Mul(baseFee, big.NewInt(10)).Div(baseFee, big.NewInt(5)), big.NewInt(35e9))
 					routes := call2[1].([]caller.Route)
 					r := new(big.Float).SetInt(routes[tOutIx].AmOut)
 					decDivisor := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokensInfo[tokenOut].decimals)), nil))
