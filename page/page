@@ -78,8 +78,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .dark-mode {
@@ -114,7 +119,7 @@
             height: 34px;
         }
 
-        .switch input { 
+        .switch input {
             opacity: 0;
             width: 0;
             height: 0;
@@ -144,15 +149,15 @@
             transition: .4s;
         }
 
-        input:checked + .slider {
+        input:checked+.slider {
             background-color: #2196F3;
         }
 
-        input:focus + .slider {
+        input:focus+.slider {
             box-shadow: 0 0 1px #2196F3;
         }
 
-        input:checked + .slider:before {
+        input:checked+.slider:before {
             -webkit-transform: translateX(26px);
             -ms-transform: translateX(26px);
             transform: translateX(26px);
@@ -184,6 +189,46 @@
 
         .dark-mode .moon-icon {
             display: block;
+        }
+
+        .wallet-connect-modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0, 0, 0);
+            background-color: rgba(0, 0, 0, 0.4);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .wallet-connect-modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+            text-align: center;
+            border-radius: 10px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -229,8 +274,17 @@
         <input type="number" id="amountIn" min="0.01" step="0.01" placeholder="Amount">
         <button id="swapButton">Swap</button>
         <div class="amount-out" id="amountOut"></div>
+        <button id="walletConnectButton">Connect Wallet</button>
     </div>
-    <script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js/dist/web3.min.js"></script>
+    <div id="walletConnectModal" class="wallet-connect-modal">
+        <div class="wallet-connect-modal-content">
+            <span class="close" id="closeWalletConnectModal">&times;</span>
+            <p>Scan the QR code with your WalletConnect-compatible wallet to connect.</p>
+            <div id="walletConnectQRCode"></div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.6.6/dist/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.6.1/dist/web3.min.js"></script>
     <script>
         document.getElementById('darkModeSwitch').addEventListener('change', function () {
             document.body.classList.toggle('dark-mode');
@@ -252,36 +306,35 @@
             fetch(`http://127.0.0.1:8080/swap?tokenIn=${tokenIn}&amountIn=${amountIn}&tokenOut=${tokenOut}`, {
                 method: 'GET',
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    console.log("Transaction to be signed and executed: ", data.tx);
-                    document.getElementById('amountOut').innerHTML = `You will receive: ${data.amountOut}`;
-                    if (window.ethereum) {
-                        console.log(window.ethereum)
-                        const web3 = new Web3(window.ethereum);
-                        window.ethereum.request({ method: 'eth_requestAccounts' }).then(accounts=>{
-                            const account = accounts[0];
-                            data.tx.from=account
-                            web3.eth.sendTransaction(data.tx, function (err, transactionHash) {
-                                if (err)
-                                    console.log(err);
-                                else
-                                    console.log(transactionHash);
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log("Transaction to be signed and executed: ", data.tx);
+                        document.getElementById('amountOut').innerHTML = `You will receive: ${data.amountOut}`;
+                        if (window.ethereum) {
+                            const web3 = new Web3(window.ethereum);
+                            window.ethereum.request({ method: 'eth_requestAccounts' }).then(accounts => {
+                                const account = accounts[0];
+                                data.tx.from = account
+                                web3.eth.sendTransaction(data.tx, function (err, transactionHash) {
+                                    if (err)
+                                        console.log(err);
+                                    else
+                                        console.log(transactionHash);
+                                });
                             });
-                        });
+                        } else {
+                            console.log('Metamask not installed.');
+                        }
                     } else {
-                        console.log('Metamask not installed.');
+                        console.error("Error: ", data.message);
+                        document.getElementById('amountOut').innerHTML = "Error: " + data.message;
                     }
-                } else {
-                    console.error("Error: ", data.message);
-                    document.getElementById('amountOut').innerHTML = "Error: " + data.message;
-                }
-            })
-            .catch((error) => {
-                console.error('Error:', error);
-                document.getElementById('amountOut').innerHTML = "Error: " + error;
-            });
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                    document.getElementById('amountOut').innerHTML = "Error: " + error;
+                });
         });
 
         document.getElementById('swapIcon').addEventListener('click', function () {
@@ -290,6 +343,21 @@
             var temp = tokenIn.value;
             tokenIn.value = tokenOut.value;
             tokenOut.value = temp;
+        });
+
+        document.getElementById('walletConnectButton').addEventListener('click', function () {
+            const provider = new WalletConnectProvider.default({
+                infuraId: "YOUR_INFURA_ID" // Reemplaza con tu Infura ID
+            });
+
+            provider.enable().then(() => {
+                const web3 = new Web3(provider);
+                web3.eth.getAccounts().then(accounts => {
+                    console.log("Connected account:", accounts[0]);
+                });
+            }).catch(error => {
+                console.error('WalletConnect error:', error);
+            });
         });
     </script>
 </body>

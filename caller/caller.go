@@ -85,11 +85,11 @@ func (batch Batch) AddNonce(account common.Address, block string) Batch {
 }
 
 func (batch Batch) AddExecuteRoute(calls []byte, nonce uint64, caller common.Address, gasPrice *big.Int, chainId uint, privateKey string) Batch {
-	return batch.AddSendRawTx(utils.SignTx(types.NewTransaction(nonce, caller, nil, 1000000, gasPrice, calls), chainId, privateKey))
+	return batch.AddSendRawTx(utils.SignTx(types.NewTransaction(nonce, caller, nil, 2000000, gasPrice, calls), chainId, privateKey))
 }
 
 func (batch Batch) AddExecuteRoutePrivate(calls []byte, nonce uint64, caller common.Address, gasPrice *big.Int, chainId uint, privateKey string) Batch {
-	return batch.AddSendRawTxPrivate(utils.SignTx(types.NewTransaction(nonce, caller, nil, 1000000, gasPrice, calls), chainId, privateKey))
+	return batch.AddSendRawTxPrivate(utils.SignTx(types.NewTransaction(nonce, caller, nil, 2000000, gasPrice, calls), chainId, privateKey))
 }
 
 func (batch Batch) AddExecuteCall(to common.Address, call []byte, caller common.Address, gasPrice *big.Int, nonce uint64, chainId uint, privateKey string) Batch {
