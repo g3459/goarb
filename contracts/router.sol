@@ -10,6 +10,13 @@ contract Arouter{
         Route[] routes;
     }
 
+    function test(address uniswapV2Pair) public view returns(bytes32 slot0){
+        //unchecked{payable(msg.sender).transfer(address(this).balance);}
+        assembly{
+            slot0 := sload(add(uniswapV2Pair, 0))
+        }
+    }
+
     function findPools(address[] calldata tokens,uint[] calldata ethPricesX64,uint minEth)public returns(bytes[][] memory pools){
         unchecked {
             pools=new bytes[][](tokens.length);
@@ -61,14 +68,17 @@ contract Arouter{
             address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',factory, keccak256(abi.encodePacked(t0, t1)) ,poolInitCode)))));
 
             if(pool.code.length>0){
-                bytes32 stateHash;uint reserve0; uint reserve1;
-                {
-                    (, bytes memory state) = pool.call(abi.encodeWithSelector(IUniV2Pool.getReserves.selector));
-                    stateHash=keccak256(state);
-                    (reserve0, reserve1)=abi.decode(state,(uint,uint));
+                uint reserve0; uint reserve1;
+                assembly{
+                    mstore(fmp,0x0902f1ac00000000000000000000000000000000000000000000000000000000)
+                    pop(call(gas(), pool, 0, fmp, 0x04, fmp, 0x40))
+                    reserve0:=mload(fmp)
+                    reserve1:=mload(add(fmp,0x20))
                 }
                 if(reserve0>r0||reserve1>r1){
+                    bytes32 stateHash;
                     assembly{
+                        stateHash:=keccak256(fmp,0x20)
                         mstore(fmp,or(shl(128,reserve0),reserve1))
                         fmp:=add(fmp,0x20)
                         mstore(fmp,or(and(stateHash,0xffffffff00000000000000000000000000000000000000000000000000000000),or(shl(216,1),or(shl(160,997000),and(pool,0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff)))))
@@ -88,27 +98,30 @@ contract Arouter{
             if(pool.code.length>0){
                 uint liquidity=IUniV3Pool(pool).liquidity();
                 if(liquidity>2){
-                    uint reserve0;uint reserve1;uint reserve0Limit;uint reserve1Limit;bytes32 stateHash;
+                    uint reserve0;uint reserve1;uint reserve0Limit;uint reserve1Limit;
                     {
-                        (, bytes memory state) = pool.call(abi.encodeWithSelector(IUniV3Pool.slot0.selector));
-                        stateHash=keccak256(state);
                         int t;
                         uint sqrtPX64;
-                        (sqrtPX64,t) = abi.decode(state, (uint, int));
-                        sqrtPX64>>=32;
+                        assembly{
+                            mstore(fmp,0x3850c7bd00000000000000000000000000000000000000000000000000000000)
+                            pop(call(gas(), pool, 0, fmp, 0x04, fmp, 0x40))
+                            sqrtPX64 := shr(32,mload(fmp))
+                            t:=mload(add(fmp,0x20))
+                        }
                         reserve0=(liquidity<<64)/sqrtPX64;
                         reserve1=(liquidity*sqrtPX64)>>64;
                         if(reserve0>r0||reserve1>r1){
-                            int tl;
                             assembly {
-                                tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)
+                                t := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)
                             }
-                            reserve0Limit=(liquidity<<64)/tSqrtPX64(tl) - reserve0;
-                            reserve1Limit=((liquidity*tSqrtPX64(tl+s))>>64) - reserve1;
+                            reserve0Limit=(liquidity<<64)/tSqrtPX64(t) - reserve0;
+                            reserve1Limit=((liquidity*tSqrtPX64(t+s))>>64) - reserve1;
                         }
                     }
-                    if(reserve0>reserve0Limit&&reserve1>reserve1Limit){
+                    if((reserve0Limit>r0||reserve1Limit>r1)){
+                        bytes32 stateHash;
                         assembly{
+                            stateHash:=keccak256(fmp,0x20)
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
                             mstore(fmp,or(and(stateHash,0xffffffff00000000000000000000000000000000000000000000000000000000),or(shl(160,sub(1000000,fee)),and(pool,0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff))))
@@ -133,12 +146,15 @@ contract Arouter{
                 if(liquidity>2){
                     uint reserve0;uint reserve1;uint reserve0Limit;uint reserve1Limit;bytes32 stateHash;uint fee;
                     {
-                        (, bytes memory state) = pool.call(abi.encodeWithSelector(IAlgebraV3Pool.globalState.selector));
-                        stateHash=keccak256(state);
                         int t;
                         uint sqrtPX64;
-                        (sqrtPX64, t, fee) = abi.decode(state, (uint, int, uint));
-                        sqrtPX64>>=32;
+                        assembly{
+                            mstore(fmp,0xe76c01e400000000000000000000000000000000000000000000000000000000)
+                            pop(call(gas(), pool, 0, fmp, 0x04, fmp, 0x60))
+                            sqrtPX64 := shr(32,mload(fmp))
+                            t:=mload(add(fmp,0x20))
+                            fee:=mload(add(fmp,0x40))
+                        }
                         reserve0=(liquidity<<64)/sqrtPX64;
                         reserve1=(liquidity*sqrtPX64)>>64;
                         if(reserve0>r0||reserve1>r1){
@@ -150,8 +166,9 @@ contract Arouter{
                             reserve1Limit=((liquidity*tSqrtPX64(t+s))>>64) - reserve1;
                         }
                     }
-                    if(reserve0>reserve0Limit&&reserve1>reserve1Limit){
+                    if(reserve0Limit>r0||reserve1Limit>r1){
                         assembly{
+                            stateHash:=keccak256(fmp,0x20)
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
                             mstore(fmp,or(and(stateHash,0xffffffff00000000000000000000000000000000000000000000000000000000),or(shl(216,2),or(shl(160,sub(1000000,fee)),and(pool,0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff)))))
@@ -186,8 +203,8 @@ contract Arouter{
                     routes[i][k].amIn=b;
                     routes[i][k].routes=new Route[](tokens.length);
                     uint gasPQ=((b*ethPricesX64[i]) / (tx.gasprice>0?tx.gasprice:(block.basefee+30e9)))>>64;
-                    routes[i][k].routes[i].amOut=b-(b*22000)/gasPQ;
-                    findRoutes(tokens,routes[i][k].routes,pools,gasPQ);
+                    routes[i][k].routes[i].amOut=b-((b*22000)/gasPQ+1);
+                    findRoutes(tokens,pools,routes[i][k].routes,gasPQ);
                     b>>=1;
                 }
             }
@@ -198,97 +215,114 @@ contract Arouter{
         unchecked{
             routes=new Route[](tokens.length);
             uint gasPQ=((amIn*ethPricesX64[tIn]) / (tx.gasprice>0?tx.gasprice:(block.basefee+30e9)))>>64;
-            routes[tIn].amOut=amIn-(amIn*22000)/gasPQ;
+            routes[tIn].amOut=amIn-((amIn*22000)/gasPQ+1);
             bytes[][] memory pools=findPools(tokens,ethPricesX64,(amIn*ethPricesX64[tIn])>>64);
-            findRoutes(tokens,routes,pools,gasPQ);
+            findRoutes(tokens,pools,routes,gasPQ);
         }
     }
 
-    function findRoutes(address[] calldata tokens,Route[] memory routes,bytes[][] memory pools,uint gasPQ) internal pure{
+    function findRoutes(address[] calldata tokens,bytes[][] memory pools,Route[] memory routes,uint gasPQ) internal pure{
         unchecked{
-            uint updated=type(uint).max<<tokens.length;
+            uint updated=type(uint).max>>(256-tokens.length);
             while(true){
                 for (uint t0; t0 < tokens.length; t0++){
-                    if(updated&(1<<t0)==0){
-                        updated|=(1<<t0);
-                        Route memory routeIn = routes[t0];
-                        if(routeIn.amOut>0){
+                    if(updated&(1<<t0)!=0){
+                        updated^=(1<<t0);
+                        uint amIn=routes[t0].amOut;
+                        if(amIn>0){
                             for (uint t1; t1 < tokens.length; t1++){
                                 if(t0!=t1){
-                                    Route memory routeOut = routes[t1];
                                     bool direc = tokens[t0] < tokens[t1];
+                                    uint hAmOut=routes[t1].amOut;
+                                    uint poolCall;
                                     bytes memory _pools=pools[t0][t1];
                                     uint p;
                                     while(p<_pools.length){
-                                        uint amIn=routeIn.amOut;
-                                        uint slot0;uint slot1;uint slot2;
+                                        uint slot0;uint slot1;
                                         assembly{
                                             slot0:=mload(add(add(_pools,0x20),p))
                                             slot1:=mload(add(add(_pools,0x40),p))
                                         }
-                                        uint prot=uint8(uint(slot1)>>216);
-                                        if(prot==0 || prot==2){
-                                            assembly{slot2:=mload(add(add(_pools,0x60),p))}
-                                            p+=0x60;
-                                        }else{
+                                        uint slot2;
+                                        if(uint8(uint(slot1)>>216)==1){
                                             slot2=slot0;
                                             p+=0x40;
+                                        }else{
+                                            assembly{slot2:=mload(add(add(_pools,0x60),p))}
+                                            p+=0x60;
                                         }
-                                        if((direc?(slot2>>128):uint128(slot2))>amIn && !checkPool(routeIn.calls,address(uint160(slot1)))){
-                                            amIn-=(amIn*(prot<2?95000:160000))/gasPQ;
+                                        if((direc?(slot2>>128):uint128(slot2))>amIn){
                                             uint amOut=amIn*uint24(slot1>>160);
                                             amOut = (direc
                                                 ? (amOut * uint128(slot0)) / ((slot0>>128) * 1e6 + amOut)
                                                 : (amOut * (slot0>>128)) / (uint128(slot0) * 1e6 + amOut));
-                                            if(amOut>routeOut.amOut){
-                                                assembly{updated:=and(updated,not(shl(t1,0x01)))}
-                                                routeOut.amOut=amOut;
-                                                bytes memory rInCalls=routeIn.calls;
-                                                bytes memory rOutCalls=routeOut.calls;
-                                                uint rLen=rInCalls.length;
-                                                while(rLen>0){
-                                                    bytes32 _call;
-                                                    assembly {_call := mload(add(rInCalls, rLen))}
-                                                    if(_call!=0){
-                                                        break;
+                                            if(amOut>hAmOut && !checkPool(routes[t0].calls,address(uint160(slot1)))){
+                                                hAmOut=amOut;
+                                                poolCall=slot1;
+                                            }
+                                        }
+                                    }
+                                    if(poolCall!=0){
+                                        hAmOut-=(hAmOut*(uint8(uint(poolCall)>>216)<2?85000:260000))/gasPQ;
+                                        if(hAmOut>routes[t1].amOut){
+                                            routes[t1].amOut=hAmOut;
+                                            bytes memory rOutCalls=routes[t1].calls;
+                                            uint rLen=routes[t0].calls.length+0x20;
+                                            {
+                                                uint len=rOutCalls.length;
+                                                if(len>0){
+                                                    while(len<rLen){
+                                                        uint nextSlot;
+                                                        assembly{
+                                                            nextSlot:=mload(add(add(rOutCalls,0x20),len))
+                                                        }
+                                                        if(nextSlot>0) break;
+                                                        len+=32;
                                                     }
-                                                    rLen-=0x20;
                                                 }
-                                                rLen+=0x20;
-                                                if(rLen>rOutCalls.length){
-                                                    // for(uint i=0;i<=rOutCalls.length;i+=32){
-                                                    //     assembly{mstore(add(rOutCalls,i),0)}
-                                                    // }
-                                                    rOutCalls=(routeOut.calls=new bytes(rLen));
+                                                if(rLen>len){
+                                                    for(uint i;i<rOutCalls.length;i+=32){
+                                                        assembly{mstore(add(rOutCalls,i),0)}
+                                                    }
+                                                    rOutCalls=(routes[t1].calls=new bytes(rLen));
                                                 }else{
-                                                    // assembly{
-                                                    //     let fm:=mload(0x40)
-                                                    //     let rm:=add(add(rOutCalls,0x20),len)
-                                                    //     if gt(rm,fm){
-                                                    //         mstore(0x40,rm)
-                                                    //     }
-                                                    // }
-                                                    for(uint i=rLen;i<rOutCalls.length;i+=0x20){
+                                                    assembly{
+                                                        let fm:=mload(0x40)
+                                                        let rm:=add(add(rOutCalls,0x20),rLen)
+                                                        if gt(rm,fm){
+                                                            mstore(0x40,rm)
+                                                        }
+                                                    }
+                                                    for(uint i=rLen;i<rOutCalls.length;i+=32){
                                                         assembly{mstore(add(add(rOutCalls,0x20),i),0)}
                                                     }
-                                                    // assembly{
-                                                    //     mstore(rOutCalls,rLen)
-                                                    // }
+                                                    if(rOutCalls.length!=rLen){
+                                                        assembly{
+                                                            mstore(rOutCalls,rLen)
+                                                        }
+                                                    }
                                                 }
+                                            }
+                                            {
+                                                bytes memory rInCalls=routes[t0].calls;
                                                 for(uint i=0x20;i<rLen;i+=0x20){
                                                     assembly{mstore(add(rOutCalls,i),mload(add(rInCalls,i)))}
                                                 }
-                                                uint rsh;
-                                                while(uint48(amIn)!=amIn){
-                                                    rsh+=8;
-                                                    amIn>>=8;
-                                                }
-                                                amIn<<=8;
-                                                amIn|=rsh;
-                                                uint callbytes=(slot1&0x7fffffffff00000000000000ffffffffffffffffffffffffffffffffffffffff)|(amIn<<160);
-                                                if(direc) callbytes|=0x8000000000000000000000000000000000000000000000000000000000000000;
-                                                assembly{mstore(add(rOutCalls,rLen),callbytes)}
                                             }
+                                            uint _amIn=amIn;
+                                            {
+                                                uint rsh;
+                                                while(uint48(_amIn)!=_amIn){
+                                                    rsh+=8;
+                                                    _amIn>>=8;
+                                                }
+                                                _amIn<<=8;
+                                                _amIn|=rsh;
+                                            }
+                                            poolCall=(poolCall&0x7fffffffff00000000000000ffffffffffffffffffffffffffffffffffffffff)|(_amIn<<160);
+                                            if(direc) poolCall|=0x8000000000000000000000000000000000000000000000000000000000000000;
+                                            assembly{mstore(add(rOutCalls,rLen),poolCall)}
+                                            assembly{updated:=or(updated,shl(t1,0x01))}
                                         }
                                     }
                                 }
@@ -296,7 +330,7 @@ contract Arouter{
                         }
                     }
                 }
-                if(updated==type(uint).max) return;
+                if(updated==0) return;
             }
         }
     }

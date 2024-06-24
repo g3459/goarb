@@ -1,6 +1,7 @@
 package caller
 
 import (
+	"log"
 	"math/big"
 	"os"
 
@@ -84,30 +85,22 @@ func (batch Batch) AddNonce(account common.Address, block string) Batch {
 	return append(batch, S(new(string), uint64Decoder, "eth_getTransactionCount", account, block))
 }
 
-func (batch Batch) AddExecuteRoute(calls []byte, nonce uint64, caller common.Address, gasPrice *big.Int, chainId uint, privateKey string) Batch {
-	return batch.AddSendRawTx(utils.SignTx(types.NewTransaction(nonce, caller, nil, 2000000, gasPrice, calls), chainId, privateKey))
+func (batch Batch) AddExecuteRoute(calls []byte, nonce uint64, caller common.Address, minerTip *big.Int, maxFeePerGas *big.Int, chainId *big.Int, privateKey common.Hash) Batch {
+	return batch.AddSendRawTx(utils.SignTx(&types.DynamicFeeTx{ChainID: chainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: maxFeePerGas, Gas: utils.RouteGas(calls), To: &caller, Value: new(big.Int), Data: calls, AccessList: utils.AccessListForCalls(calls)}, privateKey))
 }
 
-func (batch Batch) AddExecuteRoutePrivate(calls []byte, nonce uint64, caller common.Address, gasPrice *big.Int, chainId uint, privateKey string) Batch {
-	return batch.AddSendRawTxPrivate(utils.SignTx(types.NewTransaction(nonce, caller, nil, 2000000, gasPrice, calls), chainId, privateKey))
-}
-
-func (batch Batch) AddExecuteCall(to common.Address, call []byte, caller common.Address, gasPrice *big.Int, nonce uint64, chainId uint, privateKey string) Batch {
+func (batch Batch) AddExecuteCall(to common.Address, call []byte, caller common.Address, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey common.Hash) Batch {
 	data, _ := callerABI.Pack("execute", to, call)
-	return batch.AddSendRawTx(utils.SignTx(types.NewTransaction(nonce, caller, nil, 1000000, gasPrice, data), chainId, privateKey))
+	return batch.AddSendRawTx(utils.SignTx(&types.DynamicFeeTx{ChainID: chainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: maxFeePerGas, Gas: 1000000, To: &caller, Value: new(big.Int), Data: data}, privateKey))
 }
 
-func (batch Batch) AddExecuteTransfer(caller common.Address, token common.Address, to common.Address, amount *big.Int, gasPrice *big.Int, nonce uint64, chainId uint, privateKey string) Batch {
+func (batch Batch) AddExecuteTransfer(caller common.Address, token common.Address, to common.Address, amount *big.Int, minerTip *big.Int, gasPrice *big.Int, nonce uint64, chainId *big.Int, privateKey common.Hash) Batch {
 	data, _ := erc20ABI.Pack("transfer", to, amount)
-	return batch.AddExecuteCall(token, data, caller, gasPrice, nonce, chainId, privateKey)
+	return batch.AddExecuteCall(token, data, caller, minerTip, gasPrice, nonce, chainId, privateKey)
 }
 
 func (batch Batch) AddSendRawTx(rawTx string) Batch {
 	return append(batch, S(new(string), stringDecoder, "eth_sendRawTransaction", rawTx))
-}
-
-func (batch Batch) AddSendRawTxPrivate(rawTx string) Batch {
-	return append(batch, S(new(string), stringDecoder, "eth_sendPrivateTransaction", map[string]interface{}{"tx": rawTx}))
 }
 
 func (batch Batch) AddLogsByTopic(topics [][]string, fromBlock string, toBlock string) Batch {
@@ -132,7 +125,7 @@ func (batch Batch) Execute(rpcclient *rpc.Client) ([]interface{}, error) {
 		if batchElems[i].Error == nil {
 			res[i] = batch[i].Decode(batchElems[i].Result)
 		} else {
-			//log.Println("Error:", batchElems[i].Error, res[i])
+			log.Println("Error:", batchElems[i].Error, res[i])
 		}
 	}
 	return res, nil

@@ -1,32 +1,42 @@
 package utils
 
 import (
-	"bytes"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func SignTx(tx *types.Transaction, chainId uint, privateKey string) string {
-	ecdsapk, _ := crypto.HexToECDSA(privateKey)
-	tx, _ = types.SignTx(tx, types.NewEIP155Signer(big.NewInt(int64(chainId))), ecdsapk)
-	buf := new(bytes.Buffer)
-	tx.EncodeRLP(buf)
-	return hexutil.Encode(buf.Bytes())
+func SignTx(txData *types.DynamicFeeTx, privateKey common.Hash) string {
+	ecdsapk, _ := crypto.ToECDSA(privateKey[:])
+	tx, _ := types.SignNewTx(ecdsapk, types.NewCancunSigner(txData.ChainID), txData)
+	data, _ := tx.MarshalBinary()
+	return hexutil.Encode(data)
 }
 
-func RouteGas(calls []byte) (gas uint) {
-	gas = 21000
-	gas += uint((len(calls) / 24) * 95000)
-	// for i := range calls {
-	// 	stateSelector := utils.BytesToHex(calls[i].StateSelector[:])
-	// 	if stateSelector == "0x3850c7bd" || stateSelector == "0x0902f1ac" {
-	// 		gas += 90000
-	// 	} else {
-	// 		gas += 170000
-	// 	}
-	// }
+func RouteGas(calls []byte) uint64 {
+	gas := uint64(21000)
+	for i := 0; i < len(calls); i += 32 {
+		if calls[i+4] == 2 {
+			gas += 260000
+		} else {
+			gas += 85000
+		}
+	}
 	return gas
+}
+
+func AccessListForCalls(calls []byte) types.AccessList {
+	al := make([]types.AccessTuple, len(calls)/32)
+	for i := 0; i < len(al); i++ {
+		al[i].Address = common.Address(calls[(i+1)*32-20 : (i+1)*32])
+		if calls[(i*32)+4] == 1 {
+			al[i].StorageKeys = []common.Hash{common.BigToHash(big.NewInt(3))}
+		} else {
+			al[i].StorageKeys = []common.Hash{common.BigToHash(big.NewInt(0))}
+		}
+	}
+	return al
 }

@@ -1,74 +1,79 @@
 
 contract Caller {
-
-    bool lock;
-    mapping(address=>bool) public whitelist;
-
+    address owner;
+    
     constructor() payable{
+        unchecked{owner=msg.sender;}
+    }
+
+    // function setAddress(address a,bool b) external payable check{
+    //     unchecked{whitelist[a]=b;}
+    // }
+
+    fallback() external payable check{
         unchecked{
-            whitelist[msg.sender]=true;
-        }
-    }
-
-    function setAddress(address a,bool b) external payable locked{
-        unchecked{
-            whitelist[a]=b;
-        }
-    }
-
-    fallback() external payable locked{
-        executeRoute(msg.data);
-    }
-
-    receive() external payable{}
-
-    function recover() external payable locked{
-        payable(msg.sender).transfer(address(this).balance);
-    }
-
-    function executeRoute(bytes calldata calls) internal{
-        unchecked{
-            bytes32 poolCall=bytes32(calls[calls.length-32:]);
-            address pool;
-            assembly{pool:=poolCall}
-            uint t=uint8(uint(poolCall)>>216);
-            (, bytes memory state)=pool.call(abi.encodeWithSelector(t==0?IUniV3Pool.slot0.selector:(t==1?IUniV2Pool.getReserves.selector:IAlgebraV3Pool.globalState.selector)));
-            require(bytes4(keccak256(state))<<1==bytes4(poolCall)<<1,"1");
-            if(calls.length>32)
-                executeRoute(calls[:calls.length-32]);
-            bool direc=bytes1(poolCall)&bytes1(0x80)==bytes1(0x80);
-            uint amIn=uint(uint48(uint(poolCall)>>168))<<uint8(uint(poolCall)>>160);
-            if(t==1){
-                (uint reserve0, uint reserve1)=abi.decode(state,(uint,uint));
-                uint amOut=amIn*997000;
-                amOut = (direc
-                    ? (amOut * reserve1) / (reserve0 * 1e6 + amOut)
-                    : (amOut * reserve0) / (reserve1 * 1e6 + amOut));
-                IERC20(direc?IUniV2Pool(pool).token0():IUniV2Pool(pool).token1()).transfer(pool,amIn);
-                IUniV2Pool(pool).swap(direc?0:amOut, direc?amOut:0, address(this), "");
-            }else{
-                IUniV3Pool(pool).swap(address(this), direc, int(amIn) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
+            uint len=msg.data.length;
+            assembly{
+                for { let i := 0 } lt(i,len) { i := add(i, 32) }{
+                    let poolCall:=calldataload(i)
+                    switch and(poolCall,0x00000000ff000000000000000000000000000000000000000000000000000000)
+                    case 0x0000000001000000000000000000000000000000000000000000000000000000 {
+                        mstore(0x80,0x0902f1ac00000000000000000000000000000000000000000000000000000000)
+                    }case 0x0000000002000000000000000000000000000000000000000000000000000000 {
+                        mstore(0x80,0xe76c01e400000000000000000000000000000000000000000000000000000000)
+                    }default{
+                        mstore(0x80,0x3850c7bd00000000000000000000000000000000000000000000000000000000)
+                    }
+                    pop(call(gas(), poolCall, 0, 0x80, 0x04, 0x80, 0x20))
+                    if xor(and(keccak256(0x80,0x20),0x7fffffff00000000000000000000000000000000000000000000000000000000),and(poolCall,0x7fffffff00000000000000000000000000000000000000000000000000000000)){
+                        revert(0,0)
+                    }
+                }
+            }
+            for(uint i;i<len;i+=32){
+                uint poolCall=uint(bytes32(msg.data[i:]));
+                uint amIn=uint(uint48(poolCall>>168))<<uint8(poolCall>>160);
+                address pool;
+                bool direc;
+                assembly{
+                    pool:=poolCall
+                    direc:=and(poolCall,0x8000000000000000000000000000000000000000000000000000000000000000)
+                }
+                if(poolCall&0x00000000ff000000000000000000000000000000000000000000000000000000==0x0000000001000000000000000000000000000000000000000000000000000000){
+                    uint r0;uint r1;
+                    assembly{
+                        mstore(0x80,0x0902f1ac00000000000000000000000000000000000000000000000000000000)
+                        pop(call(gas(), pool, 0, 0x80, 0x04, 0x80, 0x40))
+                        r0:=mload(0x80)
+                        r1:=mload(0xa0)
+                    }
+                    uint amOut=amIn*997000;
+                    amOut = (direc
+                        ? (amOut * r1) / (r0 * 1e6 + amOut)
+                        : (amOut * r0) / (r1 * 1e6 + amOut));
+                    IERC20(direc?IUniV2Pool(pool).token0():IUniV2Pool(pool).token1()).transfer(pool,amIn);
+                    IUniV2Pool(pool).swap(direc?0:amOut, direc?amOut:0, address(this), "");
+                }else{
+                    IUniV3Pool(pool).swap(address(this), direc, int(amIn) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
+                }
             }
         }
     }
 
-    function execute(address target, bytes calldata call) public payable locked returns (bool s){
-        unchecked{
-            (s,)=target.call(call);
-        }
+    receive() external payable{}
+
+    function recover() external payable check{
+        unchecked{payable(msg.sender).transfer(address(this).balance);}
     }
 
-    modifier locked{
-        if(lock){
-            _;
-        }else{
-            require(whitelist[msg.sender],"2");
-            lock=true;
-            _;
-            lock=false;
-        }
+    function execute(address target, bytes calldata call) public payable check returns (bool s){
+        unchecked{(s,)=target.call(call);}
     }
 
+    modifier check{
+        _;
+        unchecked{require(owner==tx.origin || owner==msg.sender);}
+    }
 
     // function uniswapV3FlashCallback(uint , uint , bytes calldata data) external payable {unchecked{address(this).call(data);} }
 
@@ -76,20 +81,14 @@ contract Caller {
 
     // function algebraFlashCallback(uint , uint , bytes calldata data) external payable {unchecked{address(this).call(data);} }
 
-    function uniswapV3SwapCallback(int am0 , int am1, bytes calldata) external payable{
-        unchecked{
-            require(lock,"3");
-            IERC20(am0>am1?IUniV3Pool(msg.sender).token0():IUniV3Pool(msg.sender).token1()).transfer(msg.sender,uint(am0>am1?am0:am1));
-        }
+    function uniswapV3SwapCallback(int am0 , int am1, bytes calldata) external payable check{
+        unchecked{IERC20(am0>am1?IUniV3Pool(msg.sender).token0():IUniV3Pool(msg.sender).token1()).transfer(msg.sender,uint(am0>am1?am0:am1));}
     }
 
     // function swapCallback(int, int, bytes calldata data) external payable {unchecked{address(this).call(data);} }
 
-    function algebraSwapCallback(int am0, int am1, bytes calldata) external payable {
-        unchecked{
-            require(lock,"3");
-            IERC20(am0>am1?IUniV3Pool(msg.sender).token0():IUniV3Pool(msg.sender).token1()).transfer(msg.sender,uint(am0>am1?am0:am1));
-        }
+    function algebraSwapCallback(int am0, int am1, bytes calldata) external payable check{
+        unchecked{IERC20(am0>am1?IUniV3Pool(msg.sender).token0():IUniV3Pool(msg.sender).token1()).transfer(msg.sender,uint(am0>am1?am0:am1));}
     }
 
     // function apeCall(address, uint, uint, bytes calldata data) external payable {unchecked{address(this).call(data);} }
