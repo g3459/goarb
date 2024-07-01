@@ -66,7 +66,7 @@ contract Caller {
         unchecked{payable(msg.sender).transfer(address(this).balance);}
     }
 
-    function execute(address target, bytes calldata call) public payable check returns (bool s){
+    function execute(address target, bytes calldata call) external payable check returns (bool s){
         unchecked{(s,)=target.call(call);}
     }
 

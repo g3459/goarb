@@ -26,22 +26,17 @@ func allTokensDecoder(result interface{}) interface{} {
 	if len(res) == 0 {
 		return nil
 	}
-	routesRaw := res[0].([][]struct {
-		AmIn   *big.Int "json:\"amIn\""
-		Routes []struct {
-			AmOut *big.Int "json:\"amOut\""
-			//Gas   *big.Int "json:\"gas\""
-			Calls []uint8 "json:\"calls\""
-		} "json:\"routes\""
+	routesRaw := res[0].([][][]struct {
+		AmOut *big.Int "json:\"amOut\""
+		Calls []uint8  "json:\"calls\""
 	})
-	routes := make([][]Routes, len(routesRaw))
+	routes := make([][][]Route, len(routesRaw))
 	for i := range routes {
-		routes[i] = make([]Routes, len(routesRaw[i]))
+		routes[i] = make([][]Route, len(routesRaw[i]))
 		for j := range routes[i] {
-			routes[i][j].AmIn = routesRaw[i][j].AmIn
-			routes[i][j].Routes = make([]Route, len(routesRaw[i][j].Routes))
-			for k := range routes[i][j].Routes {
-				routes[i][j].Routes[k] = Route(routesRaw[i][j].Routes[k])
+			routes[i][j] = make([]Route, len(routesRaw[i][j]))
+			for k := range routes[i][j] {
+				routes[i][j][k] = Route(routesRaw[i][j][k])
 			}
 		}
 	}

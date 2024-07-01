@@ -15,14 +15,15 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/g3459/goarb/caller"
+	"github.com/g3459/goarb/utils"
 )
 
 type Configuration struct {
-	Router       common.Address   `json:"router"`
-	Caller       common.Address   `json:"caller"`
-	Tokens       []common.Address `json:"tokens"`
-	EthPricesX64 []*big.Int       `json:"ethPricesX64"`
-	WsRpcs       []string         `json:"wsRpcs"`
+	Router       common.Address     `json:"router"`
+	Caller       common.Address     `json:"caller"`
+	Tokens       []caller.TokenInfo `json:"tokens"`
+	EthPricesX64 []*big.Int         `json:"ethPricesX64"`
+	WsRpcs       []string           `json:"wsRpcs"`
 }
 
 var tokenDecimals = map[common.Address]uint{
@@ -76,13 +77,13 @@ func main() {
 		var tInIx int64
 		var tOutIx int64
 		for _, t := range conf.Tokens {
-			if t.Cmp(tokenIn) == 0 {
+			if t.Token.Cmp(tokenIn) == 0 {
 				break
 			}
 			tInIx++
 		}
 		for _, t := range conf.Tokens {
-			if t.Cmp(tokenOut) == 0 {
+			if t.Token.Cmp(tokenOut) == 0 {
 				break
 			}
 			tOutIx++
@@ -93,7 +94,7 @@ func main() {
 
 		var response map[string]interface{}
 		for _, rpcclient := range wsrpcclients {
-			call2, err := new(caller.Batch).AddBlockByNumber("latest").AddFindRoutesForSingleToken(conf.Tokens, conf.EthPricesX64, amIn, big.NewInt(tInIx), conf.Router, "latest").Execute(rpcclient)
+			call2, err := new(caller.Batch).AddBlockByNumber("latest").AddFindRoutesForSingleToken(conf.Tokens, amIn, big.NewInt(tInIx), conf.Router, "latest").Execute(rpcclient)
 			if err == nil {
 				if call2[0] != nil && call2[1] != nil {
 					block := call2[0].(map[string]interface{})
@@ -108,7 +109,7 @@ func main() {
 					decDivisor := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokenDecimals[tokenOut])), nil))
 					r.Quo(r, decDivisor)
 					rr, _ := r.Float64()
-					response = map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": conf.Caller, "input": hexutil.Encode(routes[tOutIx].Calls), "gas": 1000000, "gasPrice": gasPrice.Uint64()}, "amountOut": rr}
+					response = map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": conf.Caller, "input": hexutil.Encode(routes[tOutIx].Calls), "gas": utils.RouteGas(routes[tOutIx].Calls), "gasPrice": gasPrice.Uint64()}, "amountOut": rr}
 					break
 				}
 			} else {

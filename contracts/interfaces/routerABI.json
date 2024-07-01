@@ -2,19 +2,31 @@
 	{
 		"inputs": [
 			{
-				"internalType": "address[]",
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "ethPX64",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					}
+				],
+				"internalType": "struct Arouter.TokenInfo[]",
 				"name": "tokens",
-				"type": "address[]"
-			},
-			{
-				"internalType": "uint256[]",
-				"name": "ethPricesX64",
-				"type": "uint256[]"
+				"type": "tuple[]"
 			},
 			{
 				"internalType": "uint256",
 				"name": "minEth",
 				"type": "uint256"
+			},
+			{
+				"internalType": "address",
+				"name": "caller",
+				"type": "address"
 			}
 		],
 		"name": "allTokensWithBalances",
@@ -23,30 +35,18 @@
 				"components": [
 					{
 						"internalType": "uint256",
-						"name": "amIn",
+						"name": "amOut",
 						"type": "uint256"
 					},
 					{
-						"components": [
-							{
-								"internalType": "uint256",
-								"name": "amOut",
-								"type": "uint256"
-							},
-							{
-								"internalType": "bytes",
-								"name": "calls",
-								"type": "bytes"
-							}
-						],
-						"internalType": "struct Arouter.Route[]",
-						"name": "routes",
-						"type": "tuple[]"
+						"internalType": "bytes",
+						"name": "calls",
+						"type": "bytes"
 					}
 				],
-				"internalType": "struct Arouter.Routes[][]",
+				"internalType": "struct Arouter.Route[][][]",
 				"name": "routes",
-				"type": "tuple[][]"
+				"type": "tuple[][][]"
 			}
 		],
 		"stateMutability": "nonpayable",
@@ -55,14 +55,21 @@
 	{
 		"inputs": [
 			{
-				"internalType": "address[]",
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "ethPX64",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					}
+				],
+				"internalType": "struct Arouter.TokenInfo[]",
 				"name": "tokens",
-				"type": "address[]"
-			},
-			{
-				"internalType": "uint256[]",
-				"name": "ethPricesX64",
-				"type": "uint256[]"
+				"type": "tuple[]"
 			},
 			{
 				"internalType": "uint256",
@@ -84,14 +91,21 @@
 	{
 		"inputs": [
 			{
-				"internalType": "address[]",
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "ethPX64",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					}
+				],
+				"internalType": "struct Arouter.TokenInfo[]",
 				"name": "tokens",
-				"type": "address[]"
-			},
-			{
-				"internalType": "uint256[]",
-				"name": "ethPricesX64",
-				"type": "uint256[]"
+				"type": "tuple[]"
 			},
 			{
 				"internalType": "uint256",
@@ -100,7 +114,7 @@
 			},
 			{
 				"internalType": "uint256",
-				"name": "tIn",
+				"name": "t",
 				"type": "uint256"
 			}
 		],

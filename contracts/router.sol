@@ -5,35 +5,28 @@ contract Arouter{
         bytes calls;
     }
 
-    struct Routes{
-        uint amIn;
-        Route[] routes;
+    struct TokenInfo{
+        uint ethPX64;
+        address token;
     }
 
-    function test(address uniswapV2Pair) public view returns(bytes32 slot0){
-        //unchecked{payable(msg.sender).transfer(address(this).balance);}
-        assembly{
-            slot0 := sload(add(uniswapV2Pair, 0))
-        }
-    }
-
-    function findPools(address[] calldata tokens,uint[] calldata ethPricesX64,uint minEth)public returns(bytes[][] memory pools){
+    function findPools(TokenInfo[] calldata tokens,uint minEth)public returns(uint[][][] memory pools){
         unchecked {
-            pools=new bytes[][](tokens.length);
+            pools=new uint[][][](tokens.length);
             for (uint t0; t0 < tokens.length; t0++)
-                pools[t0]=new bytes[](tokens.length);
+                pools[t0]=new uint[][](tokens.length);
             for (uint t0; t0 < tokens.length; t0++){
-                address token0=tokens[t0];
+                address token0=tokens[t0].token;
                 for (uint t1; t1 < tokens.length; t1++){
-                    address token1=tokens[t1];
+                    address token1=tokens[t1].token;
                     if(token0<token1){
-                        bytes memory _pools;
+                        uint[] memory _pools;
                         assembly{
                             _pools:=mload(0x40)
                             mstore(0x40,add(_pools,0x20))
                         }
-                        uint r0=(minEth<<64)/ethPricesX64[t0];
-                        uint r1=(minEth<<64)/ethPricesX64[t1];
+                        uint r0=(minEth<<64)/tokens[t0].ethPX64;
+                        uint r1=(minEth<<64)/tokens[t1].ethPX64;
                         mstoreUniV2Pool(token0,token1,0x5757371414417b8C6CAad45bAeF941aBc7d3Ab32,0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f,r0,r1);
                         mstoreUniV2Pool(token0,token1,0xc35DADB65012eC5796536bD9864eD8773aBc74C4,0xe18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303,r0,r1);
                         mstoreUniV2Pool(token0,token1,0xE7Fb3e833eFE5F9c441105EB65Ef8b261266423B,0xf187ed688403aa4f7acfada758d8d53698753b998a3071b06f1b777f4330eaf3,r0,r1);
@@ -50,9 +43,7 @@ contract Arouter{
                         mstoreUniV3Pool(token0,token1,0x91e1B99072f238352f59e58de875691e20Dc19c1,0x817e07951f93017a93327ac8cc31e946540203a19e1ecc37bc1761965c2d1090,r0,r1,3000,60);
                         mstoreUniV3Pool(token0,token1,0x91e1B99072f238352f59e58de875691e20Dc19c1,0x817e07951f93017a93327ac8cc31e946540203a19e1ecc37bc1761965c2d1090,r0,r1,10000,200);
                         mstoreAlgebraV3Pool(token0,token1,0x2D98E2FA9da15aa6dC9581AB097Ced7af697CB92,0x6ec6c9c8091d160c0aa74b2b14ba9c1717e95093bd3ac085cee99a49aab294a4,r0,r1);
-                        assembly{
-                            mstore(_pools,sub(sub(mload(0x40),_pools),0x20))
-                        }
+                        assembly{mstore(_pools,div(sub(sub(mload(0x40),_pools),0x20),0x20))}
                         pools[t1][t0]=pools[t0][t1]=_pools;
                     }
                 }
@@ -64,9 +55,7 @@ contract Arouter{
         unchecked{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
-            
             address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',factory, keccak256(abi.encodePacked(t0, t1)) ,poolInitCode)))));
-
             if(pool.code.length>0){
                 uint reserve0; uint reserve1;
                 assembly{
@@ -111,11 +100,9 @@ contract Arouter{
                         reserve0=(liquidity<<64)/sqrtPX64;
                         reserve1=(liquidity*sqrtPX64)>>64;
                         if(reserve0>r0||reserve1>r1){
-                            assembly {
-                                t := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)
-                            }
-                            reserve0Limit=(liquidity<<64)/tSqrtPX64(t) - reserve0;
-                            reserve1Limit=((liquidity*tSqrtPX64(t+s))>>64) - reserve1;
+                            assembly {t := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
+                            reserve0Limit=(liquidity<<64)/(tSqrtPX64(t)+1) - reserve0;
+                            reserve1Limit=((liquidity*(tSqrtPX64(t+s)-1))>>64) - reserve1;
                         }
                     }
                     if((reserve0Limit>r0||reserve1Limit>r1)){
@@ -159,11 +146,9 @@ contract Arouter{
                         reserve1=(liquidity*sqrtPX64)>>64;
                         if(reserve0>r0||reserve1>r1){
                             int s = 60;
-                            assembly {
-                                t := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)
-                            }
-                            reserve0Limit=(liquidity<<64)/tSqrtPX64(t) - reserve0;
-                            reserve1Limit=((liquidity*tSqrtPX64(t+s))>>64) - reserve1;
+                            assembly {t := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
+                            reserve0Limit=(liquidity<<64)/(tSqrtPX64(t)+1) - reserve0;
+                            reserve1Limit=((liquidity*(tSqrtPX64(t+s)-1))>>64) - reserve1;
                         }
                     }
                     if(reserve0Limit>r0||reserve1Limit>r1){
@@ -183,147 +168,123 @@ contract Arouter{
         }
     }
 
-    function allTokensWithBalances(address[] calldata tokens,uint[] calldata ethPricesX64,uint minEth) public returns (Routes[][] memory routes){
+    function allTokensWithBalances(TokenInfo[] calldata tokens,uint minEth,address caller) public returns (Route[][][] memory routes){
         unchecked{
-            routes=new Routes[][](tokens.length);
-            bytes[][] memory pools=findPools(tokens,ethPricesX64,minEth);
-            for(uint i;i<tokens.length;i++){
-                uint b = IERC20(tokens[i]).balanceOf(msg.sender);
+            routes=new Route[][][](tokens.length);
+            uint[][][] memory pools=findPools(tokens,minEth);
+            for(uint t;t<tokens.length;t++){
+                uint b = IERC20(tokens[t].token).balanceOf(caller);
                 uint n;
                 {
                     uint _b=b;
                     uint minEthX64=uint(minEth)<<64;
-                    while(_b*ethPricesX64[i]>minEthX64){
+                    uint ethPX64=tokens[t].ethPX64;
+                    while(_b*ethPX64>minEthX64){
                         n++;
                         _b>>=1;
                     }
                 }
-                routes[i]=new Routes[](n);
-                for(uint k; k<n;k++){
-                    routes[i][k].amIn=b;
-                    routes[i][k].routes=new Route[](tokens.length);
-                    uint gasPQ=((b*ethPricesX64[i]) / (tx.gasprice>0?tx.gasprice:(block.basefee+30e9)))>>64;
-                    routes[i][k].routes[i].amOut=b-((b*22000)/gasPQ+1);
-                    findRoutes(tokens,pools,routes[i][k].routes,gasPQ);
+                routes[t]=new Route[][](n);
+                for(uint am; am<n;am++){
+                    routes[t][am]=new Route[](tokens.length);
+                    routes[t][am][t].amOut=b;
+                    findRoutes(tokens,pools,routes[t][am]);
                     b>>=1;
                 }
             }
         }
     }
 
-    function singleToken(address[] calldata tokens,uint[] calldata ethPricesX64,uint amIn,uint tIn) public returns (Route[] memory routes){
+    function singleToken(TokenInfo[] calldata tokens,uint amIn,uint t) public returns (Route[] memory routes){
         unchecked{
             routes=new Route[](tokens.length);
-            uint gasPQ=((amIn*ethPricesX64[tIn]) / (tx.gasprice>0?tx.gasprice:(block.basefee+30e9)))>>64;
-            routes[tIn].amOut=amIn-((amIn*22000)/gasPQ+1);
-            bytes[][] memory pools=findPools(tokens,ethPricesX64,(amIn*ethPricesX64[tIn])>>64);
-            findRoutes(tokens,pools,routes,gasPQ);
+            routes[t].amOut=amIn;
+            uint[][][] memory pools=findPools(tokens,(amIn*(tokens[t].ethPX64))>>64);
+            findRoutes(tokens,pools,routes);
         }
     }
 
-    function findRoutes(address[] calldata tokens,bytes[][] memory pools,Route[] memory routes,uint gasPQ) internal pure{
+    function findRoutes(TokenInfo[] calldata tokens,uint[][][] memory pools,Route[] memory routes) internal view{
         unchecked{
             uint updated=type(uint).max>>(256-tokens.length);
             while(true){
                 for (uint t0; t0 < tokens.length; t0++){
+                    //Si se ha actualizado tIn vuelve a comprovar tIn con todos los tokens
                     if(updated&(1<<t0)!=0){
                         updated^=(1<<t0);
+                        //La amIn es la amOut para el tIn
                         uint amIn=routes[t0].amOut;
                         if(amIn>0){
                             for (uint t1; t1 < tokens.length; t1++){
                                 if(t0!=t1){
-                                    bool direc = tokens[t0] < tokens[t1];
-                                    uint hAmOut=routes[t1].amOut;
                                     uint poolCall;
-                                    bytes memory _pools=pools[t0][t1];
-                                    uint p;
+                                    uint ethPX64=tokens[t1].ethPX64;
+                                    uint hAmOut=routes[t1].amOut;
+                                    bool direc = tokens[t0].token < tokens[t1].token;
+                                    //Recorre todas las pools para un mismo par en busca de una mayor amOut para el tOut
+                                    uint[] memory _pools=pools[t0][t1];
+                                    uint p; qy 
                                     while(p<_pools.length){
-                                        uint slot0;uint slot1;
-                                        assembly{
-                                            slot0:=mload(add(add(_pools,0x20),p))
-                                            slot1:=mload(add(add(_pools,0x40),p))
-                                        }
-                                        uint slot2;
-                                        if(uint8(uint(slot1)>>216)==1){
-                                            slot2=slot0;
-                                            p+=0x40;
-                                        }else{
-                                            assembly{slot2:=mload(add(add(_pools,0x60),p))}
-                                            p+=0x60;
-                                        }
-                                        if((direc?(slot2>>128):uint128(slot2))>amIn){
+                                        uint slot0=_pools[p++];
+                                        uint slot1=_pools[p++];
+                                        uint t=uint8(uint(slot1)>>216);
+                                        if((direc?((t==1?slot0:_pools[p++])>>128):uint128(t==1?slot0:_pools[p++]))>amIn){
                                             uint amOut=amIn*uint24(slot1>>160);
-                                            amOut = (direc
-                                                ? (amOut * uint128(slot0)) / ((slot0>>128) * 1e6 + amOut)
-                                                : (amOut * (slot0>>128)) / (uint128(slot0) * 1e6 + amOut));
-                                            if(amOut>hAmOut && !checkPool(routes[t0].calls,address(uint160(slot1)))){
-                                                hAmOut=amOut;
-                                                poolCall=slot1;
-                                            }
+                                            amOut = (direc ? (amOut * uint128(slot0)) / ((slot0>>128) * 1e6 + amOut) : (amOut * (slot0>>128)) / (uint128(slot0) * 1e6 + amOut));
+                                            if(amOut>hAmOut && (amOut-=(((t<2?85000:285000)*tx.gasprice)<<64)/ethPX64)>hAmOut && !checkPool(routes[t0].calls,address(uint160(slot1))))
+                                                (hAmOut,poolCall)=(amOut,slot1);
                                         }
                                     }
                                     if(poolCall!=0){
-                                        hAmOut-=(hAmOut*(uint8(uint(poolCall)>>216)<2?85000:260000))/gasPQ;
-                                        if(hAmOut>routes[t1].amOut){
-                                            routes[t1].amOut=hAmOut;
-                                            bytes memory rOutCalls=routes[t1].calls;
-                                            uint rLen=routes[t0].calls.length+0x20;
-                                            {
-                                                uint len=rOutCalls.length;
-                                                if(len>0){
-                                                    while(len<rLen){
-                                                        uint nextSlot;
-                                                        assembly{
-                                                            nextSlot:=mload(add(add(rOutCalls,0x20),len))
-                                                        }
-                                                        if(nextSlot>0) break;
-                                                        len+=32;
-                                                    }
-                                                }
-                                                if(rLen>len){
-                                                    for(uint i;i<rOutCalls.length;i+=32){
-                                                        assembly{mstore(add(rOutCalls,i),0)}
-                                                    }
-                                                    rOutCalls=(routes[t1].calls=new bytes(rLen));
-                                                }else{
-                                                    assembly{
-                                                        let fm:=mload(0x40)
-                                                        let rm:=add(add(rOutCalls,0x20),rLen)
-                                                        if gt(rm,fm){
-                                                            mstore(0x40,rm)
-                                                        }
-                                                    }
-                                                    for(uint i=rLen;i<rOutCalls.length;i+=32){
-                                                        assembly{mstore(add(add(rOutCalls,0x20),i),0)}
-                                                    }
-                                                    if(rOutCalls.length!=rLen){
-                                                        assembly{
-                                                            mstore(rOutCalls,rLen)
-                                                        }
-                                                    }
+                                        //Actualiza amOut para tOut y Copia tInCalls a tOutCalls y le añade la nueva poolCall
+                                        routes[t1].amOut=hAmOut;
+                                        bytes memory tOutCalls=routes[t1].calls;
+                                        uint rLen=routes[t0].calls.length+0x20;
+                                        {
+                                            uint len=tOutCalls.length;
+                                            if(len>0){
+                                                while(len<rLen){
+                                                    uint nextSlot;
+                                                    assembly{nextSlot:=mload(add(add(tOutCalls,0x20),len))}
+                                                    if(nextSlot>0) break;
+                                                    len+=32;
                                                 }
                                             }
-                                            {
-                                                bytes memory rInCalls=routes[t0].calls;
-                                                for(uint i=0x20;i<rLen;i+=0x20){
-                                                    assembly{mstore(add(rOutCalls,i),mload(add(rInCalls,i)))}
+                                            if(rLen>len){
+                                                for(uint i;i<tOutCalls.length;i+=32)
+                                                    assembly{mstore(add(tOutCalls,i),0)}
+                                                tOutCalls=(routes[t1].calls=new bytes(rLen));
+                                            }else{
+                                                assembly{
+                                                    let fm:=mload(0x40)
+                                                    let rm:=add(add(tOutCalls,0x20),rLen)
+                                                    if gt(rm,fm){mstore(0x40,rm)}
                                                 }
+                                                for(uint i=rLen;i<tOutCalls.length;i+=32)
+                                                    assembly{mstore(add(add(tOutCalls,0x20),i),0)}
+                                                if(tOutCalls.length!=rLen) 
+                                                    assembly{mstore(tOutCalls,rLen)}
                                             }
-                                            uint _amIn=amIn;
-                                            {
-                                                uint rsh;
-                                                while(uint48(_amIn)!=_amIn){
-                                                    rsh+=8;
-                                                    _amIn>>=8;
-                                                }
-                                                _amIn<<=8;
-                                                _amIn|=rsh;
-                                            }
-                                            poolCall=(poolCall&0x7fffffffff00000000000000ffffffffffffffffffffffffffffffffffffffff)|(_amIn<<160);
-                                            if(direc) poolCall|=0x8000000000000000000000000000000000000000000000000000000000000000;
-                                            assembly{mstore(add(rOutCalls,rLen),poolCall)}
-                                            assembly{updated:=or(updated,shl(t1,0x01))}
                                         }
+                                        {
+                                            bytes memory tInCalls=routes[t0].calls;
+                                            for (uint i=0x20;i<rLen;i+=0x20)
+                                                assembly{mstore(add(tOutCalls,i),mload(add(tInCalls,i)))}
+                                        }
+                                        uint _amIn=amIn;
+                                        {
+                                            uint rsh;
+                                            while(uint48(_amIn)!=_amIn){
+                                                rsh+=8;
+                                                _amIn>>=8;
+                                            }
+                                            _amIn<<=8;
+                                            _amIn|=rsh;
+                                        }
+                                        poolCall=(poolCall&0x7fffffffff00000000000000ffffffffffffffffffffffffffffffffffffffff)|(_amIn<<160);
+                                        if(direc) poolCall|=0x8000000000000000000000000000000000000000000000000000000000000000;
+                                        assembly{mstore(add(tOutCalls,rLen),poolCall)}
+                                        assembly{updated:=or(updated,shl(t1,0x01))}
                                     }
                                 }
                             }
@@ -384,6 +345,7 @@ contract Arouter{
             }
         }
     }
+
 }
 
 
@@ -406,7 +368,7 @@ interface IUniV3Pool{
 
 interface IAlgebraV3Pool{
     function swap(address recipient, bool zeroForOne, int amountSpecified, uint160 sqrtPriceLimitX96, bytes calldata data) external returns(int amount0, int amount1);
-    function globalState() external view returns(uint sqrtPX96, int t, uint fee, uint timePointIndex, uint comunityFeet0, uint comunityFeeT1, bool unlocked);
+    function globalState() external view returns(uint sqrtPX96, int t, uint fee, uint timePointdex, uint comunityFeet0, uint comunityFeeT1, bool unlocked);
     function tickSpacing() external view returns(int s);
     function liquidity() external view returns(uint liquidity);
 }

@@ -1,7 +1,6 @@
 package caller
 
 import (
-	"log"
 	"math/big"
 	"os"
 
@@ -15,13 +14,12 @@ import (
 
 type Route struct {
 	AmOut *big.Int
-	//Gas   *big.Int
 	Calls []byte
 }
 
-type Routes struct {
-	AmIn   *big.Int
-	Routes []Route
+type TokenInfo struct {
+	Token   common.Address `json:"token"`
+	EthPX64 *big.Int       `json:"ethPX64"`
 }
 
 type Step struct {
@@ -58,13 +56,13 @@ func (batch Batch) AddBalances(tokens []common.Address, account common.Address) 
 	return batch
 }
 
-func (batch Batch) AddFindRoutesForAllTokensWithBalances(tokens []common.Address, ethPricesX64 []*big.Int, minEth *big.Int, caller common.Address, router common.Address, block string) Batch {
-	data, _ := routerABI.Pack("allTokensWithBalances", tokens, ethPricesX64, minEth)
-	return batch.AddCall(map[string]interface{}{"from": caller, "to": router, "input": hexutil.Encode(data)}, block, allTokensDecoder)
+func (batch Batch) AddFindRoutesForAllTokensWithBalances(tokens []TokenInfo, minEth *big.Int, caller common.Address, router common.Address, gasPrice *big.Int, block string) Batch {
+	data, _ := routerABI.Pack("allTokensWithBalances", tokens, minEth, caller)
+	return batch.AddCall(map[string]interface{}{"to": router, "input": hexutil.Encode(data), "gasPrice": hexutil.EncodeBig(gasPrice)}, block, allTokensDecoder)
 }
 
-func (batch Batch) AddFindRoutesForSingleToken(tokens []common.Address, ethPricesX64 []*big.Int, amIn *big.Int, tIn *big.Int, router common.Address, block string) Batch {
-	data, _ := routerABI.Pack("singleToken", tokens, ethPricesX64, amIn, tIn)
+func (batch Batch) AddFindRoutesForSingleToken(tokens []TokenInfo, amIn *big.Int, tIn *big.Int, router common.Address, block string) Batch {
+	data, _ := routerABI.Pack("singleToken", tokens, amIn, tIn)
 	return batch.AddCall(map[string]interface{}{"to": router, "input": hexutil.Encode(data)}, block, singleTokenDecoder)
 }
 
@@ -125,7 +123,7 @@ func (batch Batch) Execute(rpcclient *rpc.Client) ([]interface{}, error) {
 		if batchElems[i].Error == nil {
 			res[i] = batch[i].Decode(batchElems[i].Result)
 		} else {
-			log.Println("Error:", batchElems[i].Error, res[i])
+			//log.Println("Error:", batchElems[i].Error, res[i])
 		}
 	}
 	return res, nil
