@@ -1,4 +1,12 @@
-[
+package interfaces
+
+import (
+	"strings"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+)
+
+var Erc20ABI, _ = abi.JSON(strings.NewReader(`[
     {
         "inputs": [],
         "stateMutability": "nonpayable",
@@ -761,4 +769,205 @@
         "stateMutability": "nonpayable",
         "type": "function"
     }
-]
+]`))
+
+var RouterABI, _ = abi.JSON(strings.NewReader(`[
+	{
+		"inputs": [
+			{
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "ethPX64",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					}
+				],
+				"internalType": "struct Router.TokenInfo[]",
+				"name": "tokens",
+				"type": "tuple[]"
+			},
+			{
+				"internalType": "uint256[][][]",
+				"name": "pools",
+				"type": "uint256[][][]"
+			},
+			{
+				"internalType": "uint256",
+				"name": "depth",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amIn",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "t",
+				"type": "uint256"
+			}
+		],
+		"name": "findRoutes",
+		"outputs": [
+			{
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "amOut",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "calls",
+						"type": "bytes"
+					}
+				],
+				"internalType": "struct Router.Route[]",
+				"name": "routes",
+				"type": "tuple[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+]`))
+
+var CallerABI, _ = abi.JSON(strings.NewReader(`[
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "target",
+				"type": "address"
+			},
+			{
+				"internalType": "bytes",
+				"name": "call",
+				"type": "bytes"
+			}
+		],
+		"name": "execute",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "s",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "a",
+				"type": "address"
+			},
+			{
+				"internalType": "bool",
+				"name": "b",
+				"type": "bool"
+			}
+		],
+		"name": "setAddress",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"stateMutability": "payable",
+		"type": "constructor"
+	},
+	{
+		"stateMutability": "payable",
+		"type": "fallback"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "int256",
+				"name": "am0",
+				"type": "int256"
+			},
+			{
+				"internalType": "int256",
+				"name": "am1",
+				"type": "int256"
+			},
+			{
+				"internalType": "bytes",
+				"name": "",
+				"type": "bytes"
+			}
+		],
+		"name": "uniswapV3SwapCallback",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "whitelist",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+]`))
+
+var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
+	{
+		"inputs": [
+			{
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "ethPX64",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					}
+				],
+				"internalType": "struct PoolFinder.TokenInfo[]",
+				"name": "tokens",
+				"type": "tuple[]"
+			},
+			{
+				"internalType": "uint256",
+				"name": "minEth",
+				"type": "uint256"
+			}
+		],
+		"name": "findPools",
+		"outputs": [
+			{
+				"internalType": "uint256[][][]",
+				"name": "pools",
+				"type": "uint256[][][]"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	}
+]`))

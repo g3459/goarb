@@ -9,8 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func SignTx(txData *types.DynamicFeeTx, privateKey common.Hash) string {
-	ecdsapk, _ := crypto.ToECDSA(privateKey[:])
+func SignTx(txData *types.DynamicFeeTx, privateKey *common.Hash) string {
+	ecdsapk, _ := crypto.ToECDSA((*privateKey)[:])
 	tx, _ := types.SignNewTx(ecdsapk, types.NewCancunSigner(txData.ChainID), txData)
 	data, _ := tx.MarshalBinary()
 	return hexutil.Encode(data)
@@ -22,7 +22,7 @@ func RouteGas(calls []byte) uint64 {
 		if calls[i+4] == 2 {
 			gas += 285000
 		} else {
-			gas += 85000
+			gas += 90000
 		}
 	}
 	return gas
