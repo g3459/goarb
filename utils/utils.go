@@ -2,6 +2,7 @@ package utils
 
 import (
 	"math/big"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -17,7 +18,7 @@ func SignTx(txData *types.DynamicFeeTx, privateKey *common.Hash) string {
 }
 
 func RouteGas(calls []byte) uint64 {
-	gas := uint64(25000)
+	gas := uint64(2500)
 	for i := 0; i < len(calls); i += 32 {
 		if calls[i+4] == 2 {
 			gas += 285000
@@ -30,14 +31,21 @@ func RouteGas(calls []byte) uint64 {
 
 func AccessListForCalls(calls []byte) types.AccessList {
 	al := make([]types.AccessTuple, len(calls)/32)
+	addrs := make([]common.Address, len(al))
+	n := 0
 	for i := 0; i < len(al); i++ {
 		byteIx := i * 32
-		al[i].Address = common.Address(calls[byteIx+12 : byteIx+32])
-		if calls[(i*32)+4] == 1 {
-			al[i].StorageKeys = []common.Hash{common.BigToHash(big.NewInt(3))}
-		} else {
-			al[i].StorageKeys = []common.Hash{common.BigToHash(big.NewInt(0))}
+		addr := common.Address(calls[byteIx+12 : byteIx+32])
+		if !slices.Contains(addrs, addr) {
+			al[n].Address = addr
+			addrs[n] = addr
+			if calls[(i*32)+4] == 1 {
+				al[n].StorageKeys = []common.Hash{common.BigToHash(big.NewInt(3))}
+			} else {
+				al[n].StorageKeys = []common.Hash{common.BigToHash(big.NewInt(0))}
+			}
+			n++
 		}
 	}
-	return al
+	return al[:n]
 }

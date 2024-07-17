@@ -41,7 +41,7 @@ contract Router{
                                     subRoutes2[t0].amOut=_amIn;
                                     findRoutes(tokens,pools,depth-1,subRoutes2);
                                     for (uint t1; t1 < tokens.length; t1++){
-                                        //Si la suma de estas dos subrutas es mejor que la actual ruta se substituye.
+                                        //Si la combinacion de estas dos subrutas es mejor que la actual ruta se substituye.
                                         uint amOut=subRoutes1[t1].amOut+subRoutes2[t1].amOut;
                                         if(amOut>routes[t1].amOut){
                                             routes[t1]=Route(amOut,subRoutes2[t1].calls);
@@ -70,33 +70,32 @@ contract Router{
                                             }
                                             uint slot1=_pools[p++];
                                             {
-                                                address poolAddr=address(uint160(slot1));
                                                 bytes memory calls=routes[t0].calls;
                                                 for (uint i=0x20; i < calls.length; i += 0x20) {
                                                     uint _poolCall;
                                                     assembly{_poolCall:= mload(add(calls, i))}
-                                                    if (poolAddr == address(uint160(_poolCall))){
+                                                    if (uint160(poolCall) == uint160(_poolCall)){
+                                                        slot1&=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
                                                         uint _amIn=uint(uint48(_poolCall>>168))<<uint8(_poolCall>>160);
                                                         uint _amOut=_amIn*uint24(slot1>>160);
                                                         assembly{
                                                             switch and(_poolCall,0x8000000000000000000000000000000000000000000000000000000000000000)
                                                             case 0{
                                                                 rOut:= add(rOut,_amIn)
-                                                                rIn:= sub(rIn,div(mul(_amOut,rIn),add(mul(rOut,0xF4240),_amOut)))
+                                                                rIn:= sub(rIn,div(mul(_amOut,rIn),add(mul(rOut,1000000),_amOut)))
                                                             }default{
                                                                 rIn:= add(rIn,_amIn)
-                                                                rOut:= sub(rOut,div(mul(_amOut,rOut),add(mul(rIn,0xF4240),_amOut)))
+                                                                rOut:= sub(rOut,div(mul(_amOut,rOut),add(mul(rIn,1000000),_amOut)))
                                                             }
                                                         }
                                                     }
                                                 }
                                             }
-                                            if (!direc)
-                                                (rIn,rOut)=(rOut,rIn);
+                                            if (!direc) (rIn,rOut)=(rOut,rIn);
                                             uint8 t=uint8(slot1>>216);
                                             if(t!=1){
                                                 uint slot2=_pools[p++];
-                                                if(rIn+amIn<(direc?(slot2>>128):uint128(slot2)))
+                                                if(rIn+amIn>(direc?(slot2>>128):uint128(slot2)))
                                                     continue;
                                             }
                                             uint amOut=amIn*uint24(slot1>>160);
@@ -107,6 +106,7 @@ contract Router{
                                                     (hAmOut,poolCall)=(amOut,slot1);
                                                 }
                                             }
+                                            
                                         }
                                         if(poolCall!=0){
                                             //Actualiza amOut para tOut y Copia tInCalls a tOutCalls y le añade la nueva poolCall

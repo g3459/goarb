@@ -29,10 +29,8 @@ type Step struct {
 
 type Batch []*Step
 
-const ADDRZERO = "0x0000000000000000000000000000000000000000"
-
 func S(res interface{}, decoder func(interface{}) interface{}, method string, args ...interface{}) *Step {
-	return &Step{rpc.BatchElem{method, args, res, nil}, decoder}
+	return &Step{rpc.BatchElem{Method: method, Args: args, Result: res}, decoder}
 }
 
 func (batch Batch) AddCall(txParams map[string]interface{}, block string, decode func(interface{}) interface{}) Batch {

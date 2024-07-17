@@ -5,8 +5,8 @@ contract PoolFinder{
         address token;
     }
 
-    int24 internal constant MIN_TICK = -887272;
-    int24 internal constant MAX_TICK = 887272;
+    int internal constant MIN_TICK = -887272;
+    int internal constant MAX_TICK = 887272;
     bytes32 internal constant B4_MASK = 0xffffffff00000000000000000000000000000000000000000000000000000000;
     bytes32 internal constant ADDR_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
 
@@ -73,7 +73,7 @@ contract PoolFinder{
                     reserve0:=mload(fmp)
                     reserve1:=mload(add(fmp,0x20))
                 }
-                if((reserve1*r0)/(reserve0+r0)>r1-(r1>>3) || (reserve0*r1)/(reserve1+r1)>r0-(r0>>3)){
+                if(reserve1>0 && reserve0>0&&(reserve1>(r1<<4) || reserve0>(r0<<4) || (reserve1*r0)/(reserve0+r0)>r1-(r1>>4) || (reserve0*r1)/(reserve1+r1)>r0-(r0>>4))){
                     assembly{
                         mstore(fmp,or(shl(128,reserve0),reserve1))
                         fmp:=add(fmp,0x20)
@@ -93,31 +93,16 @@ contract PoolFinder{
             address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',factory, keccak256(abi.encode(t0, t1,fee)),poolInitCode)))));
             if(pool.code.length>0){
                 uint liquidity=IUniV3Pool(pool).liquidity();
-                if(liquidity>2){
-                    uint reserve0;uint reserve1;uint reserve0Limit;uint reserve1Limit;
-                    {
-                        int t;uint sqrtPX64;
-                        assembly{
-                            mstore(fmp,0x3850c7bd00000000000000000000000000000000000000000000000000000000)
-                            pop(call(gas(), pool, 0, fmp, 0x04, fmp, 0x40))
-                            sqrtPX64 := shr(32,mload(fmp))
-                            t:=mload(add(fmp,0x20))
-                        }
-                        reserve0=(liquidity<<64)/sqrtPX64;
-                        reserve1=(liquidity*sqrtPX64)>>64;
-                        int tl;
-                        assembly {tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
-                        int tu=tl+s;
-                        if(tl>MIN_TICK){
-                            tl=MIN_TICK;
-                        }
-                        else if(tu<=MAX_TICK){
-                            tu=MAX_TICK;
-                        }
-                        reserve0Limit=(liquidity<<64)/(tSqrtPX64(tl)+1);
-                        reserve1Limit=((liquidity*tSqrtPX64(tu))>>64);
+                if(liquidity>2){                    
+                    int t;uint sqrtPX64;
+                    assembly{
+                        mstore(fmp,0x3850c7bd00000000000000000000000000000000000000000000000000000000)
+                        pop(call(gas(), pool, 0, fmp, 0x04, fmp, 0x40))
+                        sqrtPX64 := shr(32,mload(fmp))
+                        t:=mload(add(fmp,0x20))
                     }
-                    if((r0+reserve0<reserve0Limit && (reserve1*r0)/(reserve0+r0)>r1-(r1>>3)) || (r1+reserve1<reserve1Limit && (reserve0*r1)/(reserve1+r1)>r0-(r0>>3))){
+                    (uint reserve0,uint reserve1,uint reserve0Limit,uint reserve1Limit)=reserves(liquidity,sqrtPX64,t,s);
+                    if((r0+reserve0<reserve0Limit && (reserve0>(r0<<4) || (reserve1*r0)/(reserve0+r0)>r1-(r1>>4))) || (r1+reserve1<reserve1Limit && (reserve1>(r1<<4) || (reserve0*r1)/(reserve1+r1)>r0-(r0>>4)))){
                         assembly{
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
@@ -141,33 +126,17 @@ contract PoolFinder{
             if(pool.code.length>0){
                 uint liquidity =IAlgebraV3Pool(pool).liquidity();
                 if(liquidity>2){
-                    uint reserve0;uint reserve1;uint reserve0Limit;uint reserve1Limit;uint fee;
-                    {
-                        int t;uint sqrtPX64;
-                        assembly{
-                            mstore(fmp,0xe76c01e400000000000000000000000000000000000000000000000000000000)
-                            pop(call(gas(), pool, 0, fmp, 0x04, fmp, 0x60))
-                            sqrtPX64 := shr(32,mload(fmp))
-                            t:=mload(add(fmp,0x20))
-                            fee:=mload(add(fmp,0x40))
-                        }
-                        reserve0=(liquidity<<64)/sqrtPX64;
-                        reserve1=(liquidity*sqrtPX64)>>64;
-                        int s = 60;
-                        int tl;
-                        assembly {tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
-                        int tu=tl+s;
-                        if(tl>MIN_TICK){
-                            tl=MIN_TICK;
-                        }
-                        else if(tu<=MAX_TICK){
-                            tu=MAX_TICK;
-                        }
-                        reserve0Limit=(liquidity<<64)/(tSqrtPX64(tl)+1);
-                        reserve1Limit=((liquidity*tSqrtPX64(tu))>>64);
+                    int t;uint sqrtPX64;
+                    assembly{
+                        mstore(fmp,0xe76c01e400000000000000000000000000000000000000000000000000000000)
+                        pop(call(gas(), pool, 0, fmp, 0x04, fmp, 0x60))
+                        sqrtPX64 := shr(32,mload(fmp))
+                        t:=mload(add(fmp,0x20))
                     }
-                    if((r0+reserve0<reserve0Limit && (reserve1*r0)/(reserve0+r0)>r1-(r1>>3)) || (r1+reserve1<reserve1Limit && (reserve0*r1)/(reserve1+r1)>r0-(r0>>3))){
+                    (uint reserve0,uint reserve1,uint reserve0Limit,uint reserve1Limit)=reserves(liquidity,sqrtPX64,t,60);
+                    if((r0+reserve0<reserve0Limit && (reserve0>(r0<<4) || (reserve1*r0)/(reserve0+r0)>r1-(r1>>4))) || (r1+reserve1<reserve1Limit && (reserve1>(r1<<4) || (reserve0*r1)/(reserve1+r1)>r0-(r0>>4)))){
                         assembly{
+                            let fee:=mload(add(fmp,0x40))
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
                             mstore(fmp,or(and(keccak256(fmp,0x20),B4_MASK),or(shl(216,2),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK)))))
@@ -179,6 +148,25 @@ contract PoolFinder{
                 }
             }
             assembly{mstore(0x40,fmp)}
+        }
+    }
+
+
+    function reserves(uint liquidity,uint sqrtPX64,int t, int s)internal pure returns (uint reserve0,uint reserve1, uint reserve0Limit,uint reserve1Limit){
+        unchecked{
+            reserve0=(liquidity<<64)/sqrtPX64;
+            reserve1=(liquidity*sqrtPX64)>>64;
+            int tl;
+            assembly {tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
+            int tu=tl+s;
+            if(tl<MIN_TICK){
+                tl=MIN_TICK;
+            }
+            else if(tu>MAX_TICK){
+                tu=MAX_TICK;
+            }
+            reserve0Limit=(liquidity<<64)/(tSqrtPX64(tl)+1);
+            reserve1Limit=((liquidity*tSqrtPX64(tu))>>64);
         }
     }
 

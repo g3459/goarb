@@ -1,4 +1,7 @@
 contract Caller {
+
+    uint internal constant STATE_MASK=0x7fffffff00000000000000000000000000000000000000000000000000000000;
+    uint internal constant TYPE_MASK=0x00000000ff000000000000000000000000000000000000000000000000000000;
     address owner;
     
     constructor() payable{
@@ -15,17 +18,20 @@ contract Caller {
             assembly{
                 for { let i := 0 } lt(i,len) { i := add(i, 32) }{
                     let poolCall:=calldataload(i)
-                    switch and(poolCall,0x00000000ff000000000000000000000000000000000000000000000000000000)
-                    case 0x0000000001000000000000000000000000000000000000000000000000000000 {
-                        mstore(0x80,0x0902f1ac00000000000000000000000000000000000000000000000000000000)
-                    }case 0x0000000002000000000000000000000000000000000000000000000000000000 {
-                        mstore(0x80,0xe76c01e400000000000000000000000000000000000000000000000000000000)
-                    }default{
-                        mstore(0x80,0x3850c7bd00000000000000000000000000000000000000000000000000000000)
-                    }
-                    pop(call(gas(), poolCall, 0, 0x80, 0x04, 0x80, 0x20))
-                    if xor(and(keccak256(0x80,0x20),0x7fffffff00000000000000000000000000000000000000000000000000000000),and(poolCall,0x7fffffff00000000000000000000000000000000000000000000000000000000)){
-                        revert(0,0)
+                    let rstate:=and(poolCall,STATE_MASK)
+                    if rstate{
+                        switch and(poolCall,TYPE_MASK)
+                        case 0x0000000001000000000000000000000000000000000000000000000000000000 {
+                            mstore(0x80,0x0902f1ac00000000000000000000000000000000000000000000000000000000)
+                        }case 0x0000000002000000000000000000000000000000000000000000000000000000 {
+                            mstore(0x80,0xe76c01e400000000000000000000000000000000000000000000000000000000)
+                        }default{
+                            mstore(0x80,0x3850c7bd00000000000000000000000000000000000000000000000000000000)
+                        }
+                        pop(call(gas(), poolCall, 0, 0x80, 0x04, 0x80, 0x20))
+                        if xor(and(keccak256(0x80,0x20),STATE_MASK),rstate){
+                            revert(0,0)
+                        }
                     }
                 }
             }
@@ -33,12 +39,10 @@ contract Caller {
                 uint poolCall=uint(bytes32(msg.data[i:]));
                 uint amIn=uint(uint48(poolCall>>168))<<uint8(poolCall>>160);
                 address pool;
+                assembly{pool:=poolCall}
                 bool direc;
-                assembly{
-                    pool:=poolCall
-                    direc:=and(poolCall,0x8000000000000000000000000000000000000000000000000000000000000000)
-                }
-                if(poolCall&0x00000000ff000000000000000000000000000000000000000000000000000000==0x0000000001000000000000000000000000000000000000000000000000000000){
+                assembly{direc:=and(poolCall,0x8000000000000000000000000000000000000000000000000000000000000000)}
+                if(poolCall&TYPE_MASK==0x0000000001000000000000000000000000000000000000000000000000000000){
                     uint r0;uint r1;
                     assembly{
                         mstore(0x80,0x0902f1ac00000000000000000000000000000000000000000000000000000000)
@@ -46,10 +50,10 @@ contract Caller {
                         r0:=mload(0x80)
                         r1:=mload(0xa0)
                     }
-                    uint amOut=amIn*997000;
+                    uint amOut=amIn*997;
                     amOut = (direc
-                        ? (amOut * r1) / (r0 * 1e6 + amOut)
-                        : (amOut * r0) / (r1 * 1e6 + amOut));
+                        ? (amOut * r1) / (r0 * 1000 + amOut)
+                        : (amOut * r0) / (r1 * 1000 + amOut));
                     IERC20(direc?IUniV2Pool(pool).token0():IUniV2Pool(pool).token1()).transfer(pool,amIn);
                     IUniV2Pool(pool).swap(direc?0:amOut, direc?amOut:0, address(this), "");
                 }else{
