@@ -27,7 +27,7 @@ contract Router{
                     if(updated&(1<<t0)!=0){
                         updated^=(1<<t0);
                         //La amIn es la amOut para el tIn
-                        if(routes[t0].amOut>0){
+                        if(routes[t0].amOut>0 && routes[t0].calls.length<(0x20*8)){
                             {
                                 //Busca 2 subrutas para la mitad de la amIn.
                                 uint _amIn=routes[t0].amOut>>1;

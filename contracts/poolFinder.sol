@@ -73,7 +73,7 @@ contract PoolFinder{
                     reserve0:=mload(fmp)
                     reserve1:=mload(add(fmp,0x20))
                 }
-                if(reserve1>0 && reserve0>0&&(reserve1>(r1<<4) || reserve0>(r0<<4) || (reserve1*r0)/(reserve0+r0)>r1-(r1>>4) || (reserve0*r1)/(reserve1+r1)>r0-(r0>>4))){
+                if(reserve1>0 && reserve0>0&&(reserve1>(r1<<5) || reserve0>(r0<<5) || (reserve1*r0)/(reserve0+r0)>r1-(r1>>5) || (reserve0*r1)/(reserve1+r1)>r0-(r0>>5))){
                     assembly{
                         mstore(fmp,or(shl(128,reserve0),reserve1))
                         fmp:=add(fmp,0x20)
@@ -102,7 +102,7 @@ contract PoolFinder{
                         t:=mload(add(fmp,0x20))
                     }
                     (uint reserve0,uint reserve1,uint reserve0Limit,uint reserve1Limit)=reserves(liquidity,sqrtPX64,t,s);
-                    if((r0+reserve0<reserve0Limit && (reserve0>(r0<<4) || (reserve1*r0)/(reserve0+r0)>r1-(r1>>4))) || (r1+reserve1<reserve1Limit && (reserve1>(r1<<4) || (reserve0*r1)/(reserve1+r1)>r0-(r0>>4)))){
+                    if((r0+reserve0<reserve0Limit && (reserve0>(r0<<5) || (reserve1*r0)/(reserve0+r0)>r1-(r1>>5))) || (r1+reserve1<reserve1Limit && (reserve1>(r1<<5) || (reserve0*r1)/(reserve1+r1)>r0-(r0>>5)))){
                         assembly{
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
@@ -134,7 +134,7 @@ contract PoolFinder{
                         t:=mload(add(fmp,0x20))
                     }
                     (uint reserve0,uint reserve1,uint reserve0Limit,uint reserve1Limit)=reserves(liquidity,sqrtPX64,t,60);
-                    if((r0+reserve0<reserve0Limit && (reserve0>(r0<<4) || (reserve1*r0)/(reserve0+r0)>r1-(r1>>4))) || (r1+reserve1<reserve1Limit && (reserve1>(r1<<4) || (reserve0*r1)/(reserve1+r1)>r0-(r0>>4)))){
+                    if((r0+reserve0<reserve0Limit && (reserve0>(r0<<5) || (reserve1*r0)/(reserve0+r0)>r1-(r1>>5))) || (r1+reserve1<reserve1Limit && (reserve1>(r1<<5) || (reserve0*r1)/(reserve1+r1)>r0-(r0>>5)))){
                         assembly{
                             let fee:=mload(add(fmp,0x40))
                             mstore(fmp,or(shl(128,reserve0),reserve1))

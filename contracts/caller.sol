@@ -30,7 +30,7 @@ contract Caller {
                         }
                         pop(call(gas(), poolCall, 0, 0x80, 0x04, 0x80, 0x20))
                         if xor(and(keccak256(0x80,0x20),STATE_MASK),rstate){
-                            revert(0,0)
+                            revert(0x80,0x20)
                         }
                     }
                 }
