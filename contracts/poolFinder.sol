@@ -66,18 +66,19 @@ contract PoolFinder{
             assembly{fmp:=mload(0x40)}
             address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',factory, keccak256(abi.encodePacked(t0, t1)) ,poolInitCode)))));
             if(pool.code.length>0){
-                uint reserve0; uint reserve1;
+                uint reserve0; uint reserve1;bytes32 stateHash;
                 assembly{
                     mstore(fmp,0x0902f1ac00000000000000000000000000000000000000000000000000000000)
                     pop(call(gas(), pool, 0, fmp, 0x04, fmp, 0x40))
                     reserve0:=mload(fmp)
                     reserve1:=mload(add(fmp,0x20))
+                    stateHash:=keccak256(fmp,0x20)
                 }
                 if(reserve1>0 && reserve0>0&&(reserve1>(r1<<5) || reserve0>(r0<<5) || (reserve1*r0)/(reserve0+r0)>r1-(r1>>5) || (reserve0*r1)/(reserve1+r1)>r0-(r0>>5))){
                     assembly{
                         mstore(fmp,or(shl(128,reserve0),reserve1))
                         fmp:=add(fmp,0x20)
-                        mstore(fmp,or(and(keccak256(fmp,0x20),B4_MASK),or(shl(216,1),or(shl(160,997000),and(pool,ADDR_MASK)))))
+                        mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,1),or(shl(160,997000),and(pool,ADDR_MASK)))))
                         fmp:=add(fmp,0x20)
                     }
                 }
@@ -94,19 +95,20 @@ contract PoolFinder{
             if(pool.code.length>0){
                 uint liquidity=IUniV3Pool(pool).liquidity();
                 if(liquidity>2){                    
-                    int t;uint sqrtPX64;
+                    int t;uint sqrtPX64;bytes32 stateHash;
                     assembly{
                         mstore(fmp,0x3850c7bd00000000000000000000000000000000000000000000000000000000)
                         pop(call(gas(), pool, 0, fmp, 0x04, fmp, 0x40))
                         sqrtPX64 := shr(32,mload(fmp))
                         t:=mload(add(fmp,0x20))
+                        stateHash:=keccak256(fmp,0x20)
                     }
                     (uint reserve0,uint reserve1,uint reserve0Limit,uint reserve1Limit)=reserves(liquidity,sqrtPX64,t,s);
                     if((r0+reserve0<reserve0Limit && (reserve0>(r0<<5) || (reserve1*r0)/(reserve0+r0)>r1-(r1>>5))) || (r1+reserve1<reserve1Limit && (reserve1>(r1<<5) || (reserve0*r1)/(reserve1+r1)>r0-(r0>>5)))){
                         assembly{
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
-                            mstore(fmp,or(and(keccak256(fmp,0x20),B4_MASK),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK))))
+                            mstore(fmp,or(and(stateHash,B4_MASK),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK))))
                             fmp:=add(fmp,0x20)
                             mstore(fmp,or(shl(128,reserve0Limit),reserve1Limit))
                             fmp:=add(fmp,0x20)
@@ -126,12 +128,13 @@ contract PoolFinder{
             if(pool.code.length>0){
                 uint liquidity =IAlgebraV3Pool(pool).liquidity();
                 if(liquidity>2){
-                    int t;uint sqrtPX64;
+                    int t;uint sqrtPX64;bytes32 stateHash;
                     assembly{
                         mstore(fmp,0xe76c01e400000000000000000000000000000000000000000000000000000000)
                         pop(call(gas(), pool, 0, fmp, 0x04, fmp, 0x60))
                         sqrtPX64 := shr(32,mload(fmp))
                         t:=mload(add(fmp,0x20))
+                        stateHash:=keccak256(fmp,0x20)
                     }
                     (uint reserve0,uint reserve1,uint reserve0Limit,uint reserve1Limit)=reserves(liquidity,sqrtPX64,t,60);
                     if((r0+reserve0<reserve0Limit && (reserve0>(r0<<5) || (reserve1*r0)/(reserve0+r0)>r1-(r1>>5))) || (r1+reserve1<reserve1Limit && (reserve1>(r1<<5) || (reserve0*r1)/(reserve1+r1)>r0-(r0>>5)))){
@@ -139,7 +142,7 @@ contract PoolFinder{
                             let fee:=mload(add(fmp,0x40))
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
-                            mstore(fmp,or(and(keccak256(fmp,0x20),B4_MASK),or(shl(216,2),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK)))))
+                            mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,2),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK)))))
                             fmp:=add(fmp,0x20)
                             mstore(fmp,or(shl(128,reserve0Limit),reserve1Limit))
                             fmp:=add(fmp,0x20)

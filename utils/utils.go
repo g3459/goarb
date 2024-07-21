@@ -18,12 +18,12 @@ func SignTx(txData *types.DynamicFeeTx, privateKey *common.Hash) string {
 }
 
 func RouteGas(calls []byte) uint64 {
-	gas := uint64(2500)
+	gas := uint64(30000)
 	for i := 0; i < len(calls); i += 32 {
 		if calls[i+4] == 2 {
 			gas += 285000
 		} else {
-			gas += 90000
+			gas += 100000
 		}
 	}
 	return gas

@@ -27,7 +27,7 @@ contract Router{
                     if(updated&(1<<t0)!=0){
                         updated^=(1<<t0);
                         //La amIn es la amOut para el tIn
-                        if(routes[t0].amOut>0 && routes[t0].calls.length<(0x20*8)){
+                        if(routes[t0].amOut>0){
                             {
                                 //Busca 2 subrutas para la mitad de la amIn.
                                 uint _amIn=routes[t0].amOut>>1;
@@ -74,7 +74,7 @@ contract Router{
                                                 for (uint i=0x20; i < calls.length; i += 0x20) {
                                                     uint _poolCall;
                                                     assembly{_poolCall:= mload(add(calls, i))}
-                                                    if (uint160(poolCall) == uint160(_poolCall)){
+                                                    if (uint160(slot1) == uint160(_poolCall)){
                                                         slot1&=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
                                                         uint _amIn=uint(uint48(_poolCall>>168))<<uint8(_poolCall>>160);
                                                         uint _amOut=_amIn*uint24(slot1>>160);
@@ -101,12 +101,11 @@ contract Router{
                                             uint amOut=amIn*uint24(slot1>>160);
                                             amOut = (amOut * rOut) / (rIn * 1e6 + amOut);
                                             if(amOut>hAmOut){
-                                                amOut-=((t<2?(90000<<64):(285000<<64))*tx.gasprice)/ethPX64;
+                                                amOut-=((t<2?(100000<<64):(285000<<64))*tx.gasprice)/ethPX64;
                                                 if (int(amOut)>int(hAmOut)){
                                                     (hAmOut,poolCall)=(amOut,slot1);
                                                 }
                                             }
-                                            
                                         }
                                         if(poolCall!=0){
                                             //Actualiza amOut para tOut y Copia tInCalls a tOutCalls y le añade la nueva poolCall

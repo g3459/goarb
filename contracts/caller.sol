@@ -14,9 +14,8 @@ contract Caller {
 
     fallback() external payable check{
         unchecked{
-            uint len=msg.data.length;
-            assembly{
-                for { let i := 0 } lt(i,len) { i := add(i, 32) }{
+            for(uint i;i<msg.data.length;i+=32){
+                assembly{
                     let poolCall:=calldataload(i)
                     let rstate:=and(poolCall,STATE_MASK)
                     if rstate{
@@ -30,12 +29,12 @@ contract Caller {
                         }
                         pop(call(gas(), poolCall, 0, 0x80, 0x04, 0x80, 0x20))
                         if xor(and(keccak256(0x80,0x20),STATE_MASK),rstate){
-                            revert(0x80,0x20)
+                            revert(0,0)
                         }
                     }
                 }
             }
-            for(uint i;i<len;i+=32){
+            for(uint i;i<msg.data.length;i+=32){
                 uint poolCall=uint(bytes32(msg.data[i:]));
                 uint amIn=uint(uint48(poolCall>>168))<<uint8(poolCall>>160);
                 address pool;
