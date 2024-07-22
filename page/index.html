@@ -243,33 +243,57 @@
     <div class="container">
         <h1 style="text-align: center; color: #007bff;">Swap Tokens</h1>
         <select id="tokenIn">
-            <option value="0xc2132d05d31c914a87c6611c10748aeb04b58e8f">USDT</option>
-            <option value="0x3c499c542cef5e3811e1192ce70d8cc03d5c3359">USDC</option>
-            <option value="0x8f3cf7ad23cd3cadbd9735aff958023239c6a063">DAI</option>
-            <option value="0x7ceb23fd6bc0add59e62ac25578270cff1b9f619">ETH</option>
-            <option value="0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6">BTC</option>
-            <option value="0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270">MATIC</option>
-            <option value="0x53e0bca35ec356bd5dddfebbd1fc0fd03fabad39">LINK</option>
-            <option value="0xd6df932a45c0f255f85145f286ea0b292b21c90b">AAVE</option>
-            <option value="0x2791bca1f2de4661ed88a30c99a7a9449aa84174">USDC.E</option>
-            <option value="0x61299774020da444af134c82fa83e3810b309991">RNDR</option>
-            <option value="0xc3c7d422809852031b44ab29eec9f1eff2a58756">LDO</option>
-            <option value="0xb33eaad8d922b1083446dc23f610c2567fb5180f">UNI</option>
+            <option value='{"address":"0xc2132d05d31c914a87c6611c10748aeb04b58e8f","decimals":6}'>USDT</option>
+            <option value='{"address":"0x2791bca1f2de4661ed88a30c99a7a9449aa84174","decimals":6}'>USDC.E</option>
+            <option value='{"address":"0x3c499c542cef5e3811e1192ce70d8cc03d5c3359","decimals":6}'>USDC</option>
+            <option value='{"address":"0x8f3cf7ad23cd3cadbd9735aff958023239c6a063","decimals":18}'>DAI</option>
+            <option value='{"address":"0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270","decimals":18}'>WMATIC</option>
+            <option value='{"address":"0x7ceb23fd6bc0add59e62ac25578270cff1b9f619","decimals":18}'>WETH</option>
+            <option value='{"address":"0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6","decimals":8}'>WBTC</option>
+            <option value='{"address":"0x53e0bca35ec356bd5dddfebbd1fc0fd03fabad39","decimals":18}'>LINK</option>
+            <option value='{"address":"0xd6df932a45c0f255f85145f286ea0b292b21c90b","decimals":18}'>AAVE</option>
+            <option value='{"address":"0x61299774020da444af134c82fa83e3810b309991","decimals":18}'>RNDR</option>
+            <option value='{"address":"0xc3c7d422809852031b44ab29eec9f1eff2a58756","decimals":18}'>LDO</option>
+            <option value='{"address":"0xb33eaad8d922b1083446dc23f610c2567fb5180f","decimals":18}'>UNI</option>
+            <option value='{"address":"0x385eeac5cb85a38a9a07a70c73e0a3271cfb54a7","decimals":18}'>GHST</option>
+            <option value='{"address":"0xa3fa99a148fa48d14ed51d610c367c61876997f1","decimals":18}'>MIMATIC</option>
+            <option value='{"address":"0xbbba073c31bf03b8acf7c28ef0738decf3695683","decimals":18}'>SAND</option>
+            <option value='{"address":"0xe5417af564e4bfda1c483642db72007871397896","decimals":18}'>GNS</option>
+            <option value='{"address":"0xb5c064f955d8e7f38fe0460c556a72987494ee17","decimals":18}'>QUICK</option>
+            <option value='{"address":"0x5fe2b58c013d7601147dcdd68c143a77499f5531","decimals":18}'>GRT</option>
+            <option value='{"address":"0x172370d5cd63279efa6d502dab29171933a610af","decimals":18}'>CRV</option>
+            <option value='{"address":"0xa1c57f48f0deb89f569dfbe6e2b7f46d33606fd4","decimals":18}'>MANA</option>
+            <option value='{"address":"0x0b3f868e0be5597d5db7feb59e1cadbb0fdda50a","decimals":18}'>SUSHI</option>
+            <option value='{"address":"0x3a58a54c066fdc0f2d55fc9c89f0415c92ebf3c4","decimals":18}'>STMATIC</option>
+            <option value='{"address":"0x03b54a6e9a984069379fae1a4fc4dbae93b3bccd","decimals":18}'>WSTETH</option>
+            <option value='{"address":"0xfa68fb4628dff1028cfec22b4162fccd0d45efb6","decimals":18}'>MATICX</option>
         </select>
         <div class="swap-icon" id="swapIcon">&#8646;</div>
         <select id="tokenOut">
-            <option value="0xc2132d05d31c914a87c6611c10748aeb04b58e8f">USDT</option>
-            <option value="0x3c499c542cef5e3811e1192ce70d8cc03d5c3359">USDC</option>
-            <option value="0x8f3cf7ad23cd3cadbd9735aff958023239c6a063">DAI</option>
-            <option value="0x7ceb23fd6bc0add59e62ac25578270cff1b9f619">ETH</option>
-            <option value="0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6">BTC</option>
-            <option value="0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270">MATIC</option>
-            <option value="0x53e0bca35ec356bd5dddfebbd1fc0fd03fabad39">LINK</option>
-            <option value="0xd6df932a45c0f255f85145f286ea0b292b21c90b">AAVE</option>
-            <option value="0x2791bca1f2de4661ed88a30c99a7a9449aa84174">USDC.E</option>
-            <option value="0x61299774020da444af134c82fa83e3810b309991">RNDR</option>
-            <option value="0xc3c7d422809852031b44ab29eec9f1eff2a58756">LDO</option>
-            <option value="0xb33eaad8d922b1083446dc23f610c2567fb5180f">UNI</option>
+            <option value='{"address":"0xc2132d05d31c914a87c6611c10748aeb04b58e8f","decimals":6}'>USDT</option>
+            <option value='{"address":"0x2791bca1f2de4661ed88a30c99a7a9449aa84174","decimals":6}'>USDC.E</option>
+            <option value='{"address":"0x3c499c542cef5e3811e1192ce70d8cc03d5c3359","decimals":6}'>USDC</option>
+            <option value='{"address":"0x8f3cf7ad23cd3cadbd9735aff958023239c6a063","decimals":18}'>DAI</option>
+            <option value='{"address":"0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270","decimals":18}'>WMATIC</option>
+            <option value='{"address":"0x7ceb23fd6bc0add59e62ac25578270cff1b9f619","decimals":18}'>WETH</option>
+            <option value='{"address":"0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6","decimals":8}'>WBTC</option>
+            <option value='{"address":"0x53e0bca35ec356bd5dddfebbd1fc0fd03fabad39","decimals":18}'>LINK</option>
+            <option value='{"address":"0xd6df932a45c0f255f85145f286ea0b292b21c90b","decimals":18}'>AAVE</option>
+            <option value='{"address":"0x61299774020da444af134c82fa83e3810b309991","decimals":18}'>RNDR</option>
+            <option value='{"address":"0xc3c7d422809852031b44ab29eec9f1eff2a58756","decimals":18}'>LDO</option>
+            <option value='{"address":"0xb33eaad8d922b1083446dc23f610c2567fb5180f","decimals":18}'>UNI</option>
+            <option value='{"address":"0x385eeac5cb85a38a9a07a70c73e0a3271cfb54a7","decimals":18}'>GHST</option>
+            <option value='{"address":"0xa3fa99a148fa48d14ed51d610c367c61876997f1","decimals":18}'>MIMATIC</option>
+            <option value='{"address":"0xbbba073c31bf03b8acf7c28ef0738decf3695683","decimals":18}'>SAND</option>
+            <option value='{"address":"0xe5417af564e4bfda1c483642db72007871397896","decimals":18}'>GNS</option>
+            <option value='{"address":"0xb5c064f955d8e7f38fe0460c556a72987494ee17","decimals":18}'>QUICK</option>
+            <option value='{"address":"0x5fe2b58c013d7601147dcdd68c143a77499f5531","decimals":18}'>GRT</option>
+            <option value='{"address":"0x172370d5cd63279efa6d502dab29171933a610af","decimals":18}'>CRV</option>
+            <option value='{"address":"0xa1c57f48f0deb89f569dfbe6e2b7f46d33606fd4","decimals":18}'>MANA</option>
+            <option value='{"address":"0x0b3f868e0be5597d5db7feb59e1cadbb0fdda50a","decimals":18}'>SUSHI</option>
+            <option value='{"address":"0x3a58a54c066fdc0f2d55fc9c89f0415c92ebf3c4","decimals":18}'>STMATIC</option>
+            <option value='{"address":"0x03b54a6e9a984069379fae1a4fc4dbae93b3bccd","decimals":18}'>WSTETH</option>
+            <option value='{"address":"0xfa68fb4628dff1028cfec22b4162fccd0d45efb6","decimals":18}'>MATICX</option>
         </select>
         <input type="number" id="amountIn" min="0.01" step="0.01" placeholder="Amount">
         <button id="swapButton">Swap</button>
@@ -286,14 +310,15 @@
     <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.6.6/dist/umd/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/web3@1.6.1/dist/web3.min.js"></script>
     <script>
+
         document.getElementById('darkModeSwitch').addEventListener('change', function () {
             document.body.classList.toggle('dark-mode');
         });
 
         document.getElementById('swapButton').addEventListener('click', function () {
-            var tokenIn = document.getElementById('tokenIn').value;
+            var tokenIn = JSON.parse(document.getElementById('tokenIn').value);
             var amountIn = document.getElementById('amountIn').value;
-            var tokenOut = document.getElementById('tokenOut').value;
+            var tokenOut = JSON.parse(document.getElementById('tokenOut').value);
             if (tokenIn === tokenOut) {
                 alert("Please select different tokens");
                 return;
@@ -303,14 +328,14 @@
                 return;
             }
             document.getElementById('amountOut').innerHTML = "<div class=\"loading-icon\"></div>";
-            fetch(`http://127.0.0.1:8080/swap?tokenIn=${tokenIn}&amountIn=${amountIn}&tokenOut=${tokenOut}`, {
+            fetch(`http://127.0.0.1:8080/swap?tokenIn=${tokenIn.address}&amountIn=${amountIn * (10 ** tokenIn.decimals)}&tokenOut=${tokenOut.address}`, {
                 method: 'GET',
             })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
                         console.log("Transaction to be signed and executed: ", data.tx);
-                        document.getElementById('amountOut').innerHTML = `You will receive: ${data.amountOut}`;
+                        document.getElementById('amountOut').innerHTML = `You will receive: ${data.amountOut / (10 ** tokenOut.decimals)}`;
                         if (window.ethereum) {
                             const web3 = new Web3(window.ethereum);
                             window.ethereum.request({ method: 'eth_requestAccounts' }).then(accounts => {

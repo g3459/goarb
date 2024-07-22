@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -38,23 +37,6 @@ type Configuration struct {
 	WsRpcs      []string           `json:"wsRpcs"`
 	ChainId     *big.Int           `json:"chainId"`
 	MinMinerTip *big.Int           `json:"minMinerTip"`
-}
-
-var tokenDecimals = map[common.Address]uint{
-	common.HexToAddress("0xc2132d05d31c914a87c6611c10748aeb04b58e8f"): 6,
-	common.HexToAddress("0x2791bca1f2de4661ed88a30c99a7a9449aa84174"): 6,
-	common.HexToAddress("0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270"): 18,
-	common.HexToAddress("0x7ceb23fd6bc0add59e62ac25578270cff1b9f619"): 18,
-	common.HexToAddress("0x8f3cf7ad23cd3cadbd9735aff958023239c6a063"): 18,
-	common.HexToAddress("0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6"): 8,
-	common.HexToAddress("0x53e0bca35ec356bd5dddfebbd1fc0fd03fabad39"): 18,
-	common.HexToAddress("0x3c499c542cef5e3811e1192ce70d8cc03d5c3359"): 6,
-	common.HexToAddress("0xd6df932a45c0f255f85145f286ea0b292b21c90b"): 18,
-	common.HexToAddress("0xb33eaad8d922b1083446dc23f610c2567fb5180f"): 18,
-	common.HexToAddress("0x61299774020da444af134c82fa83e3810b309991"): 18,
-	common.HexToAddress("0xc3c7d422809852031b44ab29eec9f1eff2a58756"): 18,
-	common.HexToAddress("0xa3fa99a148fa48d14ed51d610c367c61876997f1"): 18,
-	common.HexToAddress("0x385eeac5cb85a38a9a07a70c73e0a3271cfb54a7"): 18,
 }
 
 func main() {
@@ -89,7 +71,7 @@ func main() {
 		log.Fatal(err)
 	}
 	sim.Commit()
-	http.Handle("/", http.FileServer(http.Dir("../page")))
+	http.Handle("/", http.FileServer(http.Dir("./")))
 	fmt.Println(string(rawConf))
 	if err != nil {
 		panic(err)
@@ -112,9 +94,8 @@ func main() {
 		defer func() { json.NewEncoder(w).Encode(response) }()
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		tokenIn := common.HexToAddress(r.URL.Query().Get("tokenIn"))
-		amountInStr := r.URL.Query().Get("amountIn")
 		tokenOut := common.HexToAddress(r.URL.Query().Get("tokenOut"))
-		amountIn, _ := strconv.ParseFloat(amountInStr, 64)
+		amIn, _ := new(big.Int).SetString(r.URL.Query().Get("amountIn"), 10)
 		var tInx int64
 		var tOutx int64
 		for _, t := range conf.Tokens {
@@ -131,9 +112,6 @@ func main() {
 			}
 			tOutx++
 		}
-		amInF := big.NewFloat(amountIn)
-		amIn := new(big.Int)
-		amInF.Mul(amInF, new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokenDecimals[tokenIn])), nil))).Int(amIn)
 		log.Println("\n{\n    TokenIn: ", tokenIn, "\n    TokenOut: ", tokenOut, "\n    AmIn: ", amIn, "\n}")
 		ethIn := new(big.Int).Mul(amIn, conf.Tokens[tInx].EthPX64)
 		ethIn.Rsh(ethIn, 64)
@@ -170,7 +148,6 @@ func main() {
 			baseFeeHex, _ := block["baseFeePerGas"].(string)
 			baseFee, _ := hexutil.DecodeBig(baseFeeHex)
 			minGasPrice := new(big.Int).Add(baseFee, conf.MinMinerTip)
-			// routeCall, err := new(caller.Batch).AddCallFindRoutes(conf.Tokens, pools, conf.MinEth, big.NewInt(40000000), big.NewInt(0), minGasPrice, router, "latest").Execute(simClient)
 			data, _ := interfaces.RouterABI.Pack("findRoutes", conf.Tokens, pools, big.NewInt(0), amIn, big.NewInt(tInx))
 			msg := ethereum.CallMsg{
 				From:     sender,
@@ -191,20 +168,11 @@ func main() {
 				AmOut *big.Int "json:\"amOut\""
 				Calls []uint8  "json:\"calls\""
 			})
-			// fmt.Println(routes)
-			r := new(big.Float).SetInt(routes[tOutx].AmOut)
-			decDivisor := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(tokenDecimals[tokenOut])), nil))
-			r.Quo(r, decDivisor)
-			rr, _ := r.Float64()
-			// routes[tOutx].Calls[0] &= 0x80
-			// routes[tOutx].Calls[1] = 0
-			// routes[tOutx].Calls[2] = 0
-			// routes[tOutx].Calls[3] = 0
-			response = &map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": conf.Caller, "input": hexutil.Encode(routes[tOutx].Calls), "gas": utils.RouteGas(routes[tOutx].Calls), "gasPrice": minGasPrice.Uint64()}, "amountOut": rr}
+			response = &map[string]interface{}{"success": true, "tx": map[string]interface{}{"to": conf.Caller, "input": hexutil.Encode(routes[tOutx].Calls), "gas": utils.RouteGas(routes[tOutx].Calls), "gasPrice": minGasPrice.Uint64()}, "amountOut": routes[tOutx].AmOut}
 			log.Println(response)
 			return
 		}
 	})
-	log.Println("Starting webserver on:", "http://127.0.0.1:8080/page")
+	log.Println("Starting webserver on:", "http://127.0.0.1:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
