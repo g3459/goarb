@@ -22,6 +22,11 @@ type TokenInfo struct {
 	EthPX64 *big.Int        `json:"ethPX64"`
 }
 
+type Protocol struct {
+	Factory  *common.Address `json:"factory"`
+	InitCode *common.Hash    `json:"initCode"`
+}
+
 type Step struct {
 	Element rpc.BatchElem
 	Decode  func(interface{}) interface{}
@@ -50,8 +55,8 @@ func (batch Batch) AddCallFindPools(tokens []TokenInfo, minEth *big.Int, poolFin
 	return batch.AddCall(map[string]interface{}{"to": poolFinder, "input": hexutil.Encode(data)}, block, poolsDecoder)
 }
 
-func (batch Batch) AddCallFindRoutes(tokens []TokenInfo, pools [][][]common.Hash, depth *big.Int, amIn *big.Int, tIn *big.Int, gasPrice *big.Int, router *common.Address, block string) Batch {
-	data, _ := interfaces.RouterABI.Pack("findRoutes", tokens, pools, depth, amIn, tIn)
+func (batch Batch) AddCallFindRoutes(tokens []TokenInfo, pools [][][]common.Hash, amIn *big.Int, tIn *big.Int, gasPrice *big.Int, router *common.Address, block string) Batch {
+	data, _ := interfaces.RouterABI.Pack("findRoutes", tokens, pools, amIn, tIn)
 	return batch.AddCall(map[string]interface{}{"to": router, "input": hexutil.Encode(data)}, block, routesDecoder)
 }
 

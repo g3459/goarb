@@ -775,6 +775,21 @@ var RouterABI, _ = abi.JSON(strings.NewReader(`[
 	{
 		"inputs": [
 			{
+				"internalType": "uint256",
+				"name": "depth",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "amIn",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "t",
+				"type": "uint256"
+			},
+			{
 				"components": [
 					{
 						"internalType": "uint256",
@@ -795,21 +810,6 @@ var RouterABI, _ = abi.JSON(strings.NewReader(`[
 				"internalType": "uint256[][][]",
 				"name": "pools",
 				"type": "uint256[][][]"
-			},
-			{
-				"internalType": "uint256",
-				"name": "depth",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amIn",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "t",
-				"type": "uint256"
 			}
 		],
 		"name": "findRoutes",
