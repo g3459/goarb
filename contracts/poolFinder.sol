@@ -10,12 +10,18 @@ contract PoolFinder{
         address factory;
     }
 
+    struct Protocols{
+        Protocol[] uniV2;
+        Protocol[] uniV3;
+        Protocol[] algebraV3;
+    }
+
     int internal constant MIN_TICK = -887272;
     int internal constant MAX_TICK = 887272;
     bytes32 internal constant B4_MASK = 0xffffffff00000000000000000000000000000000000000000000000000000000;
     bytes32 internal constant ADDR_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
 
-    function findPools(uint minEth,TokenInfo[] calldata tokens,Protocol[][] calldata protocols)public returns(uint[][][] memory pools){
+    function findPools(uint minEth,TokenInfo[] calldata tokens,Protocols calldata protocols)public returns(uint[][][] memory pools){
         unchecked {
             minEth<<=64;
             pools=new uint[][][](tokens.length);
@@ -31,17 +37,17 @@ contract PoolFinder{
                             _pools:=mload(0x40)
                             mstore(0x40,add(_pools,0x20))
                         }
-                        for(uint i; i<protocols[0].length;i++){
-                            mstoreUniV2Pool(protocols[0][i],token0,token1,r0,r1);
+                        for(uint i; i<protocols.uniV2.length;i++){
+                            mstoreUniV2Pool(protocols.uniV2[i],token0,token1,r0,r1);
                         }
-                        for(uint i; i<protocols[1].length;i++){
-                            mstoreUniV3Pool(protocols[1][i],token0,token1,r0,r1,100,1);
-                            // mstoreUniV3Pool(token0,token1,r0,r1,500,10,protocols[1][i]);
-                            // mstoreUniV3Pool(token0,token1,r0,r1,3000,60,protocols[1][i]);
-                            // mstoreUniV3Pool(token0,token1,r0,r1,10000,200,protocols[1][i]);
+                        for(uint i; i<protocols.uniV3.length;i++){
+                            mstoreUniV3Pool(protocols.uniV3[i],token0,token1,r0,r1,100,1);
+                            mstoreUniV3Pool(protocols.uniV3[i],token0,token1,r0,r1,500,10);
+                            mstoreUniV3Pool(protocols.uniV3[i],token0,token1,r0,r1,3000,60);
+                            mstoreUniV3Pool(protocols.uniV3[i],token0,token1,r0,r1,10000,200);
                         }
-                        for(uint i; i<protocols[2].length;i++){
-                            mstoreAlgebraV3Pool(protocols[0][i],token0,token1,r0,r1);
+                        for(uint i; i<protocols.algebraV3.length;i++){
+                            mstoreAlgebraV3Pool(protocols.algebraV3[i],token0,token1,r0,r1);
                         }
                         uint len;
                         assembly{
@@ -61,7 +67,7 @@ contract PoolFinder{
         }
     }
 
-    function mstoreUniV2Pool(address t0,address t1,uint r0, uint r1,Protocol calldata protocol) internal{
+    function mstoreUniV2Pool(Protocol calldata protocol,address t0,address t1,uint r0, uint r1) internal{
         unchecked{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
@@ -171,6 +177,10 @@ contract PoolFinder{
             }
             reserve0Limit=(liquidity<<64)/(tSqrtPX64(tl)+1);
             reserve1Limit=((liquidity*tSqrtPX64(tu))>>64);
+            if(reserve0Limit<reserve0)
+                reserve0Limit=reserve0;
+            if(reserve1Limit<reserve1)
+                reserve1Limit=reserve1;
         }
     }
 

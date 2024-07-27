@@ -937,6 +937,11 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 	{
 		"inputs": [
 			{
+				"internalType": "uint256",
+				"name": "minEth",
+				"type": "uint256"
+			},
+			{
 				"components": [
 					{
 						"internalType": "uint256",
@@ -954,9 +959,62 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 				"type": "tuple[]"
 			},
 			{
-				"internalType": "uint256",
-				"name": "minEth",
-				"type": "uint256"
+				"components": [
+					{
+						"components": [
+							{
+								"internalType": "bytes32",
+								"name": "initCode",
+								"type": "bytes32"
+							},
+							{
+								"internalType": "address",
+								"name": "factory",
+								"type": "address"
+							}
+						],
+						"internalType": "struct PoolFinder.Protocol[]",
+						"name": "uniV2",
+						"type": "tuple[]"
+					},
+					{
+						"components": [
+							{
+								"internalType": "bytes32",
+								"name": "initCode",
+								"type": "bytes32"
+							},
+							{
+								"internalType": "address",
+								"name": "factory",
+								"type": "address"
+							}
+						],
+						"internalType": "struct PoolFinder.Protocol[]",
+						"name": "uniV3",
+						"type": "tuple[]"
+					},
+					{
+						"components": [
+							{
+								"internalType": "bytes32",
+								"name": "initCode",
+								"type": "bytes32"
+							},
+							{
+								"internalType": "address",
+								"name": "factory",
+								"type": "address"
+							}
+						],
+						"internalType": "struct PoolFinder.Protocol[]",
+						"name": "algebraV3",
+						"type": "tuple[]"
+					}
+				],
+				"internalType": "struct PoolFinder.Protocols",
+				"name": "protocols",
+				"type": "tuple"
 			}
 		],
 		"name": "findPools",

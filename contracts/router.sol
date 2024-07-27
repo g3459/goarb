@@ -86,12 +86,12 @@ contract Router{
                                             // }
                                             // (rIn,rOut)=(_rIn,_rOut);
                                             if (!direc) (rIn,rOut)=(rOut,rIn);
+                                            uint amOut=amIn*uint24(slot1>>160);
                                             if(uint8(slot1>>216)!=1){
                                                 uint slot2=_pools[p++];
-                                                if(rIn+amIn>(direc?(slot2>>128):uint128(slot2)))
+                                                if(amOut>((direc?(slot2>>128):uint128(slot2))-rIn)*1e6)
                                                     continue;
                                             }
-                                            uint amOut=amIn*uint24(slot1>>160);
                                             amOut = (amOut * rOut) / (rIn * 1e6 + amOut);
                                             if(amOut>hAmOut){
                                                 (hAmOut,poolCall)=(amOut,slot1);
@@ -165,7 +165,7 @@ contract Router{
     function updateReserves(bytes memory calls,uint r0,uint r1,uint slot1)internal pure returns(uint,uint){
         uint fees=uint24(slot1>>160);
         uint160 pool=uint160(slot1);
-        for (uint i=0x20; i < calls.length; i += 0x20) {
+        for (uint i=0x20; i <= calls.length; i += 0x20) {
             uint _poolCall;
             assembly{_poolCall:= mload(add(calls, i))}
             if (pool == uint160(_poolCall)){
@@ -173,11 +173,11 @@ contract Router{
                 uint amOut=amIn*fees;
                 bool v2fee = uint8(slot1>>216)==1;
                 if(_poolCall&0x8000000000000000000000000000000000000000000000000000000000000000==0){
-                    r1+=v2fee?amIn:(amOut/1e6);
                     r0-=(amOut*r0)/(r1*1e6+amOut);
+                    r1+=v2fee?amIn:(amOut/1e6);
                 }else{
-                    r0+=v2fee?amIn:(amOut/1e6);
                     r1-=(amOut*r1)/(r0*1e6+amOut);
+                    r0+=v2fee?amIn:(amOut/1e6);
                 }
             }
         }

@@ -27,6 +27,12 @@ type Protocol struct {
 	InitCode *common.Hash    `json:"initCode"`
 }
 
+type Protocols struct {
+	UniV2     []Protocol `json:"uniV2"`
+	UniV3     []Protocol `json:"uniV3"`
+	AlgebraV3 []Protocol `json:"algebraV3"`
+}
+
 type Step struct {
 	Element rpc.BatchElem
 	Decode  func(interface{}) interface{}
@@ -47,8 +53,8 @@ func (batch Batch) AddCallBalanceOf(token *common.Address, account *common.Addre
 	return batch.AddCall(map[string]interface{}{"to": token, "input": hexutil.Encode(data)}, block, bigIntDecoder)
 }
 
-func (batch Batch) AddCallFindPools(tokens []TokenInfo, minEth *big.Int, poolFinder *common.Address, block string) Batch {
-	data, err := interfaces.PoolFinderABI.Pack("findPools", tokens, minEth)
+func (batch Batch) AddCallFindPools(minEth *big.Int, tokens []TokenInfo, protocols Protocols, poolFinder *common.Address, block string) Batch {
+	data, err := interfaces.PoolFinderABI.Pack("findPools", minEth, tokens, protocols)
 	if err != nil {
 		log.Println(err)
 	}
