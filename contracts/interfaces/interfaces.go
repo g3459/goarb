@@ -776,12 +776,7 @@ var RouterABI, _ = abi.JSON(strings.NewReader(`[
 		"inputs": [
 			{
 				"internalType": "uint256",
-				"name": "depth",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amIn",
+				"name": "maxLen",
 				"type": "uint256"
 			},
 			{
@@ -790,21 +785,9 @@ var RouterABI, _ = abi.JSON(strings.NewReader(`[
 				"type": "uint256"
 			},
 			{
-				"components": [
-					{
-						"internalType": "uint256",
-						"name": "ethPX64",
-						"type": "uint256"
-					},
-					{
-						"internalType": "address",
-						"name": "token",
-						"type": "address"
-					}
-				],
-				"internalType": "struct Router.TokenInfo[]",
-				"name": "tokens",
-				"type": "tuple[]"
+				"internalType": "uint256",
+				"name": "amIn",
+				"type": "uint256"
 			},
 			{
 				"internalType": "uint256[][][]",
@@ -937,26 +920,14 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 	{
 		"inputs": [
 			{
-				"internalType": "uint256",
-				"name": "minEth",
-				"type": "uint256"
+				"internalType": "address",
+				"name": "token0",
+				"type": "address"
 			},
 			{
-				"components": [
-					{
-						"internalType": "uint256",
-						"name": "ethPX64",
-						"type": "uint256"
-					},
-					{
-						"internalType": "address",
-						"name": "token",
-						"type": "address"
-					}
-				],
-				"internalType": "struct PoolFinder.TokenInfo[]",
-				"name": "tokens",
-				"type": "tuple[]"
+				"internalType": "address",
+				"name": "token1",
+				"type": "address"
 			},
 			{
 				"components": [
@@ -1020,9 +991,9 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 		"name": "findPools",
 		"outputs": [
 			{
-				"internalType": "uint256[][][]",
+				"internalType": "uint256[]",
 				"name": "pools",
-				"type": "uint256[][][]"
+				"type": "uint256[]"
 			}
 		],
 		"stateMutability": "nonpayable",

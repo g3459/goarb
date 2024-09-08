@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/hex"
 	"math/big"
 	"slices"
 
@@ -10,6 +11,20 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+func DecodeHex(s string) []byte {
+	if len(s) >= 2 && s[0] == '0' && (s[1] == 'x' || s[1] == 'X') {
+		s = s[2:]
+	}
+	if len(s)%2 == 1 {
+		s = "0" + s
+	}
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
 func SignTx(txData *types.DynamicFeeTx, privateKey *common.Hash) string {
 	ecdsapk, _ := crypto.ToECDSA((*privateKey)[:])
 	tx, _ := types.SignNewTx(ecdsapk, types.NewCancunSigner(txData.ChainID), txData)
@@ -18,10 +33,10 @@ func SignTx(txData *types.DynamicFeeTx, privateKey *common.Hash) string {
 }
 
 func RouteGas(calls []byte) uint64 {
-	gas := uint64(30000)
+	gas := uint64(50000)
 	for i := 0; i < len(calls); i += 32 {
 		if calls[i+4] == 2 {
-			gas += 285000
+			gas += 300000
 		} else {
 			gas += 100000
 		}

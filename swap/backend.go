@@ -116,7 +116,7 @@ func main() {
 		callch := make(chan interface{}, len(wsrpcclients))
 		for _, rpcclient := range wsrpcclients {
 			go func(_rpcclient *rpc.Client) {
-				call, err := new(caller.Batch).AddBlockByNumber("latest").AddCallFindPools(conf.Tokens, ethIn, conf.PoolFinder, "latest").Execute(_rpcclient)
+				call, err := new(caller.Batch).BlockByNumber("latest", nil).FindPools(conf.Tokens, ethIn, conf.PoolFinder, "latest").Submit(_rpcclient)
 				if err != nil {
 					callch <- err
 				} else {
