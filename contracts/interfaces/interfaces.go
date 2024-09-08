@@ -790,9 +790,9 @@ var RouterABI, _ = abi.JSON(strings.NewReader(`[
 				"type": "uint256"
 			},
 			{
-				"internalType": "uint256[][][]",
+				"internalType": "bytes[][]",
 				"name": "pools",
-				"type": "uint256[][][]"
+				"type": "bytes[][]"
 			}
 		],
 		"name": "findRoutes",
@@ -991,9 +991,9 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 		"name": "findPools",
 		"outputs": [
 			{
-				"internalType": "uint256[]",
+				"internalType": "bytes",
 				"name": "pools",
-				"type": "uint256[]"
+				"type": "bytes"
 			}
 		],
 		"stateMutability": "nonpayable",

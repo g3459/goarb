@@ -16,7 +16,7 @@ contract PoolFinder{
     bytes32 internal constant B4_MASK = 0xffffffff00000000000000000000000000000000000000000000000000000000;
     bytes32 internal constant ADDR_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
 
-    function findPools(address token0,address token1,Protocols calldata protocols)public returns(uint[] memory pools){
+    function findPools(address token0,address token1,Protocols calldata protocols)public returns(bytes memory pools){
         unchecked {
             if(token0>token1)
                 (token0,token1)=(token1,token0);
@@ -42,7 +42,7 @@ contract PoolFinder{
             }
             if(len>0){
                 assembly{
-                    mstore(pools,div(len,0x20))
+                    mstore(pools,len)
                 }
             }
         }

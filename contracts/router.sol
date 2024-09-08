@@ -10,7 +10,7 @@ contract Router{
         address token;
     }
     
-    function findRoutes(uint maxLen,uint t,uint amIn,uint[][][] calldata pools) public view returns (Route[] memory routes){
+    function findRoutes(uint maxLen,uint t,uint amIn,bytes[][] calldata pools) public view returns (Route[] memory routes){
         unchecked{
             routes=new Route[](pools.length);
             routes[t].amOut=amIn;
@@ -18,7 +18,7 @@ contract Router{
         }
     }
 
-    function findRoutes(uint maxLen,uint[][][] calldata pools,Route[] memory routes) internal view{
+    function findRoutes(uint maxLen,bytes[][] calldata pools,Route[] memory routes) internal view{
         unchecked{
             uint updated=type(uint).max>>(256-routes.length);
             while (updated!=0){
@@ -32,7 +32,7 @@ contract Router{
                             for (uint t1; t1 < pools.length; t1++){
                                 if(t0!=t1){
                                     bool direc;
-                                    uint[] memory _pools;
+                                    bytes memory _pools;
                                     if(pools[t0][t1].length>0){
                                         direc=true;
                                         _pools=pools[t0][t1];
@@ -48,15 +48,27 @@ contract Router{
                                     while(p<_pools.length){
                                         uint rIn;uint rOut;
                                         {
-                                            uint slot0=_pools[p++];
+                                            p+=0x20;
+                                            uint slot0;
+                                            assembly{
+                                                slot0:=mload(add(_pools,p))
+                                            }
                                             rIn=slot0>>128;
                                             rOut=uint128(slot0);
                                         }
-                                        uint slot1=_pools[p++];
+                                        p+=0x20;
+                                        uint slot1;
+                                        assembly{
+                                            slot1:=mload(add(_pools,p))
+                                        }
                                         (rIn,rOut)=updateReserves(routes[t0].calls,rIn, rOut, slot1);
                                         uint rInLimit;
                                         {
-                                            uint slot2=_pools[p++];
+                                            p+=0x20;
+                                            uint slot2;
+                                            assembly{
+                                                slot2:=mload(add(_pools,p))
+                                            }
                                             if(direc){
                                                 rInLimit=(slot2>>128);
                                             }else{

@@ -33,13 +33,8 @@
 		"outputSelection": {
 			"*": {
 				"*": [
-					"evm.bytecode"
-				]
-			},
-			"def": {
-				"MyContract": [
-					"abi",
-					"evm.bytecode.opcodes"
+					"evm.bytecode",
+					"abi"
 				]
 			}
 		}
