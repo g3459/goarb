@@ -1,14 +1,10 @@
-contract PoolFinder{
+import "./router.sol";
+
+contract CPoolFinder{
 
     struct Protocol{
         bytes32 initCode;
         address factory;
-    }
-
-    struct Protocols{
-        Protocol[] uniV2;
-        Protocol[] uniV3;
-        Protocol[] algebraV3;
     }
 
     int internal constant MIN_TICK = -887272;
@@ -16,52 +12,134 @@ contract PoolFinder{
     bytes32 internal constant B4_MASK = 0xffffffff00000000000000000000000000000000000000000000000000000000;
     bytes32 internal constant ADDR_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
 
-    function findPools(address token0,address token1,Protocols calldata protocols)public returns(bytes memory pools){
+    function findPools(uint minEth,address[] calldata tokens,Protocol[] calldata uniV2Protocols,Protocol[] calldata uniV3Protocols,Protocol[] calldata algbProtocols)public view returns(bytes[][] memory pools){
         unchecked {
-            if(token0>token1)
-                (token0,token1)=(token1,token0);
-            assembly{
-                pools:=mload(0x40)
-                mstore(0x40,add(pools,0x20))
+            pools=new bytes[][](tokens.length);
+            for(uint t0;t0<tokens.length;t0++){
+                for (uint t1; t1<tokens.length; t1++){
+                    if(tokens[t0]>tokens[t1])
+                        continue;
+                    bytes memory _pools;
+                    assembly{
+                        _pools:=mload(0x40)
+                        mstore(0x40,add(_pools,0x20))
+                    }
+                    for(uint i; i<uniV2Protocols.length;i++){
+                        mstoreUniV2Pool(uniV2Protocols[i],tokens[t0],tokens[t1]);
+                    }
+                    for(uint i; i<uniV3Protocols.length;i++){
+                        mstoreUniV3Pool(uniV3Protocols[i],tokens[t0],tokens[t1],100,1);
+                        mstoreUniV3Pool(uniV3Protocols[i],tokens[t0],tokens[t1],500,10);
+                        mstoreUniV3Pool(uniV3Protocols[i],tokens[t0],tokens[t1],3000,60);
+                        mstoreUniV3Pool(uniV3Protocols[i],tokens[t0],tokens[t1],10000,200);
+                    }
+                    for(uint i; i<algbProtocols.length;i++){
+                        mstoreAlgbPool(algbProtocols[i],tokens[t0],tokens[t1]);
+                    }
+                    uint len;
+                    assembly{
+                        len:=sub(sub(mload(0x40),_pools),0x20)
+                    }
+                    if(len>0){
+                        assembly{
+                            mstore(_pools,len)
+                        }
+                        if(pools[t0].length==0){
+                            pools[t0]=new bytes[](tokens.length);
+                        }
+                        pools[t0][t1]=_pools;
+                    }
+                }
             }
-            for(uint i; i<protocols.uniV2.length;i++){
-                mstoreUniV2Pool(protocols.uniV2[i],token0,token1);
-            }
-            for(uint i; i<protocols.uniV3.length;i++){
-                mstoreUniV3Pool(protocols.uniV3[i],token0,token1,100,1);
-                mstoreUniV3Pool(protocols.uniV3[i],token0,token1,500,10);
-                mstoreUniV3Pool(protocols.uniV3[i],token0,token1,3000,60);
-                mstoreUniV3Pool(protocols.uniV3[i],token0,token1,10000,200);
-            }
-            for(uint i; i<protocols.algebraV3.length;i++){
-                mstoreAlgebraV3Pool(protocols.algebraV3[i],token0,token1);
-            }
-            uint len;
-            assembly{
-                len:=sub(sub(mload(0x40),pools),0x20)
-            }
-            if(len>0){
-                assembly{
-                    mstore(pools,len)
+            (uint[] memory amounts,)=CRouter.findRoutes(2,0,minEth,pools);
+            filterPools(amounts,pools);
+        }
+    }
+
+    function filterPools(uint[] memory fAmounts, bytes[][] memory pools) internal pure{
+        unchecked{
+            for (uint t0; t0 < pools.length; t0++){
+                bool b;
+                for (uint t1; t1 < pools[t0].length; t1++){
+                    bytes memory _pools=pools[t0][t1];
+                    if(t0==t1 || _pools.length==0){
+                        continue;
+                    }
+                    uint _len;
+                    uint p;
+                    while(p<_pools.length){
+                        uint slot0;uint slot1;uint slot2;
+                        assembly{
+                            p:=add(p,0x20)
+                            slot0:=mload(add(_pools,p))
+                            p:=add(p,0x20)
+                            slot1:=mload(add(_pools,p))
+                            p:=add(p,0x20)
+                            slot2:=mload(add(_pools,p))
+                        }
+                        uint rt0=slot0>>128;
+                        uint rt1=uint128(slot0);
+                        uint amt0;
+                        uint amt1;
+                        {
+                            uint fee=uint24(slot1>>160);
+                            amt0=fAmounts[t1]*fee;
+                            amt0=(amt0 * rt0) / (rt1 * 1e6 + amt0);
+                            amt1=fAmounts[t0]*fee;
+                            amt1=(amt1 * rt1) / (rt0 * 1e6 + amt1);
+                        }
+                        if(amt0==0||amt1==0){
+                            continue;
+                        }
+                        uint rl0;
+                        uint rl1;
+                        if(slot2==0){
+                            rl0=type(uint).max;
+                            rl1=type(uint).max;
+                        }else{
+                            rl0=slot2>>128;
+                            rl1=uint128(slot2);
+                        }
+                        if((amt1+(amt1>>7)<fAmounts[t1] || amt1+rt1>rl1) && (amt0+(amt0>>7)<fAmounts[t0] || amt0+rt0>rl0)){
+                            continue;
+                        }
+                        assembly{
+                            _len:=add(_len,0x20)
+                            mstore(add(_pools,_len),slot0)
+                            _len:=add(_len,0x20)
+                            mstore(add(_pools,_len),slot1)
+                            _len:=add(_len,0x20)
+                            mstore(add(_pools,_len),slot2)
+                        }
+                    }
+                    assembly{
+                        mstore(_pools,_len)
+                    }
+                    if(_len>0){
+                        b=true;
+                    }
+                }
+                if(!b){
+                    delete pools[t0];
                 }
             }
         }
     }
 
-    function mstoreUniV2Pool(Protocol calldata protocol,address t0,address t1) internal{
+    function mstoreUniV2Pool(Protocol calldata protocol,address t0,address t1) internal view{
         unchecked{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
             address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',protocol.factory, keccak256(abi.encodePacked(t0, t1)) ,protocol.initCode)))));
-            if(pool.code.length>0){
+            if(pool.code.length!=0){
                 uint reserve0; uint reserve1;bytes32 stateHash;
                 assembly{
                     mstore(fmp,0x0902f1ac00000000000000000000000000000000000000000000000000000000)
-                    pop(call(gas(), pool, 0, fmp, 0x04, fmp, 0x40))
+                    pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
                     reserve0:=mload(fmp)
                     reserve1:=mload(add(fmp,0x20))
                 }
-                if(reserve0>0 && reserve1>0){
+                if(reserve0>0&&reserve1>0){
                     assembly{
                         stateHash:=keccak256(fmp,0x20)
                         mstore(fmp,or(shl(128,reserve0),reserve1))
@@ -75,30 +153,32 @@ contract PoolFinder{
         }
     }
 
-    function mstoreUniV3Pool(Protocol calldata protocol,address t0,address t1,uint fee,int s)internal {
+    function mstoreUniV3Pool(Protocol calldata protocol,address t0,address t1,uint fee,int s)internal view{
         unchecked{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
             address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',protocol.factory, keccak256(abi.encode(t0, t1,fee)),protocol.initCode)))));
-            if(pool.code.length>0){
+            if(pool.code.length!=0){
                 uint liquidity=IUniV3Pool(pool).liquidity();
-                if(liquidity>2){
+                if(liquidity>0){
                     int t;uint sqrtPX64;bytes32 stateHash;
                     assembly{
                         mstore(fmp,0x3850c7bd00000000000000000000000000000000000000000000000000000000)
-                        pop(call(gas(), pool, 0, fmp, 0x04, fmp, 0x40))
+                        pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
                         sqrtPX64 := shr(32,mload(fmp))
                         t:=mload(add(fmp,0x20))
                         stateHash:=keccak256(fmp,0x20)
                     }
                     (uint reserve0,uint reserve1,uint reserve0Limit,uint reserve1Limit)=reserves(liquidity,sqrtPX64,t,s);
-                    assembly{
-                        mstore(fmp,or(shl(128,reserve0),reserve1))
-                        fmp:=add(fmp,0x20)
-                        mstore(fmp,or(and(stateHash,B4_MASK),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK))))
-                        fmp:=add(fmp,0x20)
-                        mstore(fmp,or(shl(128,reserve0Limit),reserve1Limit))
-                        fmp:=add(fmp,0x20)
+                    if(reserve0>0&&reserve1>0){
+                        assembly{
+                            mstore(fmp,or(shl(128,reserve0),reserve1))
+                            fmp:=add(fmp,0x20)
+                            mstore(fmp,or(and(stateHash,B4_MASK),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK))))
+                            fmp:=add(fmp,0x20)
+                            mstore(fmp,or(shl(128,reserve0Limit),reserve1Limit))
+                            fmp:=add(fmp,0x20)
+                        }
                     }
                 }
             }
@@ -106,31 +186,33 @@ contract PoolFinder{
         }
     }
 
-    function mstoreAlgebraV3Pool(Protocol calldata protocol,address t0,address t1)internal {
+    function mstoreAlgbPool(Protocol calldata protocol,address t0,address t1)internal view{
         unchecked{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
             address pool =  address(uint160(uint(keccak256(abi.encodePacked(hex'ff',protocol.factory,keccak256(abi.encode(t0, t1)),protocol.initCode)))));
-            if(pool.code.length>0){
+            if(pool.code.length!=0){
                 uint liquidity =IAlgebraV3Pool(pool).liquidity();
-                if(liquidity>2){
+                if(liquidity>0){
                     int t;uint sqrtPX64;bytes32 stateHash;
                     assembly{
                         mstore(fmp,0xe76c01e400000000000000000000000000000000000000000000000000000000)
-                        pop(call(gas(), pool, 0, fmp, 0x04, fmp, 0x60))
+                        pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x60))
                         sqrtPX64 := shr(32,mload(fmp))
                         t:=mload(add(fmp,0x20))
                         stateHash:=keccak256(fmp,0x20)
                     }
                     (uint reserve0,uint reserve1,uint reserve0Limit,uint reserve1Limit)=reserves(liquidity,sqrtPX64,t,60);
-                    assembly{
-                        let fee:=mload(add(fmp,0x40))
-                        mstore(fmp,or(shl(128,reserve0),reserve1))
-                        fmp:=add(fmp,0x20)
-                        mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,2),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK)))))
-                        fmp:=add(fmp,0x20)
-                        mstore(fmp,or(shl(128,reserve0Limit),reserve1Limit))
-                        fmp:=add(fmp,0x20)
+                    if(reserve0>0&&reserve1>0){
+                        assembly{
+                            let fee:=mload(add(fmp,0x40))
+                            mstore(fmp,or(shl(128,reserve0),reserve1))
+                            fmp:=add(fmp,0x20)
+                            mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,2),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK)))))
+                            fmp:=add(fmp,0x20)
+                            mstore(fmp,or(shl(128,reserve0Limit),reserve1Limit))
+                            fmp:=add(fmp,0x20)
+                        }
                     }
                 }
             }
@@ -143,21 +225,23 @@ contract PoolFinder{
         unchecked{
             reserve0=(liquidity<<64)/sqrtPX64;
             reserve1=(liquidity*sqrtPX64)>>64;
-            int tl;
-            assembly {tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
-            int tu=tl+s;
-            if(tl<MIN_TICK){
-                tl=MIN_TICK;
+            if(reserve0>0&&reserve1>0){
+                int tl;
+                assembly {tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
+                int tu=tl+s;
+                if(tl<MIN_TICK){
+                    tl=MIN_TICK;
+                }
+                else if(tu>MAX_TICK){
+                    tu=MAX_TICK;
+                }
+                reserve0Limit=(liquidity<<64)/(tSqrtPX64(tl)+1);
+                reserve1Limit=((liquidity*tSqrtPX64(tu))>>64);
+                if(reserve0Limit<reserve0)
+                    reserve0Limit=reserve0;
+                if(reserve1Limit<reserve1)
+                    reserve1Limit=reserve1;
             }
-            else if(tu>MAX_TICK){
-                tu=MAX_TICK;
-            }
-            reserve0Limit=(liquidity<<64)/(tSqrtPX64(tl)+1);
-            reserve1Limit=((liquidity*tSqrtPX64(tu))>>64);
-            if(reserve0Limit<reserve0)
-                reserve0Limit=reserve0;
-            if(reserve1Limit<reserve1)
-                reserve1Limit=reserve1;
         }
     }
 
@@ -197,7 +281,6 @@ contract PoolFinder{
             }
         }
     }
-
 }
 
 //interfaces

@@ -13,8 +13,8 @@ import (
 )
 
 type Route struct {
-	AmOut *big.Int
-	Calls []byte
+	AmOut *big.Int `json:"amOut"`
+	Calls []byte   `json:"calls"`
 }
 
 type Protocol struct {
@@ -22,22 +22,16 @@ type Protocol struct {
 	InitCode *common.Hash    `json:"initCode"`
 }
 
-type Protocols struct {
-	UniV2     []Protocol `json:"uniV2"`
-	UniV3     []Protocol `json:"uniV3"`
-	AlgebraV3 []Protocol `json:"algebraV3"`
+type step struct {
+	e rpc.BatchElem
+	d func(interface{}) interface{}
+	c func(interface{})
 }
 
-type Step struct {
-	Element  rpc.BatchElem
-	Decode   func(interface{}) interface{}
-	Callback func(interface{})
-}
+type Batch []*step
 
-type Batch []*Step
-
-func S(res interface{}, decoder func(interface{}) interface{}, callback func(interface{}), method string, args ...interface{}) *Step {
-	return &Step{rpc.BatchElem{Method: method, Args: args, Result: res}, decoder, callback}
+func S(res interface{}, decoder func(interface{}) interface{}, callback func(interface{}), method string, args ...interface{}) *step {
+	return &step{rpc.BatchElem{Method: method, Args: args, Result: res}, decoder, callback}
 }
 
 func (batch Batch) Call(txParams map[string]interface{}, block string, decoder func(interface{}) interface{}, callback func(interface{})) Batch {
@@ -49,21 +43,29 @@ func (batch Batch) BalanceOf(token *common.Address, account *common.Address, blo
 	return batch.Call(map[string]interface{}{"to": token, "input": hexutil.Encode(data)}, block, bigIntDecoder, callback)
 }
 
-func (batch Batch) FindPools(token0 *common.Address, token1 *common.Address, protocols Protocols, poolFinder *common.Address, block string, callback func(interface{})) Batch {
-	data, err := interfaces.PoolFinderABI.Pack("findPools", token0, token1, protocols)
+func (batch Batch) FindPools(minEth *big.Int, tokens []common.Address, uniV2Protocols []Protocol, uniV3Protocols []Protocol, algbProtocols []Protocol, poolFinder *common.Address, block string, callback func(interface{})) Batch {
+	data, err := interfaces.PoolFinderABI.Pack("findPools", minEth, tokens, uniV2Protocols, uniV3Protocols, algbProtocols)
 	if err != nil {
 		log.Println("zssdfsf", err)
 	}
 	return batch.Call(map[string]interface{}{"to": poolFinder, "input": hexutil.Encode(data)}, block, poolsDecoder, callback)
 }
 
-func (batch Batch) FindRoutes(tIn *big.Int, amIn *big.Int, pools [][][]*big.Int, gasPrice *big.Int, router *common.Address, block string, callback func(interface{})) Batch {
-	data, _ := interfaces.RouterABI.Pack("findRoutes", tIn, amIn, pools)
-	return batch.Call(map[string]interface{}{"to": router, "input": hexutil.Encode(data)}, block, routesDecoder, callback)
+func (batch Batch) FindRoutes(maxLen *big.Int, tIn *big.Int, amIn *big.Int, pools [][][]byte, gasPrice *big.Int, router *common.Address, block string, callback func(interface{})) Batch {
+	data, _ := interfaces.RouterABI.Pack("findRoutes", maxLen, tIn, amIn, pools)
+	return batch.Call(map[string]interface{}{"to": router, "gasPrice": hexutil.EncodeBig(gasPrice), "input": hexutil.Encode(data)}, block, routesDecoder, callback)
+}
+
+func (batch Batch) EthBalance(account *common.Address, block string, callback func(interface{})) Batch {
+	return append(batch, S(new(string), bigIntDecoder, callback, "eth_getBalance", account, block))
 }
 
 func (batch Batch) GasPrice(callback func(interface{})) Batch {
 	return append(batch, S(new(string), bigIntDecoder, callback, "eth_gasPrice"))
+}
+
+func (batch Batch) ChainId(callback func(interface{})) Batch {
+	return append(batch, S(new(string), uint64Decoder, callback, "eth_chainID"))
 }
 
 func (batch Batch) BlockNumber(callback func(interface{})) Batch {
@@ -74,13 +76,17 @@ func (batch Batch) Nonce(account *common.Address, block string, callback func(in
 	return append(batch, S(new(string), uint64Decoder, callback, "eth_getTransactionCount", account, block))
 }
 
+func (batch Batch) SendTx(tx *types.DynamicFeeTx, privateKey *common.Hash, callback func(interface{})) Batch {
+	return batch.SendRawTx(utils.SignTx(tx, privateKey), callback)
+}
+
 func (batch Batch) ExecutePoolCalls(calls []byte, caller *common.Address, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {
-	return batch.SendRawTx(utils.SignTx(&types.DynamicFeeTx{ChainID: chainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: maxFeePerGas, Gas: utils.RouteGas(calls), To: caller, Value: new(big.Int), Data: calls, AccessList: utils.AccessListForCalls(calls)}, privateKey), callback)
+	return batch.SendTx(&types.DynamicFeeTx{ChainID: chainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: maxFeePerGas, Gas: utils.RouteGas(calls), To: caller, Value: new(big.Int), Data: calls, AccessList: utils.AccessListForCalls(calls)}, privateKey, callback)
 }
 
 func (batch Batch) ExecuteCall(to *common.Address, call []byte, caller *common.Address, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {
 	data, _ := interfaces.CallerABI.Pack("execute", to, call)
-	return batch.SendRawTx(utils.SignTx(&types.DynamicFeeTx{ChainID: chainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: maxFeePerGas, Gas: 1000000, To: caller, Value: new(big.Int), Data: data}, privateKey), callback)
+	return batch.SendTx(&types.DynamicFeeTx{ChainID: chainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: maxFeePerGas, Gas: 1000000, To: caller, Value: new(big.Int), Data: data}, privateKey, callback)
 }
 
 func (batch Batch) Transfer(caller *common.Address, token *common.Address, to *common.Address, amount *big.Int, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {
@@ -103,7 +109,7 @@ func (batch Batch) BlockByNumber(block string, callback func(interface{})) Batch
 func (batch Batch) Submit(rpcclient *rpc.Client) ([]interface{}, error) {
 	batchElems := make([]rpc.BatchElem, len(batch))
 	for i := range batch {
-		batchElems[i] = batch[i].Element
+		batchElems[i] = batch[i].e
 	}
 	err := rpcclient.BatchCall(batchElems)
 	if err != nil {
@@ -112,16 +118,16 @@ func (batch Batch) Submit(rpcclient *rpc.Client) ([]interface{}, error) {
 	res := make([]interface{}, len(batchElems))
 	for i := range batchElems {
 		if batchElems[i].Error == nil {
-			if batch[i].Decode != nil {
-				res[i] = batch[i].Decode(batchElems[i].Result)
+			if batch[i].d != nil {
+				res[i] = batch[i].d(batchElems[i].Result)
 			} else {
 				res[i] = batchElems[i].Result
 			}
 		} else {
 			res[i] = batchElems[i].Error
 		}
-		if batch[i].Callback != nil {
-			batch[i].Callback(res[i])
+		if batch[i].c != nil {
+			batch[i].c(res[i])
 		}
 	}
 	return res, nil

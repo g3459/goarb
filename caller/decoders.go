@@ -12,15 +12,6 @@ func poolsDecoder(result interface{}) interface{} {
 	if err != nil {
 		return err
 	}
-	// sl := res[0].([]struct {
-	// 	Slot0 *big.Int "json:\"slot0\""
-	// 	Slot1 *big.Int "json:\"slot1\""
-	// 	Slot2 *big.Int "json:\"slot2\""
-	// })
-	// slp := make([]Pool, len(sl))
-	// for i := range sl {
-	// 	slp[i] = sl[i]
-	// }
 	return res[0]
 }
 
@@ -29,7 +20,14 @@ func routesDecoder(result interface{}) interface{} {
 	if err != nil {
 		return err
 	}
-	return res[0]
+	amounts := res[0].([]*big.Int)
+	calls := res[1].([][]byte)
+	routes := make([]Route, len(amounts))
+	for i := range routes {
+		routes[i].AmOut = amounts[i]
+		routes[i].Calls = calls[i]
+	}
+	return routes
 }
 
 func bigIntDecoder(result interface{}) interface{} {

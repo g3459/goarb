@@ -2,7 +2,10 @@ module github.com/g3459/goarb
 
 go 1.22.3
 
-require github.com/ethereum/go-ethereum v1.14.3
+require (
+	github.com/ethereum/go-ethereum v1.14.3
+	github.com/gorilla/websocket v1.4.2
+)
 
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
@@ -39,7 +42,6 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/uuid v1.3.0 // indirect
-	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/go-bexpr v0.1.10 // indirect
 	github.com/holiman/billy v0.0.0-20240216141850-2abb0c79d3c4 // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect

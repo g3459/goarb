@@ -798,21 +798,14 @@ var RouterABI, _ = abi.JSON(strings.NewReader(`[
 		"name": "findRoutes",
 		"outputs": [
 			{
-				"components": [
-					{
-						"internalType": "uint256",
-						"name": "amOut",
-						"type": "uint256"
-					},
-					{
-						"internalType": "bytes",
-						"name": "calls",
-						"type": "bytes"
-					}
-				],
-				"internalType": "struct Router.Route[]",
-				"name": "routes",
-				"type": "tuple[]"
+				"internalType": "uint256[]",
+				"name": "amounts",
+				"type": "uint256[]"
+			},
+			{
+				"internalType": "bytes[]",
+				"name": "calls",
+				"type": "bytes[]"
 			}
 		],
 		"stateMutability": "view",
@@ -920,80 +913,73 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 	{
 		"inputs": [
 			{
-				"internalType": "address",
-				"name": "token0",
-				"type": "address"
+				"internalType": "uint256",
+				"name": "minEth",
+				"type": "uint256"
 			},
 			{
-				"internalType": "address",
-				"name": "token1",
-				"type": "address"
+				"internalType": "address[]",
+				"name": "tokens",
+				"type": "address[]"
 			},
 			{
 				"components": [
 					{
-						"components": [
-							{
-								"internalType": "bytes32",
-								"name": "initCode",
-								"type": "bytes32"
-							},
-							{
-								"internalType": "address",
-								"name": "factory",
-								"type": "address"
-							}
-						],
-						"internalType": "struct PoolFinder.Protocol[]",
-						"name": "uniV2",
-						"type": "tuple[]"
+						"internalType": "bytes32",
+						"name": "initCode",
+						"type": "bytes32"
 					},
 					{
-						"components": [
-							{
-								"internalType": "bytes32",
-								"name": "initCode",
-								"type": "bytes32"
-							},
-							{
-								"internalType": "address",
-								"name": "factory",
-								"type": "address"
-							}
-						],
-						"internalType": "struct PoolFinder.Protocol[]",
-						"name": "uniV3",
-						"type": "tuple[]"
-					},
-					{
-						"components": [
-							{
-								"internalType": "bytes32",
-								"name": "initCode",
-								"type": "bytes32"
-							},
-							{
-								"internalType": "address",
-								"name": "factory",
-								"type": "address"
-							}
-						],
-						"internalType": "struct PoolFinder.Protocol[]",
-						"name": "algebraV3",
-						"type": "tuple[]"
+						"internalType": "address",
+						"name": "factory",
+						"type": "address"
 					}
 				],
-				"internalType": "struct PoolFinder.Protocols",
-				"name": "protocols",
-				"type": "tuple"
+				"internalType": "struct CPoolFinder.Protocol[]",
+				"name": "uniV2Protocols",
+				"type": "tuple[]"
+			},
+			{
+				"components": [
+					{
+						"internalType": "bytes32",
+						"name": "initCode",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "address",
+						"name": "factory",
+						"type": "address"
+					}
+				],
+				"internalType": "struct CPoolFinder.Protocol[]",
+				"name": "uniV3Protocols",
+				"type": "tuple[]"
+			},
+			{
+				"components": [
+					{
+						"internalType": "bytes32",
+						"name": "initCode",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "address",
+						"name": "factory",
+						"type": "address"
+					}
+				],
+				"internalType": "struct CPoolFinder.Protocol[]",
+				"name": "algbProtocols",
+				"type": "tuple[]"
 			}
 		],
 		"name": "findPools",
 		"outputs": [
 			{
-				"internalType": "bytes",
+				"internalType": "bytes[][]",
 				"name": "pools",
-				"type": "bytes"
+				"type": "bytes[][]"
 			}
 		],
 		"stateMutability": "nonpayable",
