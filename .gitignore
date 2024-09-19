@@ -1,5 +1,9 @@
 
 contracts/artifacts
-.states
-.deploys
+contracts/bytecodes
+contracts/interfaces
+contracts/.states
+contracts/.deploys
 arb
+arb/conf
+arb/log.csv
