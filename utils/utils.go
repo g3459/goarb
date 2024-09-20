@@ -3,7 +3,6 @@ package utils
 import (
 	"encoding/hex"
 	"math/big"
-	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -32,8 +31,12 @@ func SignTx(txData *types.DynamicFeeTx, privateKey *common.Hash) string {
 	return hexutil.Encode(data)
 }
 
-func RouteGas(calls []byte) uint64 {
-	gas := uint64(50000)
+func ExecuteCallsGas(calls []byte) uint64 {
+	return CallsGas(calls) + 30000
+}
+
+func CallsGas(calls []byte) uint64 {
+	gas := uint64(0)
 	for i := 0; i < len(calls); i += 32 {
 		if calls[i+4] == 2 {
 			gas += 300000
@@ -46,21 +49,26 @@ func RouteGas(calls []byte) uint64 {
 
 func AccessListForCalls(calls []byte) types.AccessList {
 	al := make([]types.AccessTuple, len(calls)/32)
-	addrs := make([]common.Address, len(al))
 	n := 0
-	for i := 0; i < len(al); i++ {
-		byteIx := i * 32
-		addr := common.Address(calls[byteIx+12 : byteIx+32])
-		if !slices.Contains(addrs, addr) {
-			al[n].Address = addr
-			addrs[n] = addr
-			if calls[(i*32)+4] == 1 {
-				al[n].StorageKeys = []common.Hash{common.BigToHash(big.NewInt(3))}
-			} else {
-				al[n].StorageKeys = []common.Hash{common.BigToHash(big.NewInt(0))}
+	for i := 0; i < len(al); i += 0x20 {
+		addr := common.Address(calls[i+12 : i+32])
+		cont := false
+		for _, v := range al {
+			if v.Address.Cmp(addr) == 0 {
+				cont = true
+				break
 			}
-			n++
 		}
+		if cont {
+			continue
+		}
+		al[n].Address = addr
+		if calls[i+4] == 1 {
+			al[n].StorageKeys = []common.Hash{common.BigToHash(big.NewInt(3))}
+		} else {
+			al[n].StorageKeys = []common.Hash{common.BigToHash(big.NewInt(0))}
+		}
+		n++
 	}
 	return al[:n]
 }

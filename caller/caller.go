@@ -81,7 +81,7 @@ func (batch Batch) SendTx(tx *types.DynamicFeeTx, privateKey *common.Hash, callb
 }
 
 func (batch Batch) ExecutePoolCalls(calls []byte, caller *common.Address, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {
-	return batch.SendTx(&types.DynamicFeeTx{ChainID: chainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: maxFeePerGas, Gas: utils.RouteGas(calls), To: caller, Value: new(big.Int), Data: calls, AccessList: utils.AccessListForCalls(calls)}, privateKey, callback)
+	return batch.SendTx(&types.DynamicFeeTx{ChainID: chainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: maxFeePerGas, Gas: utils.ExecuteCallsGas(calls), To: caller, Value: new(big.Int), Data: calls, AccessList: utils.AccessListForCalls(calls)}, privateKey, callback)
 }
 
 func (batch Batch) ExecuteCall(to *common.Address, call []byte, caller *common.Address, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {

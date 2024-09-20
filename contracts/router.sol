@@ -1,6 +1,6 @@
 library CRouter{
 
-    function findRoutes(uint maxLen,uint t,uint amIn,bytes[][] memory pools) internal view returns (uint[] memory amounts,bytes[] memory calls){
+    function findRoutes(uint maxLen,uint t,uint amIn,bytes[][] memory pools) public view returns (uint[] memory amounts,bytes[] memory calls){
         unchecked{
             amounts=new uint[](pools.length);
             amounts[t]=amIn;
@@ -44,7 +44,7 @@ library CRouter{
                             uint rIn;uint rOut;
                             {
                                 p+=0x20;
-                                uint slot0;
+                                uint slot0;//=uint(bytes32(_pools[p:]));
                                 assembly{
                                     slot0:=mload(add(_pools,p))
                                 }
@@ -55,7 +55,7 @@ library CRouter{
                                 (rIn,rOut)=(rOut,rIn);
                             }
                             p+=0x20;
-                            uint slot1;
+                            uint slot1;//=uint(bytes32(_pools[p:]));
                             assembly{
                                 slot1:=mload(add(_pools,p))
                             }
@@ -65,7 +65,7 @@ library CRouter{
                                 continue;
                             }
                             {
-                                uint slot2;
+                                uint slot2;//=uint(bytes32(_pools[p:]));
                                 assembly{
                                     slot2:=mload(add(_pools,p))
                                 }
@@ -77,8 +77,11 @@ library CRouter{
                             uint amOut = amounts[t0] * fee;
                             amOut = (amOut * rOut) / (rIn * 1e6 + amOut);
                             {
-                                uint gasFee=(uint8(slot1>>216)<2?100000:300000)*tx.gasprice;
+                                //require(t1!=0||amounts[0]>0,"kaka");
+                                uint gasFee=(uint8(slot1>>216)==2?300000:100000)*tx.gasprice;
+                                
                                 if (t1!=0){
+                                    
                                     gasFee=(amOut*gasFee)/amounts[0];
                                 }
                                 amOut-=gasFee;
