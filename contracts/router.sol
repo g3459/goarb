@@ -88,13 +88,13 @@ library CRouter{
                                 if(int(amOut)<=int(amounts[t1])){
                                     continue;
                                 }
-                                // {
-                                //     uint amOutX2 = (amIn<<1) * fee;
-                                //     amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2)-gasFee;
-                                //     if(amOutX2>amOut<<1){
-                                //         continue;
-                                //     }
-                                // }
+                                {
+                                    uint amOutX2 = (amounts[t0]<<1) * fee;
+                                    amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2)-gasFee;
+                                    if(amOutX2>amOut<<1){
+                                        continue;
+                                    }
+                                }
                             }
                             // hAmOut=amOut;
                             amounts[t1]=amOut;

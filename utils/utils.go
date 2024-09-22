@@ -32,7 +32,7 @@ func SignTx(txData *types.DynamicFeeTx, privateKey *common.Hash) string {
 }
 
 func ExecuteCallsGas(calls []byte) uint64 {
-	return CallsGas(calls) + 30000
+	return CallsGas(calls) + 40000
 }
 
 func CallsGas(calls []byte) uint64 {
@@ -48,9 +48,8 @@ func CallsGas(calls []byte) uint64 {
 }
 
 func AccessListForCalls(calls []byte) types.AccessList {
-	al := make([]types.AccessTuple, len(calls)/32)
-	n := 0
-	for i := 0; i < len(al); i += 0x20 {
+	al := []types.AccessTuple{}
+	for i := 0; i < len(calls); i += 0x20 {
 		addr := common.Address(calls[i+12 : i+32])
 		cont := false
 		for _, v := range al {
@@ -62,13 +61,35 @@ func AccessListForCalls(calls []byte) types.AccessList {
 		if cont {
 			continue
 		}
-		al[n].Address = addr
+		var slot int64
 		if calls[i+4] == 1 {
-			al[n].StorageKeys = []common.Hash{common.BigToHash(big.NewInt(3))}
-		} else {
-			al[n].StorageKeys = []common.Hash{common.BigToHash(big.NewInt(0))}
+			slot = 3
 		}
-		n++
+		al = append(al, types.AccessTuple{Address: addr, StorageKeys: []common.Hash{common.BigToHash(big.NewInt(slot))}})
 	}
-	return al[:n]
+	return al
+}
+
+func ToX64Int(n float64) *big.Int {
+	fl := big.NewFloat(n)
+	i, _ := fl.Mul(fl, new(big.Float).SetInt(new(big.Int).Lsh(big.NewInt(1), 64))).Int(nil)
+	return i
+}
+
+func PoolDif(calls1 []byte, calls2 []byte) bool {
+	for i := 0; i < len(calls1); i += 32 {
+		for ii := 0; ii < len(calls2); ii += 32 {
+			dif := false
+			for j := 0; j < 20; j++ {
+				if calls1[i+12+j] != calls2[ii+12+j] {
+					dif = true
+					break
+				}
+			}
+			if !dif {
+				return false
+			}
+		}
+	}
+	return true
 }
