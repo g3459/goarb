@@ -1,6 +1,6 @@
 library CRouter{
 
-    function findRoutes(uint maxLen,uint t,uint amIn,bytes[][] memory pools) public view returns (uint[] memory amounts,bytes[] memory calls){
+    function findRoutes(uint maxLen,uint t,uint amIn,bytes[][] memory pools) internal view returns (uint[] memory amounts,bytes[] memory calls){
         unchecked{
             amounts=new uint[](pools.length);
             amounts[t]=amIn;
@@ -51,6 +51,7 @@ library CRouter{
                                 rIn=slot0>>128;
                                 rOut=uint128(slot0);
                             }
+                            // p+=0x20;
                             if(!direc){
                                 (rIn,rOut)=(rOut,rIn);
                             }
@@ -59,42 +60,39 @@ library CRouter{
                             assembly{
                                 slot1:=mload(add(_pools,p))
                             }
-                            //(rIn,rOut)=updateReserves(routes[t0].calls, rIn, rOut, slot1);
-                            p+=0x20;
-                            if(poolInCalls(calls[t0],uint160(slot1))){
-                                continue;
-                            }
+                            //p+=0x20;
                             {
+                                p+=0x20;
                                 uint slot2;//=uint(bytes32(_pools[p:]));
                                 assembly{
                                     slot2:=mload(add(_pools,p))
                                 }
+                                // p+=0x20;
                                 if(slot2!=0 && amounts[t0]+rIn>(direc?(slot2>>128):uint128(slot2))){
-                                    continue;    
+                                    continue;
                                 }
                             }
+                            if(poolInCalls(calls[t0],uint160(slot1))){
+                                continue;
+                            }
+                            
                             uint fee=uint24(slot1>>160);
                             uint amOut = amounts[t0] * fee;
                             amOut = (amOut * rOut) / (rIn * 1e6 + amOut);
                             {
-                                //require(t1!=0||amounts[0]>0,"kaka");
                                 uint gasFee=(uint8(slot1>>216)==2?300000:100000)*tx.gasprice;
-                                
                                 if (t1!=0){
-                                    
                                     gasFee=(amOut*gasFee)/amounts[0];
                                 }
                                 amOut-=gasFee;
                                 if(int(amOut)<=int(amounts[t1])){
                                     continue;
                                 }
-                                {
-                                    uint amOutX2 = (amounts[t0]<<1) * fee;
-                                    amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2)-gasFee;
-                                    if(amOutX2>amOut<<1){
-                                        continue;
-                                    }
-                                }
+                                // uint amOutX2 = (amounts[t0]<<1) * fee;
+                                // amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2) - gasFee;                      
+                                // if(amOutX2>>1>amOut){
+                                //     continue;
+                                // }
                             }
                             // hAmOut=amOut;
                             amounts[t1]=amOut;

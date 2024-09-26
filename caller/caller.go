@@ -20,6 +20,7 @@ type Route struct {
 type Protocol struct {
 	Factory  *common.Address `json:"factory"`
 	InitCode *common.Hash    `json:"initCode"`
+	Id       *big.Int        `json:"id"`
 }
 
 type step struct {
@@ -43,10 +44,10 @@ func (batch Batch) BalanceOf(token *common.Address, account *common.Address, blo
 	return batch.Call(map[string]interface{}{"to": token, "input": hexutil.Encode(data)}, block, bigIntDecoder, callback)
 }
 
-func (batch Batch) FindPools(minEth *big.Int, tokens []common.Address, uniV2Protocols []Protocol, uniV3Protocols []Protocol, algbProtocols []Protocol, poolFinder *common.Address, block string, callback func(interface{})) Batch {
-	data, err := interfaces.PoolFinderABI.Pack("findPools", minEth, tokens, uniV2Protocols, uniV3Protocols, algbProtocols)
+func (batch Batch) FindPools(minEth *big.Int, tokens []common.Address, protocols []Protocol, poolFinder *common.Address, block string, callback func(interface{})) Batch {
+	data, err := interfaces.PoolFinderABI.Pack("findPools", minEth, tokens, protocols)
 	if err != nil {
-		log.Println("zssdfsf", err)
+		log.Println("zssdfsf", err, data)
 	}
 	return batch.Call(map[string]interface{}{"to": poolFinder, "input": hexutil.Encode(data)}, block, poolsDecoder, callback)
 }

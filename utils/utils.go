@@ -32,7 +32,7 @@ func SignTx(txData *types.DynamicFeeTx, privateKey *common.Hash) string {
 }
 
 func ExecuteCallsGas(calls []byte) uint64 {
-	return CallsGas(calls) + 40000
+	return CallsGas(calls) + 50000
 }
 
 func CallsGas(calls []byte) uint64 {

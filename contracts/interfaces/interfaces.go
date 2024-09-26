@@ -933,44 +933,15 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 						"internalType": "address",
 						"name": "factory",
 						"type": "address"
-					}
-				],
-				"internalType": "struct CPoolFinder.Protocol[]",
-				"name": "uniV2Protocols",
-				"type": "tuple[]"
-			},
-			{
-				"components": [
-					{
-						"internalType": "bytes32",
-						"name": "initCode",
-						"type": "bytes32"
 					},
 					{
-						"internalType": "address",
-						"name": "factory",
-						"type": "address"
+						"internalType": "uint256",
+						"name": "id",
+						"type": "uint256"
 					}
 				],
 				"internalType": "struct CPoolFinder.Protocol[]",
-				"name": "uniV3Protocols",
-				"type": "tuple[]"
-			},
-			{
-				"components": [
-					{
-						"internalType": "bytes32",
-						"name": "initCode",
-						"type": "bytes32"
-					},
-					{
-						"internalType": "address",
-						"name": "factory",
-						"type": "address"
-					}
-				],
-				"internalType": "struct CPoolFinder.Protocol[]",
-				"name": "algbProtocols",
+				"name": "protocols",
 				"type": "tuple[]"
 			}
 		],
@@ -982,7 +953,53 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 				"type": "bytes[][]"
 			}
 		],
-		"stateMutability": "nonpayable",
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "token0",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "token1",
+				"type": "address"
+			},
+			{
+				"components": [
+					{
+						"internalType": "bytes32",
+						"name": "initCode",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "address",
+						"name": "factory",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "id",
+						"type": "uint256"
+					}
+				],
+				"internalType": "struct CPoolFinder.Protocol[]",
+				"name": "protocols",
+				"type": "tuple[]"
+			}
+		],
+		"name": "findPoolsSingle",
+		"outputs": [
+			{
+				"internalType": "bytes",
+				"name": "pools",
+				"type": "bytes"
+			}
+		],
+		"stateMutability": "view",
 		"type": "function"
 	}
 ]`))

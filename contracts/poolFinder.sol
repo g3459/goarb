@@ -5,6 +5,7 @@ contract CPoolFinder{
     struct Protocol{
         bytes32 initCode;
         address factory;
+        uint id;
     }
 
     int internal constant MIN_TICK = -887272;
@@ -12,38 +13,16 @@ contract CPoolFinder{
     bytes32 internal constant B4_MASK = 0xffffffff00000000000000000000000000000000000000000000000000000000;
     bytes32 internal constant ADDR_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
 
-    function findPools(uint minEth,address[] calldata tokens,Protocol[] calldata uniV2Protocols,Protocol[] calldata uniV3Protocols,Protocol[] calldata algbProtocols)public view returns(bytes[][] memory pools){
+    function findPools(uint minEth,address[] calldata tokens,Protocol[] calldata protocols)public view returns(bytes[][] memory pools){
         unchecked {
             pools=new bytes[][](tokens.length);
             for(uint t0;t0<tokens.length;t0++){
                 for (uint t1; t1<tokens.length; t1++){
-                    if(tokens[t0]>tokens[t1])
+                    if(t0==t1 || tokens[t0]>tokens[t1]){
                         continue;
-                    bytes memory _pools;
-                    assembly{
-                        _pools:=mload(0x40)
-                        mstore(0x40,add(_pools,0x20))
                     }
-                    for(uint i; i<uniV2Protocols.length;i++){
-                        mstoreUniV2Pool(uniV2Protocols[i],tokens[t0],tokens[t1]);
-                    }
-                    for(uint i; i<uniV3Protocols.length;i++){
-                        mstoreUniV3Pool(uniV3Protocols[i],tokens[t0],tokens[t1],100,1);
-                        mstoreUniV3Pool(uniV3Protocols[i],tokens[t0],tokens[t1],500,10);
-                        mstoreUniV3Pool(uniV3Protocols[i],tokens[t0],tokens[t1],3000,60);
-                        mstoreUniV3Pool(uniV3Protocols[i],tokens[t0],tokens[t1],10000,200);
-                    }
-                    for(uint i; i<algbProtocols.length;i++){
-                        mstoreAlgbPool(algbProtocols[i],tokens[t0],tokens[t1]);
-                    }
-                    uint len;
-                    assembly{
-                        len:=sub(sub(mload(0x40),_pools),0x20)
-                    }
-                    if(len>0){
-                        assembly{
-                            mstore(_pools,len)
-                        }
+                    bytes memory _pools=findPoolsSingle(tokens[t0], tokens[t1], protocols);
+                    if(_pools.length>0){
                         if(pools[t0].length==0){
                             pools[t0]=new bytes[](tokens.length);
                         }
@@ -51,15 +30,45 @@ contract CPoolFinder{
                     }
                 }
             }
-            (uint[] memory amounts,)=CRouter.findRoutes(2,0,minEth,pools);
-            filterPools(amounts,pools);
+            // (uint[] memory amounts,)=CRouter.findRoutes(2,0,minEth,pools);
+            // filterPools(amounts,pools);
+        }
+    }
+
+    function findPoolsSingle(address token0,address token1,Protocol[] calldata protocols)public view returns(bytes memory pools){
+        unchecked{
+            if(token0>token1){
+                (token0,token1)=(token1,token0);
+            }
+            assembly{
+                pools:=mload(0x40)
+                mstore(0x40,add(pools,0x20))
+            }
+            for(uint i; i<protocols.length;i++){
+                if(protocols[i].id==0){
+                    mstoreUniV3Pool(protocols[i],token0,token1,100,1);
+                    mstoreUniV3Pool(protocols[i],token0,token1,500,10);
+                    mstoreUniV3Pool(protocols[i],token0,token1,2500,50);
+                    mstoreUniV3Pool(protocols[i],token0,token1,3000,60);
+                    mstoreUniV3Pool(protocols[i],token0,token1,10000,200);
+                }else if(protocols[i].id==1){
+                    mstoreUniV2Pool(protocols[i],token0,token1);
+                }else if(protocols[i].id==2){
+                    mstoreAlgbPool(protocols[i],token0,token1);
+                }
+            }
+            assembly{
+                let len:=sub(sub(mload(0x40),pools),0x20)
+                if len{
+                    mstore(pools,len)
+                }
+            }
         }
     }
 
     function filterPools(uint[] memory fAmounts, bytes[][] memory pools) internal pure{
         unchecked{
             for (uint t0; t0 < pools.length; t0++){
-                bool b;
                 for (uint t1; t1 < pools[t0].length; t1++){
                     bytes memory _pools=pools[t0][t1];
                     if(t0==t1 || _pools.length==0){
@@ -112,10 +121,20 @@ contract CPoolFinder{
                             mstore(add(_pools,_len),slot2)
                         }
                     }
-                    assembly{
-                        mstore(_pools,_len)
-                    }
+                    
                     if(_len>0){
+                        assembly{
+                            mstore(_pools,_len)
+                        }
+                    }else{
+                        delete pools[t0][t1];
+                    }
+                }
+            }
+            for(uint t0;t0<pools.length;t0++){
+                bool b;
+                for(uint t1;t1<pools[t0].length;t1++){
+                    if(pools[t0][t1].length>0){
                         b=true;
                     }
                 }
@@ -140,11 +159,12 @@ contract CPoolFinder{
                     reserve1:=mload(add(fmp,0x20))
                 }
                 if(reserve0>0&&reserve1>0){
+                    uint id=protocol.id;
                     assembly{
                         stateHash:=keccak256(fmp,0x20)
                         mstore(fmp,or(shl(128,reserve0),reserve1))
                         fmp:=add(fmp,0x20)
-                        mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,1),or(shl(160,997000),and(pool,ADDR_MASK)))))
+                        mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,id),or(shl(160,997000),and(pool,ADDR_MASK)))))
                         fmp:=add(fmp,0x40)
                     }
                 }
@@ -171,10 +191,11 @@ contract CPoolFinder{
                     }
                     (uint reserve0,uint reserve1,uint reserve0Limit,uint reserve1Limit)=reserves(liquidity,sqrtPX64,t,s);
                     if(reserve0>0&&reserve1>0){
+                        uint id=protocol.id;
                         assembly{
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
-                            mstore(fmp,or(and(stateHash,B4_MASK),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK))))
+                            mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,id),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK)))))
                             fmp:=add(fmp,0x20)
                             mstore(fmp,or(shl(128,reserve0Limit),reserve1Limit))
                             fmp:=add(fmp,0x20)
@@ -194,21 +215,22 @@ contract CPoolFinder{
             if(pool.code.length!=0){
                 uint liquidity =IAlgebraV3Pool(pool).liquidity();
                 if(liquidity>0){
-                    int t;uint sqrtPX64;bytes32 stateHash;
+                    int t;uint sqrtPX64;bytes32 stateHash;uint fee;
                     assembly{
                         mstore(fmp,0xe76c01e400000000000000000000000000000000000000000000000000000000)
                         pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x60))
                         sqrtPX64 := shr(32,mload(fmp))
                         t:=mload(add(fmp,0x20))
+                        fee:=mload(add(fmp,0x40))
                         stateHash:=keccak256(fmp,0x20)
                     }
                     (uint reserve0,uint reserve1,uint reserve0Limit,uint reserve1Limit)=reserves(liquidity,sqrtPX64,t,60);
                     if(reserve0>0&&reserve1>0){
+                        uint id=protocol.id;
                         assembly{
-                            let fee:=mload(add(fmp,0x40))
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
-                            mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,2),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK)))))
+                            mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,id),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK)))))
                             fmp:=add(fmp,0x20)
                             mstore(fmp,or(shl(128,reserve0Limit),reserve1Limit))
                             fmp:=add(fmp,0x20)
