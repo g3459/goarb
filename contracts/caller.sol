@@ -15,22 +15,24 @@ contract Caller {
     fallback() external payable check{
         unchecked{
             for(uint i;i<msg.data.length;i+=32){
+                uint poolCall=uint(bytes32(msg.data[i:]));
+                uint rstate=poolCall&STATE_MASK;
+                if(rstate==0){
+                    continue;
+                }
+                uint pid = uint8(poolCall>>216);
                 assembly{
-                    let poolCall:=calldataload(i)
-                    let rstate:=and(poolCall,STATE_MASK)
-                    if rstate{
-                        switch and(poolCall,TYPE_MASK)
-                        case 0x0000000001000000000000000000000000000000000000000000000000000000 {
-                            mstore(0x80,0x0902f1ac00000000000000000000000000000000000000000000000000000000)
-                        }case 0x0000000002000000000000000000000000000000000000000000000000000000 {
-                            mstore(0x80,0xe76c01e400000000000000000000000000000000000000000000000000000000)
-                        }default{
-                            mstore(0x80,0x3850c7bd00000000000000000000000000000000000000000000000000000000)
-                        }
-                        pop(call(gas(), poolCall, 0, 0x80, 0x04, 0x80, 0x20))
-                        if xor(and(keccak256(0x80,0x20),STATE_MASK),rstate){
-                            revert(0,0)
-                        }
+                    switch pid
+                    case 1 {
+                        mstore(0x80,0x0902f1ac00000000000000000000000000000000000000000000000000000000)
+                    }case 2 {
+                        mstore(0x80,0xe76c01e400000000000000000000000000000000000000000000000000000000)
+                    }default{
+                        mstore(0x80,0x3850c7bd00000000000000000000000000000000000000000000000000000000)
+                    }
+                    pop(call(gas(), poolCall, 0, 0x80, 0x04, 0x80, 0x20))
+                    if xor(and(keccak256(0x80,0x20),STATE_MASK),rstate){
+                        revert(0,0)
                     }
                 }
             }
@@ -45,7 +47,7 @@ contract Caller {
                     uint r0;uint r1;
                     assembly{
                         mstore(0x80,0x0902f1ac00000000000000000000000000000000000000000000000000000000)
-                        pop(call(gas(), pool, 0, 0x80, 0x04, 0x80, 0x40))
+                        pop(call(gas(), poolCall, 0, 0x80, 0x04, 0x80, 0x40))
                         r0:=mload(0x80)
                         r1:=mload(0xa0)
                     }
