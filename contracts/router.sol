@@ -1,6 +1,6 @@
 library CRouter{
 
-    function findRoutes(uint maxLen,uint t,uint amIn,bytes[][] memory pools) internal view returns (uint[] memory amounts,bytes[] memory calls){
+    function findRoutes(uint8 maxLen,uint8 t,uint amIn,bytes[][] memory pools) public view returns (uint[] memory amounts,bytes[] memory calls){
         unchecked{
             amounts=new uint[](pools.length);
             amounts[t]=amIn;
@@ -9,7 +9,7 @@ library CRouter{
         }
     }
 
-    function findRoutes(uint maxLen,bytes[][] memory pools,uint[] memory amounts,bytes[] memory calls) internal view{
+    function findRoutes(uint8 maxLen,bytes[][] memory pools,uint[] memory amounts,bytes[] memory calls) internal view{
         unchecked{
             uint updated=type(uint).max>>(256-calls.length);
             while (updated!=0){

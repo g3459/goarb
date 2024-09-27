@@ -775,14 +775,14 @@ var RouterABI, _ = abi.JSON(strings.NewReader(`[
 	{
 		"inputs": [
 			{
-				"internalType": "uint256",
+				"internalType": "uint8",
 				"name": "maxLen",
-				"type": "uint256"
+				"type": "uint8"
 			},
 			{
-				"internalType": "uint256",
+				"internalType": "uint8",
 				"name": "t",
-				"type": "uint256"
+				"type": "uint8"
 			},
 			{
 				"internalType": "uint256",
@@ -935,9 +935,9 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 						"type": "address"
 					},
 					{
-						"internalType": "uint256",
+						"internalType": "uint8",
 						"name": "id",
-						"type": "uint256"
+						"type": "uint8"
 					}
 				],
 				"internalType": "struct CPoolFinder.Protocol[]",
@@ -981,9 +981,9 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 						"type": "address"
 					},
 					{
-						"internalType": "uint256",
+						"internalType": "uint8",
 						"name": "id",
-						"type": "uint256"
+						"type": "uint8"
 					}
 				],
 				"internalType": "struct CPoolFinder.Protocol[]",

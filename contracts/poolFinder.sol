@@ -5,7 +5,7 @@ contract CPoolFinder{
     struct Protocol{
         bytes32 initCode;
         address factory;
-        uint id;
+        uint8 id;
     }
 
     int internal constant MIN_TICK = -887272;
@@ -30,8 +30,8 @@ contract CPoolFinder{
                     }
                 }
             }
-            // (uint[] memory amounts,)=CRouter.findRoutes(2,0,minEth,pools);
-            // filterPools(amounts,pools);
+            (uint[] memory amounts,)=CRouter.findRoutes(2,0,minEth,pools);
+            filterPools(amounts,pools);
         }
     }
 
@@ -53,15 +53,17 @@ contract CPoolFinder{
                     mstoreUniV3Pool(protocols[i],token0,token1,10000,200);
                 }else if(protocols[i].id==1){
                     mstoreUniV2Pool(protocols[i],token0,token1);
+                    
                 }else if(protocols[i].id==2){
                     mstoreAlgbPool(protocols[i],token0,token1);
                 }
             }
-            assembly{
-                let len:=sub(sub(mload(0x40),pools),0x20)
-                if len{
-                    mstore(pools,len)
-                }
+            uint len;
+            assembly{len:=sub(mload(0x40),add(pools,0x20))}
+            if(len==0){
+                delete pools;
+            }else{
+                assembly{mstore(pools,len)}
             }
         }
     }
@@ -200,6 +202,7 @@ contract CPoolFinder{
                             mstore(fmp,or(shl(128,reserve0Limit),reserve1Limit))
                             fmp:=add(fmp,0x20)
                         }
+
                     }
                 }
             }
@@ -210,7 +213,8 @@ contract CPoolFinder{
     function mstoreAlgbPool(Protocol calldata protocol,address t0,address t1)internal view{
         unchecked{
             bytes32 fmp;
-            assembly{fmp:=mload(0x40)}
+            bytes32 p;
+            assembly{fmp:=mload(0x40) p:=fmp}
             address pool =  address(uint160(uint(keccak256(abi.encodePacked(hex'ff',protocol.factory,keccak256(abi.encode(t0, t1)),protocol.initCode)))));
             if(pool.code.length!=0){
                 uint liquidity =IAlgebraV3Pool(pool).liquidity();
