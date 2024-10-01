@@ -89,6 +89,10 @@ contract Caller {
         unchecked{IERC20(am0>am1?IUniV3Pool(msg.sender).token0():IUniV3Pool(msg.sender).token1()).transfer(msg.sender,uint(am0>am1?am0:am1));}
     }
 
+    function pancakeV3SwapCallback(int am0 , int am1, bytes calldata) external payable check{
+        unchecked{IERC20(am0>am1?IUniV3Pool(msg.sender).token0():IUniV3Pool(msg.sender).token1()).transfer(msg.sender,uint(am0>am1?am0:am1));}
+    }
+
     // function swapCallback(int, int, bytes calldata data) external payable {unchecked{address(this).call(data);} }
 
     function algebraSwapCallback(int am0, int am1, bytes calldata) external payable check{

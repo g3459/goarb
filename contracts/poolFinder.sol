@@ -30,7 +30,7 @@ contract CPoolFinder{
                     }
                 }
             }
-            (uint[] memory amounts,)=CRouter.findRoutes(2,0,minEth,pools);
+            (uint[] memory amounts,)=CRouter.findRoutesInt(2,0,minEth,pools);
             filterPools(amounts,pools);
         }
     }
@@ -53,7 +53,6 @@ contract CPoolFinder{
                     mstoreUniV3Pool(protocols[i],token0,token1,10000,200);
                 }else if(protocols[i].id==1){
                     mstoreUniV2Pool(protocols[i],token0,token1);
-                    
                 }else if(protocols[i].id==2){
                     mstoreAlgbPool(protocols[i],token0,token1);
                 }
@@ -72,8 +71,11 @@ contract CPoolFinder{
         unchecked{
             for (uint t0; t0 < pools.length; t0++){
                 for (uint t1; t1 < pools[t0].length; t1++){
+                    if(t0==t1){
+                        continue;
+                    }
                     bytes memory _pools=pools[t0][t1];
-                    if(t0==t1 || _pools.length==0){
+                    if(_pools.length==0){
                         continue;
                     }
                     uint _len;
@@ -99,9 +101,6 @@ contract CPoolFinder{
                             amt1=fAmounts[t0]*fee;
                             amt1=(amt1 * rt1) / (rt0 * 1e6 + amt1);
                         }
-                        if(amt0==0||amt1==0){
-                            continue;
-                        }
                         uint rl0;
                         uint rl1;
                         if(slot2==0){
@@ -111,7 +110,7 @@ contract CPoolFinder{
                             rl0=slot2>>128;
                             rl1=uint128(slot2);
                         }
-                        if((amt1+(amt1>>7)<fAmounts[t1] || amt1+rt1>rl1) && (amt0+(amt0>>7)<fAmounts[t0] || amt0+rt0>rl0)){
+                        if((amt1+(amt1>>2)<fAmounts[t1] || amt1+rt1>rl1) && (amt0+(amt0>>2)<fAmounts[t0] || amt0+rt0>rl0)){
                             continue;
                         }
                         assembly{
@@ -123,7 +122,6 @@ contract CPoolFinder{
                             mstore(add(_pools,_len),slot2)
                         }
                     }
-                    
                     if(_len>0){
                         assembly{
                             mstore(_pools,_len)

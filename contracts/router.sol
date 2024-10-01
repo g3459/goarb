@@ -1,6 +1,12 @@
 library CRouter{
 
-    function findRoutes(uint8 maxLen,uint8 t,uint amIn,bytes[][] memory pools) internal view returns (uint[] memory amounts,bytes[] memory calls){
+    function findRoutesInt(uint8 maxLen,uint8 t,uint amIn,bytes[][] memory pools) internal view returns (uint[] memory amounts,bytes[] memory calls){
+        unchecked{
+            return findRoutes(maxLen, t, amIn, pools);
+        }
+    }
+
+    function findRoutes(uint8 maxLen,uint8 t,uint amIn,bytes[][] memory pools) public view returns (uint[] memory amounts,bytes[] memory calls){
         unchecked{
             amounts=new uint[](pools.length);
             amounts[t]=amIn;
@@ -19,7 +25,7 @@ library CRouter{
                         continue;
                     }
                     updated^=1<<t0;
-                    //La amIn es la amOut para el tIn
+                    //La amounts[t0] es la amOut para el tIn
                     if(amounts[t0]==0 || calls[t0].length==maxLen){
                         continue;
                     }
@@ -75,10 +81,8 @@ library CRouter{
                             if(poolInCalls(calls[t0],uint160(slot1))){
                                 continue;
                             }
-                            
-                            uint fee=uint24(slot1>>160);
-                            uint amOut = amounts[t0] * fee;
-                            amOut = (amOut * rOut) / (rIn * 1e6 + amOut);
+                            uint amInXFee= amounts[t0] * uint24(slot1>>160);
+                            uint amOut = (amInXFee * rOut) / (rIn * 1e6 + amInXFee);
                             {
                                 uint gasFee=(uint8(slot1>>216)==2?300000:100000)*tx.gasprice;
                                 if (t1!=0){
@@ -88,11 +92,11 @@ library CRouter{
                                 if(int(amOut)<=int(amounts[t1])){
                                     continue;
                                 }
-                                // uint amOutX2 = (amounts[t0]<<1) * fee;
-                                // amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2) - gasFee;                      
-                                // if(amOutX2>>1>amOut){
-                                //     continue;
-                                // }
+                                uint amOutX2 = amInXFee<<1;
+                                amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2);
+                                if(int(amOutX2-gasFee)>int(amOut<<1)){
+                                    continue;
+                                }
                             }
                             // hAmOut=amOut;
                             amounts[t1]=amOut;
@@ -102,7 +106,7 @@ library CRouter{
                             continue;
                         }
                         //Actualiza amOut para tOut y Copia tIn calls a tOut calls añadiendo la nueva call
-                        // amounts[t1]=hAmOut;
+                        //amounts[t1]=hAmOut;
                         uint amIn56bit=compress56bit(amounts[t0]);
                         poolCall=(poolCall&0x7fffffffff00000000000000ffffffffffffffffffffffffffffffffffffffff)|(amIn56bit<<160);
                         if(direc) poolCall|=0x8000000000000000000000000000000000000000000000000000000000000000;
@@ -142,15 +146,15 @@ library CRouter{
             assembly{_poolCall:= mload(add(calls, i))}
             if (pool == uint160(_poolCall)){
                 return true;
-                // uint amIn=decompress56bit(_poolCall>>160);
-                // uint amInXFee=amIn*fees;
+                // uint amounts[t0]=decompress56bit(_poolCall>>160);
+                // uint amounts[t0]XFee=amounts[t0]*fees;
                 // bool v2fee = uint8(slot1>>216)==1;
                 // if(_poolCall&0x8000000000000000000000000000000000000000000000000000000000000000==0){
-                //     r0-=(amInXFee*r0)/(r1*1e6+amInXFee);
-                //     r1+=v2fee?amIn:(amInXFee/1e6);
+                //     r0-=(amounts[t0]XFee*r0)/(r1*1e6+amounts[t0]XFee);
+                //     r1+=v2fee?amounts[t0]:(amounts[t0]XFee/1e6);
                 // }else{
-                //     r1-=(amInXFee*r1)/(r0*1e6+amInXFee);
-                //     r0+=v2fee?amIn:(amInXFee/1e6);
+                //     r1-=(amounts[t0]XFee*r1)/(r0*1e6+amounts[t0]XFee);
+                //     r0+=v2fee?amounts[t0]:(amounts[t0]XFee/1e6);
                 // }
             }
         }
