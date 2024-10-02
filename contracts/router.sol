@@ -17,15 +17,14 @@ library CRouter{
 
     function findRoutes(uint8 maxLen,bytes[][] memory pools,uint[] memory amounts,bytes[] memory calls) internal view{
         unchecked{
-            uint updated=type(uint).max>>(256-calls.length);
+            uint[] memory gasFees=new uint[](pools.length);
+            uint updated=type(uint).max>>(256-pools.length);
             while (updated!=0){
                 for (uint t0; t0 < pools.length; t0++){
-                    //Si se ha actualizado tIn vuelve a comprovar tIn con todos los tokens
                     if(updated&(1<<t0)==0){
                         continue;
                     }
                     updated^=1<<t0;
-                    //La amounts[t0] es la amOut para el tIn
                     if(amounts[t0]==0 || calls[t0].length==maxLen){
                         continue;
                     }
@@ -33,8 +32,8 @@ library CRouter{
                         if(t0==t1){
                             continue;
                         }
-                        bool direc;
                         bytes memory _pools;
+                        bool direc;
                         if(pools[t0].length>0 && pools[t0][t1].length>0){
                             direc=true;
                             _pools=pools[t0][t1];
@@ -43,70 +42,28 @@ library CRouter{
                         }else{
                             continue;
                         }
-                        uint poolCall;
-                        //Recorre todas las pools para un mismo par en busca de una mayor amOut para el tOut
-                        uint p;
-                        while(p<_pools.length){
-                            uint rIn;uint rOut;
-                            {
-                                p+=0x20;
-                                uint slot0;//=uint(bytes32(_pools[p:]));
-                                assembly{
-                                    slot0:=mload(add(_pools,p))
-                                }
-                                rIn=slot0>>128;
-                                rOut=uint128(slot0);
+                        uint eth = t1==0?0:amounts[0];
+                        (uint hAmOut,uint poolCall) = quotePools(amounts[t0],eth,direc,_pools);
+                        uint gasNew=gasFees[t0]+protocolGas(uint8(poolCall>>216));
+                        {
+                            uint gasFeeNew= gasNew * tx.gasprice;
+                            uint gasFeeCurrent=gasFees[t1] * tx.gasprice;
+                            if(eth!=0){
+                                gasFeeNew=(hAmOut*gasFeeNew)/eth;
+                                gasFeeCurrent=(hAmOut*gasFeeCurrent)/eth;
                             }
-                            // p+=0x20;
-                            if(!direc){
-                                (rIn,rOut)=(rOut,rIn);
-                            }
-                            p+=0x20;
-                            uint slot1;//=uint(bytes32(_pools[p:]));
-                            assembly{
-                                slot1:=mload(add(_pools,p))
-                            }
-                            //p+=0x20;
-                            {
-                                p+=0x20;
-                                uint slot2;//=uint(bytes32(_pools[p:]));
-                                assembly{
-                                    slot2:=mload(add(_pools,p))
-                                }
-                                // p+=0x20;
-                                if(slot2!=0 && amounts[t0]+rIn>(direc?(slot2>>128):uint128(slot2))){
-                                    continue;
-                                }
-                            }
-                            if(poolInCalls(calls[t0],uint160(slot1))){
+                            if(hAmOut<=gasFeeNew){
                                 continue;
                             }
-                            uint amInXFee= amounts[t0] * uint24(slot1>>160);
-                            uint amOut = (amInXFee * rOut) / (rIn * 1e6 + amInXFee);
-                            {
-                                uint gasFee=(uint8(slot1>>216)==2?300000:100000)*tx.gasprice;
-                                if (t1!=0){
-                                    gasFee=(amOut*gasFee)/amounts[0];
-                                }
-                                amOut-=gasFee;
-                                if(int(amOut)<=int(amounts[t1])){
-                                    continue;
-                                }
-                                uint amOutX2 = amInXFee<<1;
-                                amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2);
-                                if(int(amOutX2-gasFee)>int(amOut<<1)){
-                                    continue;
-                                }
+                            if(int(hAmOut-gasFeeNew)<=int(amounts[t1]-gasFeeCurrent)){
+                                continue;
                             }
-                            // hAmOut=amOut;
-                            amounts[t1]=amOut;
-                            poolCall=slot1;
                         }
-                        if(poolCall==0){
+                        if(poolInCalls(calls[t0],uint160(poolCall))){
                             continue;
                         }
-                        //Actualiza amOut para tOut y Copia tIn calls a tOut calls añadiendo la nueva call
-                        //amounts[t1]=hAmOut;
+                        amounts[t1]=hAmOut;
+                        gasFees[t1]=gasNew;
                         uint amIn56bit=compress56bit(amounts[t0]);
                         poolCall=(poolCall&0x7fffffffff00000000000000ffffffffffffffffffffffffffffffffffffffff)|(amIn56bit<<160);
                         if(direc) poolCall|=0x8000000000000000000000000000000000000000000000000000000000000000;
@@ -136,6 +93,62 @@ library CRouter{
             temp|=rsh;
             return temp;
         }
+    }
+
+    function quotePools(uint amIn,uint eth,bool direc,bytes memory _pools)internal view returns(uint hAmOut,uint poolCall){
+        unchecked{
+            uint hGasFee;
+            for(uint p;p<_pools.length;p+=0x60){
+                uint slot1;//=uint(bytes32(_pools[p:]));
+                assembly{
+                    slot1:=mload(add(add(_pools,p),0x40))
+                }
+                
+                uint rIn;uint rOut;
+                {
+                    uint slot0;//=uint(bytes32(_pools[p:]));
+                    assembly{
+                        slot0:=mload(add(add(_pools,p),0x20))
+                    }
+                    rIn=slot0>>128;
+                    rOut=uint128(slot0);
+                }
+                if(!direc){
+                    (rIn,rOut)=(rOut,rIn);
+                }
+                {
+                    uint slot2;//=uint(bytes32(_pools[p:]));
+                    assembly{
+                        slot2:=mload(add(add(_pools,p),0x60))
+                    }
+                    if(slot2!=0 && amIn+rIn>(direc?(slot2>>128):uint128(slot2))){
+                        continue;
+                    }
+                }
+                uint amInXFee= amIn * uint24(slot1>>160);
+                uint amOut = (amInXFee * rOut) / (rIn * 1e6 + amInXFee);
+                uint gasFee = protocolGas(uint8(slot1>>216)) * tx.gasprice;
+                if(eth!=0){
+                    gasFee=(amOut*gasFee)/eth;
+                }
+                if(int(amOut-gasFee)<=int(hAmOut-hGasFee)){
+                    continue;
+                }
+                uint amOutX2 = amInXFee<<1;
+                amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2);
+                if(int(amOutX2-gasFee)>int((amOut-gasFee)<<1)){
+                    continue;
+                }
+                hGasFee=gasFee;
+                
+                hAmOut=amOut;
+                poolCall=slot1;
+            }
+        }
+    }
+
+    function protocolGas(uint8 pId)internal pure returns(uint){
+        return pId==2?300000:100000;
     }
 
     function poolInCalls(bytes memory calls,uint160 pool)internal pure returns(bool){
