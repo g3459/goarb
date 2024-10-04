@@ -62,8 +62,10 @@ func AccessListForCalls(calls []byte) types.AccessList {
 			continue
 		}
 		var slot int64
-		if calls[i+4] != 0 {
+		if calls[i+4] == 1 {
 			slot = 8
+		} else if calls[i+4] == 2 {
+			slot = 3
 		}
 		al = append(al, types.AccessTuple{Address: addr, StorageKeys: []common.Hash{common.BigToHash(big.NewInt(slot))}})
 	}

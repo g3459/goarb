@@ -1,12 +1,19 @@
 library CRouter{
 
-    function findRoutesInt(uint8 maxLen,uint8 t,uint amIn,bytes[][] memory pools) internal view returns (uint[] memory amounts,bytes[] memory calls){
+    bool internal constant FRP=true;
+    
+    uint internal constant PID_MASK=0xff000000000000000000000000000000000000000000000000000000;
+    uint internal constant UNIV2_PID=0x01000000000000000000000000000000000000000000000000000000;
+    uint internal constant UNIV3_PID=0;
+    uint internal constant ALGB_PID=0x02000000000000000000000000000000000000000000000000000000;
+
+    function findRoutes(uint8 maxLen,uint8 t,uint amIn,bytes[][] memory pools) public view returns (uint[] memory amounts,bytes[] memory calls){
         unchecked{
-            return findRoutes(maxLen, t, amIn, pools);
+            return findRoutesInt(maxLen, t, amIn, pools);
         }
     }
 
-    function findRoutes(uint8 maxLen,uint8 t,uint amIn,bytes[][] memory pools) public view returns (uint[] memory amounts,bytes[] memory calls){
+    function findRoutesInt(uint8 maxLen,uint8 t,uint amIn,bytes[][] memory pools) internal view returns (uint[] memory amounts,bytes[] memory calls){
         unchecked{
             amounts=new uint[](pools.length);
             amounts[t]=amIn;
@@ -43,11 +50,11 @@ library CRouter{
                             continue;
                         }
                         uint eth = t1==0?0:amounts[0];
-                        (uint hAmOut,uint poolCall) = quotePools(amounts[t0],eth,direc,_pools);
-                        uint gasNew=gasFees[t0]+protocolGas(uint8(poolCall>>216));
+                        (uint hAmOut,uint poolCall) = quotePools(amounts[t0]-1,eth,direc,_pools);
+                        uint gasNew = gasFees[t0]+callGas(poolCall);
                         {
-                            uint gasFeeNew= gasNew * tx.gasprice;
-                            uint gasFeeCurrent=gasFees[t1] * tx.gasprice;
+                            uint gasFeeNew = gasNew * tx.gasprice;
+                            uint gasFeeCurrent = gasFees[t1] * tx.gasprice;
                             if(eth!=0){
                                 gasFeeNew=(hAmOut*gasFeeNew)/eth;
                                 gasFeeCurrent=(hAmOut*gasFeeCurrent)/eth;
@@ -62,7 +69,7 @@ library CRouter{
                         if(poolInCalls(calls[t0],uint160(poolCall))){
                             continue;
                         }
-                        amounts[t1]=hAmOut;
+                        amounts[t1]=hAmOut-1;
                         gasFees[t1]=gasNew;
                         uint amIn56bit=compress56bit(amounts[t0]);
                         poolCall=(poolCall&0x7fffffffff00000000000000ffffffffffffffffffffffffffffffffffffffff)|(amIn56bit<<160);
@@ -81,20 +88,6 @@ library CRouter{
     //     }
     // }
 
-    function compress56bit(uint uncompressed)internal pure returns(uint){
-        unchecked{
-            uint temp=uncompressed;
-            uint rsh;
-            while(uint48(temp)!=temp){
-                rsh+=8;
-                temp>>=8;
-            }
-            temp<<=8;
-            temp|=rsh;
-            return temp;
-        }
-    }
-
     function quotePools(uint amIn,uint eth,bool direc,bytes memory _pools)internal view returns(uint hAmOut,uint poolCall){
         unchecked{
             uint hGasFee;
@@ -103,7 +96,6 @@ library CRouter{
                 assembly{
                     slot1:=mload(add(add(_pools,p),0x40))
                 }
-                
                 uint rIn;uint rOut;
                 {
                     uint slot0;//=uint(bytes32(_pools[p:]));
@@ -121,34 +113,49 @@ library CRouter{
                     assembly{
                         slot2:=mload(add(add(_pools,p),0x60))
                     }
-                    if(slot2!=0 && amIn+rIn>(direc?(slot2>>128):uint128(slot2))){
+                    if(slot2!=0 && amIn+rIn>=(direc?(slot2>>128):uint128(slot2))){
                         continue;
                     }
                 }
                 uint amInXFee= amIn * uint24(slot1>>160);
                 uint amOut = (amInXFee * rOut) / (rIn * 1e6 + amInXFee);
-                uint gasFee = protocolGas(uint8(slot1>>216)) * tx.gasprice;
+                uint gasFee = callGas(slot1) * tx.gasprice;
                 if(eth!=0){
                     gasFee=(amOut*gasFee)/eth;
                 }
                 if(int(amOut-gasFee)<=int(hAmOut-hGasFee)){
                     continue;
                 }
-                uint amOutX2 = amInXFee<<1;
-                amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2);
-                if(int(amOutX2-gasFee)>int((amOut-gasFee)<<1)){
-                    continue;
+                if(FRP){
+                    uint amOutX2 = amInXFee<<1;
+                    amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2);
+                    if(int(amOutX2-gasFee)>int((amOut-gasFee)<<1)){
+                        continue;
+                    }
                 }
                 hGasFee=gasFee;
-                
                 hAmOut=amOut;
                 poolCall=slot1;
             }
         }
     }
 
-    function protocolGas(uint8 pId)internal pure returns(uint){
-        return pId==2?300000:100000;
+    function callGas(uint poolCall)internal pure returns(uint){
+        return poolCall&PID_MASK==ALGB_PID?300000:100000;
+    }
+
+    function compress56bit(uint uncompressed)internal pure returns(uint){
+        unchecked{
+            uint temp=uncompressed;
+            uint rsh;
+            while(uint48(temp)!=temp){
+                rsh+=8;
+                temp>>=8;
+            }
+            temp<<=8;
+            temp|=rsh;
+            return temp;
+        }
     }
 
     function poolInCalls(bytes memory calls,uint160 pool)internal pure returns(bool){

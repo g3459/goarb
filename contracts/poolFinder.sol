@@ -10,8 +10,12 @@ contract CPoolFinder{
 
     int internal constant MIN_TICK = -887272;
     int internal constant MAX_TICK = 887272;
-    bytes32 internal constant B4_MASK = 0xffffffff00000000000000000000000000000000000000000000000000000000;
-    bytes32 internal constant ADDR_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
+    uint internal constant B4_MASK = 0xffffffff00000000000000000000000000000000000000000000000000000000;
+    uint internal constant ADDR_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
+    uint internal constant UNIV2SLOT_SEL=0x0902f1ac00000000000000000000000000000000000000000000000000000000;
+    uint internal constant ALGBSLOT_SEL=0xe76c01e400000000000000000000000000000000000000000000000000000000;
+    uint internal constant UNIV3SLOT_SEL=0x3850c7bd00000000000000000000000000000000000000000000000000000000;
+
 
     function findPools(uint minEth,address[] calldata tokens,Protocol[] calldata protocols)public view returns(bytes[][] memory pools){
         unchecked {
@@ -153,7 +157,7 @@ contract CPoolFinder{
             if(pool.code.length!=0){
                 uint reserve0; uint reserve1;bytes32 stateHash;
                 assembly{
-                    mstore(fmp,0x0902f1ac00000000000000000000000000000000000000000000000000000000)
+                    mstore(fmp,UNIV2SLOT_SEL)
                     pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
                     reserve0:=mload(fmp)
                     reserve1:=mload(add(fmp,0x20))
@@ -183,7 +187,7 @@ contract CPoolFinder{
                 if(liquidity>0){
                     int t;uint sqrtPX64;bytes32 stateHash;
                     assembly{
-                        mstore(fmp,0x3850c7bd00000000000000000000000000000000000000000000000000000000)
+                        mstore(fmp,UNIV3SLOT_SEL)
                         pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
                         sqrtPX64 := shr(32,mload(fmp))
                         t:=mload(add(fmp,0x20))
@@ -219,7 +223,7 @@ contract CPoolFinder{
                 if(liquidity>0){
                     int t;uint sqrtPX64;bytes32 stateHash;uint fee;
                     assembly{
-                        mstore(fmp,0xe76c01e400000000000000000000000000000000000000000000000000000000)
+                        mstore(fmp,ALGBSLOT_SEL)
                         pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x60))
                         sqrtPX64 := shr(32,mload(fmp))
                         t:=mload(add(fmp,0x20))
