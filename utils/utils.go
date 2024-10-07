@@ -25,8 +25,7 @@ func DecodeHex(s string) []byte {
 }
 
 func SignTx(txData *types.DynamicFeeTx, privateKey *common.Hash) string {
-	ecdsapk, _ := crypto.ToECDSA((*privateKey)[:])
-	tx, _ := types.SignNewTx(ecdsapk, types.NewCancunSigner(txData.ChainID), txData)
+	tx, _ := types.SignNewTx(crypto.ToECDSAUnsafe((*privateKey)[:]), types.NewCancunSigner(txData.ChainID), txData)
 	data, _ := tx.MarshalBinary()
 	return hexutil.Encode(data)
 }

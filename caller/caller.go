@@ -1,6 +1,7 @@
 package caller
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -23,15 +24,15 @@ type Protocol struct {
 }
 
 type step struct {
-	e rpc.BatchElem
+	e *rpc.BatchElem
 	d func(interface{}) interface{}
 	c func(interface{})
 }
 
-type Batch []*step
+type Batch []step
 
-func S(res interface{}, decoder func(interface{}) interface{}, callback func(interface{}), method string, args ...interface{}) *step {
-	return &step{rpc.BatchElem{Method: method, Args: args, Result: res}, decoder, callback}
+func S(res interface{}, decoder func(interface{}) interface{}, callback func(interface{}), method string, args ...interface{}) step {
+	return step{&rpc.BatchElem{Method: method, Args: args, Result: res}, decoder, callback}
 }
 
 func (batch Batch) Call(txParams map[string]interface{}, block string, decoder func(interface{}) interface{}, callback func(interface{})) Batch {
@@ -47,18 +48,12 @@ func (batch Batch) BalanceOf(token *common.Address, account *common.Address, blo
 }
 
 func (batch Batch) FindPools(minEth *big.Int, tokens []common.Address, protocols []Protocol, poolFinder *common.Address, block string, callback func(interface{})) Batch {
-	data, err := interfaces.PoolFinderABI.Pack("findPools", minEth, tokens, protocols)
-	if err != nil {
-		panic(err)
-	}
+	data, _ := interfaces.PoolFinderABI.Pack("findPools", minEth, tokens, protocols)
 	return batch.Call(map[string]interface{}{"to": poolFinder, "input": hexutil.Encode(data)}, block, poolsDecoder, callback)
 }
 
 func (batch Batch) FindRoutes(maxLen uint8, tIn uint8, amIn *big.Int, pools [][][]byte, gasPrice *big.Int, router *common.Address, block string, callback func(interface{})) Batch {
-	data, err := interfaces.RouterABI.Pack("findRoutes", maxLen, tIn, amIn, pools)
-	if err != nil {
-		panic(err)
-	}
+	data, _ := interfaces.RouterABI.Pack("findRoutes", maxLen, tIn, amIn, pools)
 	return batch.Call(map[string]interface{}{"to": router, "gasPrice": hexutil.EncodeBig(gasPrice), "input": hexutil.Encode(data)}, block, routesDecoder, callback)
 }
 
@@ -91,10 +86,7 @@ func (batch Batch) ExecutePoolCalls(calls []byte, caller *common.Address, minerT
 }
 
 func (batch Batch) ExecuteCall(to *common.Address, call []byte, caller *common.Address, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {
-	data, err := interfaces.CallerABI.Pack("execute", to, call)
-	if err != nil {
-		panic(err)
-	}
+	data, _ := interfaces.CallerABI.Pack("execute", to, call)
 	return batch.SendTx(&types.DynamicFeeTx{ChainID: chainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: maxFeePerGas, Gas: 1000000, To: caller, Value: new(big.Int), Data: data}, privateKey, callback)
 }
 
@@ -115,12 +107,12 @@ func (batch Batch) BlockByNumber(block string, callback func(interface{})) Batch
 	return append(batch, S(new(map[string]interface{}), nil, callback, "eth_getBlockByNumber", block, false))
 }
 
-func (batch Batch) Submit(rpcclient *rpc.Client) ([]interface{}, error) {
+func (batch Batch) Submit(ctx context.Context, rpcclient *rpc.Client) ([]interface{}, error) {
 	batchElems := make([]rpc.BatchElem, len(batch))
 	for i := range batch {
-		batchElems[i] = batch[i].e
+		batchElems[i] = *batch[i].e
 	}
-	err := rpcclient.BatchCall(batchElems)
+	err := rpcclient.BatchCallContext(ctx, batchElems)
 	if err != nil {
 		return nil, err
 	}
