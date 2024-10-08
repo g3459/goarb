@@ -49,6 +49,7 @@ type Configuration struct {
 	MaxMinerTip  *big.Int          `json:"maxMinerTip"`
 	MinMinerTip  *big.Int          `json:"minMinerTip"`
 	MinGasBen    *big.Int          `json:"minGasBen"`
+	MinRatio     float64           `json:"minRatio"`
 	Protocols    []caller.Protocol `json:"protocols"`
 	FakeBalance  bool              `json:"fakeBalance"`
 	LogLevel     int               `json:"logLevel"`
@@ -167,20 +168,15 @@ func main() {
 			_, err2 := batch.Submit(deadline, rpcclient)
 			if err2 != nil {
 				banMap[k] = time.Now().Add(conf.Timeout * time.Millisecond * 60)
-				Log(1, "BatchRPC Err: ", err2)
+				Log(2, "BatchRPC Err: ", err2)
 				continue
 			}
 			if err != nil {
 				banMap[k] = time.Now().Add(conf.Timeout * time.Millisecond * 60)
-				Log(0, "BatchExec Err: ", err)
+				Log(2, "BatchExec Err: ", err)
 				continue
 			}
 			sts := time.Now()
-			if sts.Sub(sts2) > conf.Timeout*time.Millisecond {
-				log.Println(k)
-				Log(0, "BatchCall Timeout: ", sts.Sub(sts2))
-				continue
-			}
 			if number < hNumber {
 				continue
 			}
@@ -198,18 +194,17 @@ func main() {
 			var mu sync.Mutex
 			var calls []byte
 			callsGasPrice := minGasPrice
-			maxItemGasPrice := minGasPrice
-			for i := range conf.TokenConfs {
-				if amounts[i] == nil {
-					continue
-				}
-				Log(4, "Token:", conf.TokenConfs[i].Token, ", AmIn:", amounts[i], ", Price:", ethPriceX64Oracle[i])
-				if ethPriceX64Oracle[i] == nil {
-					continue
-				}
-				amInMin := new(big.Int).Div(new(big.Int).Lsh(conf.MinEth, 64), ethPriceX64Oracle[i])
-				gasPrice := new(big.Int).Set(conf.MaxGasPrice)
-				for gasPrice.Cmp(maxItemGasPrice) >= 0 {
+			gasPrice := new(big.Int).Set(conf.MaxGasPrice)
+			for gasPrice.Cmp(minGasPrice) >= 0 && calls == nil {
+				for i := range conf.TokenConfs {
+					if amounts[i] == nil {
+						continue
+					}
+					Log(4, "Token:", conf.TokenConfs[i].Token, ", AmIn:", amounts[i], ", Price:", ethPriceX64Oracle[i])
+					if ethPriceX64Oracle[i] == nil {
+						continue
+					}
+					amInMin := new(big.Int).Div(new(big.Int).Lsh(conf.MinEth, 64), ethPriceX64Oracle[i])
 					amIn := new(big.Int).Set(amounts[i])
 					for amIn.Cmp(amInMin) > 0 {
 						wg.Add(1)
@@ -217,12 +212,12 @@ func main() {
 							defer wg.Done()
 							res, err := new(caller.Batch).FindRoutes(2, tInx, amIn, pools, gasPrice, &router, "pending", nil).Submit(deadline, simClient)
 							if err != nil {
-								Log(0, "FindRoutesRPC Err: ", err)
+								Log(2, "FindRoutesRPC Err: ", err)
 								return
 							}
 							routes, b := res[0].([]caller.Route)
 							if !b {
-								Log(0, amIn, tInx, "FindRoutesExec Err: ", res[0].(error))
+								Log(2, amIn, tInx, "FindRoutesExec Err: ", res[0].(error))
 								return
 							}
 							mu.Lock()
@@ -236,19 +231,28 @@ func main() {
 								ethIn.Rsh(ethIn, 64)
 								ethOut.Rsh(ethOut, 64)
 								ben := new(big.Int).Sub(ethOut, ethIn)
+								if ben.Sign() < 0 {
+									continue
+								}
+								ratiotemp := new(big.Float).SetInt(ethOut)
+								ratiotemp.Quo(ratiotemp, new(big.Float).SetInt(ethIn))
+								ratio, _ := ratiotemp.Float64()
+								log.Println("------------->", ratio)
+								if ratio < conf.MinRatio {
+									log.Println("ratio")
+									continue
+								}
 								txGas := big.NewInt(int64(utils.CallsGas(route.Calls)))
 								if new(big.Int).Sub(ben, new(big.Int).Mul(txGas, gasPrice)).Sign() > 0 {
+									log.Println("gas", txGas, gasPrice)
 									continue
 								}
 								txGas.Add(txGas, conf.MinGasBen)
 								gasPriceLimit := new(big.Int).Div(ben, txGas)
-								if gasPriceLimit.Cmp(minGasPrice) < 0 {
+								if gasPriceLimit.Cmp(callsGasPrice) < 0 {
+									log.Println("callsGasPrice", gasPriceLimit, callsGasPrice)
 									continue
 								}
-								if gasPrice.Cmp(maxItemGasPrice) == 0 && gasPriceLimit.Cmp(callsGasPrice) < 0 {
-									continue
-								}
-								maxItemGasPrice = gasPrice
 								callsGasPrice = gasPriceLimit
 								calls = route.Calls
 							}
@@ -257,9 +261,9 @@ func main() {
 						Log(4, "START", i, amIn, gasPrice)
 						amIn = new(big.Int).Rsh(amIn, 1)
 					}
-					wg.Wait()
-					gasPrice = new(big.Int).Rsh(gasPrice, 1)
 				}
+				wg.Wait()
+				gasPrice = new(big.Int).Rsh(gasPrice, 1)
 			}
 			ets := time.Now()
 			Log(4, "END", number, ets.Sub(sts2))
@@ -267,7 +271,7 @@ func main() {
 				Log(1, calls, minGasPrice, callsGasPrice)
 				if !conf.FakeBalance {
 					if bytes.Equal(calls, lastCalls) {
-						Log(0, "Repeated Call")
+						Log(2, "Repeated Call")
 					} else {
 						lastCalls = calls
 						minerTip := new(big.Int).Sub(callsGasPrice, baseFee)
@@ -331,10 +335,10 @@ func startRPCProviders() {
 		client, err := rpc.DialContext(deadline, url)
 		cancel()
 		if err != nil {
-			Log(2, "rpcDial Err: ", err, url)
+			Log(1, "rpcDial Err: ", err, url)
 			continue
 		}
-		Log(2, "rpcDial: ", url)
+		Log(1, "rpcDial: ", url)
 		rpcclients[url] = client
 	}
 }
@@ -348,14 +352,14 @@ func startUsdOracles() {
 			if err != nil {
 				Log(-1, "binanceDial Err: ", err)
 			} else {
-				Log(2, "binanceDial: ", v.Oracle.Name)
+				Log(1, "binanceDial: ", v.Oracle.Name)
 				continue
 			}
 			err = startBybitUsdOracle(v.Oracle.Name)
 			if err != nil {
 				Log(-1, "bybitDial Err: ", err)
 			} else {
-				Log(2, "bybitDial: ", v.Oracle.Name)
+				Log(1, "bybitDial: ", v.Oracle.Name)
 				continue
 			}
 
@@ -419,7 +423,7 @@ func startBybitUsdOracle(baseToken string) error {
 					if !res["success"].(bool) {
 						Log(-1, "bybitMsg Err:", errors.New("tickers."+strings.ToUpper(baseToken)+"USDT "+res["ret_msg"].(string)))
 					} else {
-						Log(3, "bybitMsg:", "tickers."+strings.ToUpper(baseToken)+"USDT "+res["ret_msg"].(string))
+						Log(4, "bybitMsg:", "tickers."+strings.ToUpper(baseToken)+"USDT "+res["ret_msg"].(string))
 					}
 				} else {
 					price, err := strconv.ParseFloat(res["data"].(map[string]interface{})["lastPrice"].(string), 64)
