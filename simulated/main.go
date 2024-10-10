@@ -62,9 +62,9 @@ func main() {
 		ethConf.GPO.Percentile = 0
 		ethConf.GPO.MaxHeaderHistory = 0
 		ethConf.GPO.MaxBlockHistory = 0
-		ethConf.GPO.MaxPrice = new(big.Int)
-		ethConf.GPO.IgnorePrice = new(big.Int)
-		ethConf.GPO.Default = new(big.Int)
+		ethConf.GPO.MaxPrice = big.NewInt(1)
+		ethConf.GPO.IgnorePrice = big.NewInt(1)
+		ethConf.GPO.Default = big.NewInt(0)
 		ethConf.RPCEVMTimeout = 0
 		ethConf.RPCGasCap = 0
 		ethConf.RPCTxFeeCap = 0
@@ -80,8 +80,6 @@ func main() {
 		ethConf.TransactionHistory = 0
 		ethConf.StateHistory = 0
 		ethConf.SkipBcVersionCheck = true
-		ethConf.LightServ = 0
-		ethConf.LightPeers = 0
 	}
 	sim := simulated.NewBackend(nil, simconf)
 	auth, err := bind.NewKeyedTransactorWithChainID(pk, big.NewInt(1337))
@@ -92,6 +90,7 @@ func main() {
 	if err != nil {
 		panic("DeployContract Err:" + err.Error())
 	}
+	sim.Commit()
 	log.Println("Router:", router)
 	select {}
 }

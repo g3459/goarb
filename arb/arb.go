@@ -193,14 +193,19 @@ func main() {
 			var wg sync.WaitGroup
 			var mu sync.Mutex
 			var calls []byte
-			callsGasPrice := minGasPrice
-			gasPrice := new(big.Int).Set(conf.MaxGasPrice)
+			callsGasPriceLimit := minGasPrice
+			gasPrice := new(big.Int).Lsh(conf.MaxGasPrice, 2)
+			for i := range conf.TokenConfs {
+				if amounts[i] == nil {
+					continue
+				}
+				Log(4, "Token:", conf.TokenConfs[i].Token, ", AmIn:", amounts[i], ", Price:", ethPriceX64Oracle[i])
+			}
 			for gasPrice.Cmp(minGasPrice) >= 0 && calls == nil {
 				for i := range conf.TokenConfs {
 					if amounts[i] == nil {
 						continue
 					}
-					Log(4, "Token:", conf.TokenConfs[i].Token, ", AmIn:", amounts[i], ", Price:", ethPriceX64Oracle[i])
 					if ethPriceX64Oracle[i] == nil {
 						continue
 					}
@@ -237,23 +242,22 @@ func main() {
 								ratiotemp := new(big.Float).SetInt(ethOut)
 								ratiotemp.Quo(ratiotemp, new(big.Float).SetInt(ethIn))
 								ratio, _ := ratiotemp.Float64()
-								log.Println("------------->", ratio)
 								if ratio < conf.MinRatio {
-									log.Println("ratio")
 									continue
 								}
 								txGas := big.NewInt(int64(utils.CallsGas(route.Calls)))
 								if new(big.Int).Sub(ben, new(big.Int).Mul(txGas, gasPrice)).Sign() > 0 {
-									log.Println("gas", txGas, gasPrice)
 									continue
 								}
 								txGas.Add(txGas, conf.MinGasBen)
 								gasPriceLimit := new(big.Int).Div(ben, txGas)
-								if gasPriceLimit.Cmp(callsGasPrice) < 0 {
-									log.Println("callsGasPrice", gasPriceLimit, callsGasPrice)
+								if gasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
 									continue
 								}
-								callsGasPrice = gasPriceLimit
+								if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 {
+									continue
+								}
+								callsGasPriceLimit = gasPriceLimit
 								calls = route.Calls
 							}
 							mu.Unlock()
@@ -268,23 +272,23 @@ func main() {
 			ets := time.Now()
 			Log(4, "END", number, ets.Sub(sts2))
 			if calls != nil {
-				Log(1, calls, minGasPrice, callsGasPrice)
+				Log(1, calls, callsGasPriceLimit, number)
 				if !conf.FakeBalance {
 					if bytes.Equal(calls, lastCalls) {
 						Log(2, "Repeated Call")
 					} else {
 						lastCalls = calls
-						minerTip := new(big.Int).Sub(callsGasPrice, baseFee)
+						minerTip := new(big.Int).Sub(callsGasPriceLimit, baseFee)
 						if minerTip.Cmp(conf.MaxMinerTip) > 0 {
 							minerTip = conf.MaxMinerTip
 						}
-						if callsGasPrice.Cmp(conf.MaxGasPrice) > 0 {
-							callsGasPrice = conf.MaxGasPrice
+						if callsGasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
+							callsGasPriceLimit = conf.MaxGasPrice
 						}
-						b := new(caller.Batch).ExecutePoolCalls(calls, conf.Caller, minerTip, callsGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil)
+						b := new(caller.Batch).ExecutePoolCalls(calls, conf.Caller, minerTip, callsGasPriceLimit, nonce, conf.ChainId, conf.PrivateKey, nil)
 						for _, rpcclient := range rpcclients {
-							go func(_rpcclient *rpc.Client) {
-								res, err := b.Submit(context.Background(), _rpcclient)
+							go func(rpcclient *rpc.Client) {
+								res, err := b.Submit(context.Background(), rpcclient)
 								if err != nil {
 									Log(3, "ExecutePoolCallsRPC Err: ", err)
 									return
