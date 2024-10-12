@@ -1,8 +1,6 @@
 package main
 
 import (
-	//"context"
-
 	"bytes"
 	"context"
 	"encoding/json"
@@ -18,10 +16,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/g3459/goarb/caller"
-	"github.com/g3459/goarb/utils"
 	"github.com/gorilla/websocket"
 )
 
@@ -38,33 +36,34 @@ type TokenConf struct {
 }
 
 type Configuration struct {
-	PrivateKey   *common.Hash      `json:"privateKey"`
-	PoolFinder   *common.Address   `json:"poolFinder"`
-	Caller       *common.Address   `json:"caller"`
-	TokenConfs   []TokenConf       `json:"tokens"`
-	RpcProviders []string          `json:"rpcProviders"`
-	ChainId      *big.Int          `json:"chainId"`
-	MaxGasPrice  *big.Int          `json:"maxGasPrice"`
-	MinEth       *big.Int          `json:"minEth"`
-	MaxMinerTip  *big.Int          `json:"maxMinerTip"`
-	MinMinerTip  *big.Int          `json:"minMinerTip"`
-	MinGasBen    *big.Int          `json:"minGasBen"`
-	MinRatio     float64           `json:"minRatio"`
-	Protocols    []caller.Protocol `json:"protocols"`
-	FakeBalance  bool              `json:"fakeBalance"`
-	LogLevel     int               `json:"logLevel"`
-	RouteDepth   uint8             `json:"routeDepth"`
-	RouteMaxLen  uint8             `json:"routeMaxLen"`
-	LogFile      string            `json:"logFile"`
-	Timeout      time.Duration     `json:"timeout"`
-	ExecTimeout  time.Duration     `json:"execTimeout"`
+	PrivateKey  *common.Hash      `json:"privateKey"`
+	PoolFinder  *common.Address   `json:"poolFinder"`
+	Caller      *common.Address   `json:"caller"`
+	TokenConfs  []TokenConf       `json:"tokens"`
+	RpcUrls     []string          `json:"rpcUrls"`
+	ChainId     *big.Int          `json:"chainId"`
+	MaxGasPrice *big.Int          `json:"maxGasPrice"`
+	MinEth      *big.Int          `json:"minEth"`
+	MaxMinerTip *big.Int          `json:"maxMinerTip"`
+	MinMinerTip *big.Int          `json:"minMinerTip"`
+	MinGasBen   *big.Int          `json:"minGasBen"`
+	MinRatio    float64           `json:"minRatio"`
+	Protocols   []caller.Protocol `json:"protocols"`
+	FakeBalance bool              `json:"fakeBalance"`
+	LogLevel    int               `json:"logLevel"`
+	RouteDepth  uint8             `json:"routeDepth"`
+	RouteMaxLen uint8             `json:"routeMaxLen"`
+	LogFile     string            `json:"logFile"`
+	Timeout     time.Duration     `json:"timeout"`
+	ExecTimeout time.Duration     `json:"execTimeout"`
 }
 
 var (
 	conf              Configuration
 	router            = common.HexToAddress("0x8988167E088c87Cd314Df6d3C2b83da5aCb93AcE")
 	ethPriceX64Oracle []*big.Int
-	rpcclients        = make(map[string]*rpc.Client)
+	rpcClients        = make(map[string]*rpc.Client)
+	rpcClientsBanMap  = map[*rpc.Client]time.Time{}
 	simClient         *rpc.Client
 	hNumber           uint64
 	sender            common.Address
@@ -73,8 +72,8 @@ var (
 )
 
 func main() {
-	readConf()
-	execTimeout()
+	conf = readConf()
+	execTimeout(conf.ExecTimeout * time.Second)
 	///
 	// if len(conf.LogFile) > 0 {
 	// 	logFile, err = os.OpenFile(conf.LogFile, os.O_APPEND|os.O_WRONLY, 0600)
@@ -90,7 +89,8 @@ func main() {
 	// 	defer logFile.Close()
 	// }
 	startUsdOracles()
-	startRPCProviders()
+
+	startRpcClients(conf.RpcUrls)
 	//batch declaration
 	var err error
 	batch := caller.Batch{}
@@ -121,7 +121,7 @@ func main() {
 	var number uint64
 	var baseFee *big.Int
 	blockInfo := map[string]interface{}{}
-	batch = batch.BlockByNumber("latest", func(res interface{}) {
+	batch = batch.BlockByNumber("pending", func(res interface{}) {
 		var b bool
 		_blockInfo, b := res.(*map[string]interface{})
 		if !b {
@@ -146,7 +146,7 @@ func main() {
 		}
 	})
 	nonce := uint64(0)
-	batch = batch.Nonce(&sender, "latest", func(res interface{}) {
+	batch = batch.Nonce(&sender, "pending", func(res interface{}) {
 		var b bool
 		nonce, b = res.(uint64)
 		if !b {
@@ -156,10 +156,11 @@ func main() {
 	})
 	///
 	//logic execution
-	banMap := map[string]time.Time{}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	for {
-		for k, rpcclient := range rpcclients {
-			if time.Now().Compare(banMap[k]) < 0 {
+		for k, rpcclient := range rpcClients {
+			if clientBanned(rpcclient) {
 				continue
 			}
 			err = nil
@@ -167,12 +168,12 @@ func main() {
 			sts2 := time.Now()
 			_, err2 := batch.Submit(deadline, rpcclient)
 			if err2 != nil {
-				banMap[k] = time.Now().Add(conf.Timeout * time.Millisecond * 60)
+				banClient(rpcclient, conf.Timeout*time.Millisecond*60)
 				Log(2, "BatchRPC Err: ", err2)
 				continue
 			}
 			if err != nil {
-				banMap[k] = time.Now().Add(conf.Timeout * time.Millisecond * 60)
+				banClient(rpcclient, conf.Timeout*time.Millisecond*60)
 				Log(2, "BatchExec Err: ", err)
 				continue
 			}
@@ -190,8 +191,6 @@ func main() {
 			// continue
 			Log(4, "START", k, number, sts.Sub(sts2))
 			minGasPrice := new(big.Int).Add(baseFee, conf.MinMinerTip)
-			var wg sync.WaitGroup
-			var mu sync.Mutex
 			var calls []byte
 			callsGasPriceLimit := minGasPrice
 			gasPrice := new(big.Int).Lsh(conf.MaxGasPrice, 2)
@@ -225,15 +224,15 @@ func main() {
 								Log(2, amIn, tInx, "FindRoutesExec Err: ", res[0].(error))
 								return
 							}
+							ethIn := new(big.Int).Mul(amIn, ethPriceX64Oracle[tInx])
+							ethIn.Rsh(ethIn, 64)
 							mu.Lock()
 							for tOutx, route := range routes {
 								// log.Println(item.tInx, tOutx, route.AmOut, len(route.Calls))
 								if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 {
 									continue
 								}
-								ethIn := new(big.Int).Mul(amIn, ethPriceX64Oracle[tInx])
 								ethOut := new(big.Int).Mul(route.AmOut, ethPriceX64Oracle[tOutx])
-								ethIn.Rsh(ethIn, 64)
 								ethOut.Rsh(ethOut, 64)
 								ben := new(big.Int).Sub(ethOut, ethIn)
 								if ben.Sign() < 0 {
@@ -245,7 +244,7 @@ func main() {
 								if ratio < conf.MinRatio {
 									continue
 								}
-								txGas := big.NewInt(int64(utils.CallsGas(route.Calls)))
+								txGas := big.NewInt(int64(CallsGas(route.Calls)))
 								if new(big.Int).Sub(ben, new(big.Int).Mul(txGas, gasPrice)).Sign() > 0 {
 									continue
 								}
@@ -285,8 +284,8 @@ func main() {
 						if callsGasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
 							callsGasPriceLimit = conf.MaxGasPrice
 						}
-						b := new(caller.Batch).ExecutePoolCalls(calls, conf.Caller, minerTip, callsGasPriceLimit, nonce, conf.ChainId, conf.PrivateKey, nil)
-						for _, rpcclient := range rpcclients {
+						b := new(caller.Batch).SendTx(&types.DynamicFeeTx{ChainID: conf.ChainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: callsGasPriceLimit, Gas: ExecuteCallsGas(calls), To: conf.Caller, Value: new(big.Int), Data: calls, AccessList: AccessListForCalls(calls)}, conf.PrivateKey, nil)
+						for _, rpcclient := range rpcClients {
 							go func(rpcclient *rpc.Client) {
 								res, err := b.Submit(context.Background(), rpcclient)
 								if err != nil {
@@ -311,30 +310,31 @@ func main() {
 	///
 }
 
-func readConf() {
+func execTimeout(d time.Duration) {
+	go func() {
+		<-time.After(d)
+		Log(0, "exit")
+		os.Exit(0)
+	}()
+}
+
+func readConf() (conf Configuration) {
 	rawConf, err := os.ReadFile(os.Args[1])
 	if err != nil {
 		Log(-1, "ReadConfFile Err: ", err)
 	}
 	json.Unmarshal(rawConf, &conf)
 	sender = crypto.PubkeyToAddress(crypto.ToECDSAUnsafe((conf.PrivateKey)[:]).PublicKey)
+	return conf
 }
 
-func execTimeout() {
-	go func() {
-		<-time.After(conf.ExecTimeout * time.Second)
-		Log(0, "exit")
-		os.Exit(0)
-	}()
-}
-
-func startRPCProviders() {
+func startRpcClients(rpcUrls []string) {
 	var err error
 	simClient, err = rpc.Dial("ws://localhost:8546")
 	if err != nil {
 		Log(-1, "simrpcDial Err: ", err)
 	}
-	for _, url := range conf.RpcProviders {
+	for _, url := range rpcUrls {
 		deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(1000*time.Millisecond))
 		client, err := rpc.DialContext(deadline, url)
 		cancel()
@@ -343,15 +343,23 @@ func startRPCProviders() {
 			continue
 		}
 		Log(1, "rpcDial: ", url)
-		rpcclients[url] = client
+		rpcClients[url] = client
 	}
+}
+
+func banClient(client *rpc.Client, d time.Duration) {
+	rpcClientsBanMap[client] = time.Now().Add(d)
+}
+
+func clientBanned(client *rpc.Client) bool {
+	return time.Now().Compare(rpcClientsBanMap[client]) < 0
 }
 
 func startUsdOracles() {
 	ethPriceX64Oracle = make([]*big.Int, len(conf.TokenConfs))
 	ethPriceX64Oracle[0] = new(big.Int).Lsh(big.NewInt(1), 64)
-	for _, v := range conf.TokenConfs {
-		if v.Oracle.Active && len(v.Oracle.Name) > 0 && v.Oracle.Name != "usd" {
+	for i, v := range conf.TokenConfs {
+		if v.Oracle.Active && len(v.Oracle.Name) > 0 && v.Oracle.Name != "usd" || i == 0 {
 			err := startBinanceUsdOracle(v.Oracle.Name)
 			if err != nil {
 				Log(-1, "binanceDial Err: ", err)
@@ -457,7 +465,7 @@ var usdEthPrice float64
 func updatePriceUsdOracle(baseToken string, price float64) {
 	if baseToken == conf.TokenConfs[0].Oracle.Name {
 		usdEthPrice = 1 / price
-		ethPX64 := utils.ToX64Int(usdEthPrice)
+		ethPX64 := ToX64Int(usdEthPrice)
 		for i, v := range conf.TokenConfs {
 			if v.Oracle.Active && v.Oracle.Name == "usd" {
 				if ethPriceX64Oracle[i] == nil {
@@ -468,7 +476,7 @@ func updatePriceUsdOracle(baseToken string, price float64) {
 		}
 	} else {
 		if usdEthPrice > 0 {
-			ethPX64 := utils.ToX64Int(price * usdEthPrice)
+			ethPX64 := ToX64Int(price * usdEthPrice)
 			for i, v := range conf.TokenConfs {
 				if v.Oracle.Active && v.Oracle.Name == baseToken {
 					if ethPriceX64Oracle[i] == nil {

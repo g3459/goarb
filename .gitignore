@@ -4,5 +4,4 @@ contracts/bytecodes
 contracts/interfaces
 contracts/.states
 contracts/.deploys
-arb/conf
-arb/log.csv
+conf
