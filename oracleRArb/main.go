@@ -200,7 +200,7 @@ func main() {
 				}
 				Log(4, "Token:", conf.TokenConfs[i].Token, ", AmIn:", amounts[i], ", Price:", ethPriceX64Oracle[i])
 			}
-			Log(0, len(pools[0][1])/0x40)
+			Log(4, len(pools[0][1])/0x40)
 			for gasPrice.Cmp(minGasPrice) >= 0 && calls == nil {
 				for i := range conf.TokenConfs {
 					if amounts[i] == nil {
