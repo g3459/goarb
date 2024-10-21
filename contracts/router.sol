@@ -1,6 +1,6 @@
 library CRouter{
 
-    bool internal constant FRP=false;
+    bool internal constant FRP=true;
     
     uint internal constant PID_MASK=0xff000000000000000000000000000000000000000000000000000000;
     uint internal constant UNIV2_PID=0x01000000000000000000000000000000000000000000000000000000;
