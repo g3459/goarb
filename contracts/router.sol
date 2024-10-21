@@ -54,6 +54,7 @@ library CRouter{
                         }
                         uint eth = t1==0?0:amounts[0];
                         (uint hAmOut,uint poolCall) = quotePools(amounts[t0]-1,eth,direc,_pools);
+                        
                         if(poolInCalls(calls[t0],uint160(poolCall))){
                             continue;
                         }
@@ -114,7 +115,7 @@ library CRouter{
                 if(amOut<=hAmOut){
                     continue;
                 }
-                uint pid=poolCall&PID_MASK;
+                uint pid=slot1&PID_MASK;
                 if(pid!=UNIV2_PID){
                     uint s=pid!=ALGB_PID?feeAmountTickSpacing(fee):60;
                     (int tl,int tu)=tickBounds(int24(int(slot1>>176)),s);
