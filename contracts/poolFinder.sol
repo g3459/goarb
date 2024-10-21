@@ -8,14 +8,13 @@ contract CPoolFinder{
         uint8 id;
     }
 
-    int internal constant MIN_TICK = -887272;
-    int internal constant MAX_TICK = 887272;
+    // int internal constant MIN_TICK = -887272;
+    // int internal constant MAX_TICK = 887272;
     uint internal constant B4_MASK = 0xffffffff00000000000000000000000000000000000000000000000000000000;
     uint internal constant ADDR_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
     uint internal constant UNIV2SLOT_SEL=0x0902f1ac00000000000000000000000000000000000000000000000000000000;
     uint internal constant ALGBSLOT_SEL=0xe76c01e400000000000000000000000000000000000000000000000000000000;
     uint internal constant UNIV3SLOT_SEL=0x3850c7bd00000000000000000000000000000000000000000000000000000000;
-
 
     function findPools(uint minEth,address[] calldata tokens,Protocol[] calldata protocols)public view returns(bytes[][] memory pools){
         unchecked {
@@ -50,11 +49,11 @@ contract CPoolFinder{
             }
             for(uint i; i<protocols.length;i++){
                 if(protocols[i].id==0){
-                    mstoreUniV3Pool(protocols[i],token0,token1,100,1);
-                    mstoreUniV3Pool(protocols[i],token0,token1,500,10);
-                    mstoreUniV3Pool(protocols[i],token0,token1,2500,50);
-                    mstoreUniV3Pool(protocols[i],token0,token1,3000,60);
-                    mstoreUniV3Pool(protocols[i],token0,token1,10000,200);
+                    mstoreUniV3Pool(protocols[i],token0,token1,100);
+                    mstoreUniV3Pool(protocols[i],token0,token1,500);
+                    mstoreUniV3Pool(protocols[i],token0,token1,2500);
+                    mstoreUniV3Pool(protocols[i],token0,token1,3000);
+                    mstoreUniV3Pool(protocols[i],token0,token1,10000);
                 }else if(protocols[i].id==1){
                     mstoreUniV2Pool(protocols[i],token0,token1);
                 }else if(protocols[i].id==2){
@@ -85,36 +84,21 @@ contract CPoolFinder{
                     uint _len;
                     uint p;
                     while(p<_pools.length){
-                        uint slot0;uint slot1;uint slot2;
+                        uint slot0;uint slot1;
                         assembly{
                             p:=add(p,0x20)
                             slot0:=mload(add(_pools,p))
                             p:=add(p,0x20)
                             slot1:=mload(add(_pools,p))
-                            p:=add(p,0x20)
-                            slot2:=mload(add(_pools,p))
                         }
                         uint rt0=slot0>>128;
                         uint rt1=uint128(slot0);
-                        uint amt0;
-                        uint amt1;
-                        {
-                            uint fee=uint24(slot1>>160);
-                            amt0=fAmounts[t1]*fee;
-                            amt0=(amt0 * rt0) / (rt1 * 1e6 + amt0);
-                            amt1=fAmounts[t0]*fee;
-                            amt1=(amt1 * rt1) / (rt0 * 1e6 + amt1);
-                        }
-                        uint rl0;
-                        uint rl1;
-                        if(slot2==0){
-                            rl0=type(uint).max;
-                            rl1=type(uint).max;
-                        }else{
-                            rl0=slot2>>128;
-                            rl1=uint128(slot2);
-                        }
-                        if((amt1+(amt1>>2)<fAmounts[t1] || amt1+rt1>rl1) && (amt0+(amt0>>2)<fAmounts[t0] || amt0+rt0>rl0)){
+                        uint fee=1e6-uint24(slot1>>160);
+                        uint amt0=fAmounts[t1]*fee;
+                        amt0=(amt0 * rt0) / (rt1 * 1e6 + amt0);
+                        uint amt1=fAmounts[t0]*fee;
+                        amt1=(amt1 * rt1) / (rt0 * 1e6 + amt1);
+                        if((amt1+(amt1>>3)<fAmounts[t1]) && (amt0+(amt0>>3)<fAmounts[t0])){
                             continue;
                         }
                         assembly{
@@ -122,8 +106,6 @@ contract CPoolFinder{
                             mstore(add(_pools,_len),slot0)
                             _len:=add(_len,0x20)
                             mstore(add(_pools,_len),slot1)
-                            _len:=add(_len,0x20)
-                            mstore(add(_pools,_len),slot2)
                         }
                     }
                     if(_len>0){
@@ -168,8 +150,8 @@ contract CPoolFinder{
                         stateHash:=keccak256(fmp,0x20)
                         mstore(fmp,or(shl(128,reserve0),reserve1))
                         fmp:=add(fmp,0x20)
-                        mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,id),or(shl(160,997000),and(pool,ADDR_MASK)))))
-                        fmp:=add(fmp,0x40)
+                        mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,id),or(shl(160,3000),and(pool,ADDR_MASK)))))
+                        fmp:=add(fmp,0x20)
                     }
                 }
             }
@@ -177,7 +159,7 @@ contract CPoolFinder{
         }
     }
 
-    function mstoreUniV3Pool(Protocol calldata protocol,address t0,address t1,uint fee,int s)internal view{
+    function mstoreUniV3Pool(Protocol calldata protocol,address t0,address t1,uint fee)internal view{
         unchecked{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
@@ -193,18 +175,16 @@ contract CPoolFinder{
                         t:=mload(add(fmp,0x20))
                         stateHash:=keccak256(fmp,0x20)
                     }
-                    (uint reserve0,uint reserve1,uint reserve0Limit,uint reserve1Limit)=reserves(liquidity,sqrtPX64,t,s);
+                    uint reserve0=(liquidity<<64)/sqrtPX64;
+                    uint reserve1=(liquidity*sqrtPX64)>>64;
                     if(reserve0>0&&reserve1>0){
                         uint id=protocol.id;
                         assembly{
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
-                            mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,id),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK)))))
-                            fmp:=add(fmp,0x20)
-                            mstore(fmp,or(shl(128,reserve0Limit),reserve1Limit))
+                            mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,id),or(shl(176,t),or(shl(160,fee),and(pool,ADDR_MASK))))))
                             fmp:=add(fmp,0x20)
                         }
-
                     }
                 }
             }
@@ -230,83 +210,20 @@ contract CPoolFinder{
                         fee:=mload(add(fmp,0x40))
                         stateHash:=keccak256(fmp,0x20)
                     }
-                    (uint reserve0,uint reserve1,uint reserve0Limit,uint reserve1Limit)=reserves(liquidity,sqrtPX64,t,60);
+                    uint reserve0=(liquidity<<64)/sqrtPX64;
+                    uint reserve1=(liquidity*sqrtPX64)>>64;
                     if(reserve0>0&&reserve1>0){
                         uint id=protocol.id;
                         assembly{
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
-                            mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,id),or(shl(160,sub(1000000,fee)),and(pool,ADDR_MASK)))))
-                            fmp:=add(fmp,0x20)
-                            mstore(fmp,or(shl(128,reserve0Limit),reserve1Limit))
+                            mstore(fmp,or(and(stateHash,B4_MASK),or(shl(216,id),or(shl(176,t),or(shl(160,fee),and(pool,ADDR_MASK))))))
                             fmp:=add(fmp,0x20)
                         }
                     }
                 }
             }
             assembly{mstore(0x40,fmp)}
-        }
-    }
-
-
-    function reserves(uint liquidity,uint sqrtPX64,int t, int s)internal pure returns (uint reserve0,uint reserve1, uint reserve0Limit,uint reserve1Limit){
-        unchecked{
-            reserve0=(liquidity<<64)/sqrtPX64;
-            reserve1=(liquidity*sqrtPX64)>>64;
-            if(reserve0>0&&reserve1>0){
-                int tl;
-                assembly {tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
-                int tu=tl+s;
-                if(tl<MIN_TICK){
-                    tl=MIN_TICK;
-                }
-                else if(tu>MAX_TICK){
-                    tu=MAX_TICK;
-                }
-                reserve0Limit=(liquidity<<64)/(tSqrtPX64(tl)+1);
-                reserve1Limit=((liquidity*tSqrtPX64(tu))>>64);
-                if(reserve0Limit<reserve0)
-                    reserve0Limit=reserve0;
-                if(reserve1Limit<reserve1)
-                    reserve1Limit=reserve1;
-            }
-        }
-    }
-
-    function tSqrtPX64(int tick) internal pure returns (uint sqrtPriceX64) {
-        unchecked {
-            uint256 absTick;
-            assembly {
-                let mask := sar(255, tick)
-                absTick := xor(mask, add(mask, tick))
-            }
-            uint256 price;
-            assembly {
-                price := xor(shl(128, 1), mul(xor(shl(128, 1), 0xfffcb933bd6fad37aa2d162d1a594001), and(absTick, 0x1)))
-            }
-            if (absTick & 0x2 != 0) price = (price * 0xfff97272373d413259a46990580e213a) >> 128;
-            if (absTick & 0x4 != 0) price = (price * 0xfff2e50f5f656932ef12357cf3c7fdcc) >> 128;
-            if (absTick & 0x8 != 0) price = (price * 0xffe5caca7e10e4e61c3624eaa0941cd0) >> 128;
-            if (absTick & 0x10 != 0) price = (price * 0xffcb9843d60f6159c9db58835c926644) >> 128;
-            if (absTick & 0x20 != 0) price = (price * 0xff973b41fa98c081472e6896dfb254c0) >> 128;
-            if (absTick & 0x40 != 0) price = (price * 0xff2ea16466c96a3843ec78b326b52861) >> 128;
-            if (absTick & 0x80 != 0) price = (price * 0xfe5dee046a99a2a811c461f1969c3053) >> 128;
-            if (absTick & 0x100 != 0) price = (price * 0xfcbe86c7900a88aedcffc83b479aa3a4) >> 128;
-            if (absTick & 0x200 != 0) price = (price * 0xf987a7253ac413176f2b074cf7815e54) >> 128;
-            if (absTick & 0x400 != 0) price = (price * 0xf3392b0822b70005940c7a398e4b70f3) >> 128;
-            if (absTick & 0x800 != 0) price = (price * 0xe7159475a2c29b7443b29c7fa6e889d9) >> 128;
-            if (absTick & 0x1000 != 0) price = (price * 0xd097f3bdfd2022b8845ad8f792aa5825) >> 128;
-            if (absTick & 0x2000 != 0) price = (price * 0xa9f746462d870fdf8a65dc1f90e061e5) >> 128;
-            if (absTick & 0x4000 != 0) price = (price * 0x70d869a156d2a1b890bb3df62baf32f7) >> 128;
-            if (absTick & 0x8000 != 0) price = (price * 0x31be135f97d08fd981231505542fcfa6) >> 128;
-            if (absTick & 0x10000 != 0) price = (price * 0x9aa508b5b7a84e1c677de54f3e99bc9) >> 128;
-            if (absTick & 0x20000 != 0) price = (price * 0x5d6af8dedb81196699c329225ee604) >> 128;
-            if (absTick & 0x40000 != 0) price = (price * 0x2216e584f5fa1ea926041bedfe98) >> 128;
-            if (absTick & 0x80000 != 0) price = (price * 0x48a170391f7dc42444e8fa2) >> 128;
-            assembly {
-                if sgt(tick, 0) { price := div(not(0), price) }
-                sqrtPriceX64 := shr(64, price)
-            }
         }
     }
 }

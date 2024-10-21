@@ -200,6 +200,7 @@ func main() {
 				}
 				Log(4, "Token:", conf.TokenConfs[i].Token, ", AmIn:", amounts[i], ", Price:", ethPriceX64Oracle[i])
 			}
+			Log(0, len(pools[0][1])/0x40)
 			for gasPrice.Cmp(minGasPrice) >= 0 && calls == nil {
 				for i := range conf.TokenConfs {
 					if amounts[i] == nil {
@@ -214,7 +215,7 @@ func main() {
 						wg.Add(1)
 						go func(amIn *big.Int, tInx uint8, gasPrice *big.Int) {
 							defer wg.Done()
-							res, err := new(caller.Batch).FindRoutes(2, tInx, amIn, pools, gasPrice, &router, "pending", nil).Submit(deadline, simClient)
+							res, err := new(caller.Batch).FindRoutes(conf.RouteMaxLen, tInx, amIn, pools, gasPrice, &router, "pending", nil).Submit(deadline, simClient)
 							if err != nil {
 								Log(2, "FindRoutesRPC Err: ", err)
 								return
@@ -228,7 +229,7 @@ func main() {
 							ethIn.Rsh(ethIn, 64)
 							mu.Lock()
 							for tOutx, route := range routes {
-								// log.Println(item.tInx, tOutx, route.AmOut, len(route.Calls))
+								// log.Println(tInx, tOutx, route.AmOut, len(route.Calls))
 								if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 {
 									continue
 								}
@@ -272,6 +273,7 @@ func main() {
 			Log(4, "END", number, ets.Sub(sts2))
 			if calls != nil {
 				Log(1, calls, callsGasPriceLimit, number)
+				return
 				if !conf.FakeBalance {
 					if bytes.Equal(calls, lastCalls) {
 						Log(2, "Repeated Call")
@@ -380,12 +382,24 @@ func startUsdOracles() {
 }
 
 func startBinanceUsdOracle(baseToken string) error {
-	wsURL := "wss://stream.binance.com:9443/ws/" + strings.ToLower(baseToken) + "usdt@aggTrade"
+	wsURL := "wss://fstream.binance.com/ws/" + strings.ToLower(baseToken) + "usdt@aggTrade"
 	c, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		return err
 	}
 	go func() {
+		go func() {
+			pingticker := time.NewTicker(30 * time.Second)
+			defer pingticker.Stop()
+			for range pingticker.C {
+				time.Sleep(30 * time.Second)
+				err := c.WriteMessage(websocket.PongMessage, nil)
+				if err != nil {
+					Log(-1, "Error sending pong:", err)
+					return
+				}
+			}
+		}()
 		defer c.Close()
 		for {
 			_, message, err := c.ReadMessage()
@@ -407,53 +421,70 @@ func startBinanceUsdOracle(baseToken string) error {
 }
 
 func startBybitUsdOracle(baseToken string) error {
-	wsURL := "wss://stream.bybit.com/v5/public/spot"
+	wsURL := "wss://stream.bybit.com/v5/public/linear"
+	var err error
 	c, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			c.Close()
+		}
+	}()
+	err = c.WriteJSON(struct {
+		Op   string   `json:"op"`
+		Args []string `json:"args"`
+	}{"subscribe", []string{"tickers." + strings.ToUpper(baseToken) + "USDT"}})
+	if err != nil {
+		return err
+	}
+	_, message, err := c.ReadMessage()
+	if err != nil {
+		return err
+	}
+	var res map[string]interface{}
+	if err = json.Unmarshal(message, &res); err != nil {
+		return err
+	}
+	if !res["success"].(bool) {
+		return errors.New(res["ret_msg"].(string))
+	}
 	go func() {
 		defer c.Close()
-		err = c.WriteJSON(struct {
-			Op   string   `json:"op"`
-			Args []string `json:"args"`
-		}{"subscribe", []string{"tickers." + strings.ToUpper(baseToken) + "USDT"}})
-		if err != nil {
-			Log(-1, "bybitWrite Err:", err)
-		}
 		go func() {
-			for {
-				_, message, err := c.ReadMessage()
+			pingticker := time.NewTicker(20 * time.Second)
+			defer pingticker.Stop()
+			for range pingticker.C {
+				err := c.WriteJSON(struct {
+					Op string `json:"op"`
+				}{"ping"})
 				if err != nil {
-					Log(-1, "bybitRead Err:", err)
-				}
-				var res map[string]interface{}
-				if err := json.Unmarshal(message, &res); err != nil {
-					Log(-1, "bybitUnmarshal Err:", err)
-				}
-				if res["success"] != nil {
-					if !res["success"].(bool) {
-						Log(-1, "bybitMsg Err:", errors.New("tickers."+strings.ToUpper(baseToken)+"USDT "+res["ret_msg"].(string)))
-					} else {
-						Log(4, "bybitMsg:", "tickers."+strings.ToUpper(baseToken)+"USDT "+res["ret_msg"].(string))
-					}
-				} else {
-					price, err := strconv.ParseFloat(res["data"].(map[string]interface{})["lastPrice"].(string), 64)
-					if err != nil {
-						Log(-1, "bybitParsePrice Err:", err)
-					}
-					updatePriceUsdOracle(baseToken, price)
+					Log(-1, "bybitWrite Err:", err)
 				}
 			}
 		}()
-		pingticker := time.NewTicker(20 * time.Second)
-		defer pingticker.Stop()
-		for range pingticker.C {
-			err := c.WriteJSON(struct {
-				Op string `json:"op"`
-			}{"ping"})
+		for {
+			_, message, err := c.ReadMessage()
 			if err != nil {
-				Log(-1, "bybitWrite Err:", err)
+				Log(-1, "bybitRead Err:", err)
+			}
+			var res map[string]interface{}
+			if err := json.Unmarshal(message, &res); err != nil {
+				Log(-1, "bybitUnmarshal Err:", err)
+			}
+			if res["success"] != nil {
+				if !res["success"].(bool) {
+					Log(-1, "bybitMsg Err:", errors.New("tickers."+strings.ToUpper(baseToken)+"USDT "+res["ret_msg"].(string)))
+				} else {
+					Log(4, "bybitMsg:", "tickers."+strings.ToUpper(baseToken)+"USDT "+res["ret_msg"].(string))
+				}
+			} else {
+				price, err := strconv.ParseFloat(res["data"].(map[string]interface{})["lastPrice"].(string), 64)
+				if err != nil {
+					Log(-1, "bybitParsePrice Err:", err)
+				}
+				updatePriceUsdOracle(baseToken, price)
 			}
 		}
 	}()

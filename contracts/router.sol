@@ -1,11 +1,14 @@
 library CRouter{
 
-    bool internal constant FRP=true;
+    bool internal constant FRP=false;
     
     uint internal constant PID_MASK=0xff000000000000000000000000000000000000000000000000000000;
     uint internal constant UNIV2_PID=0x01000000000000000000000000000000000000000000000000000000;
     uint internal constant UNIV3_PID=0;
     uint internal constant ALGB_PID=0x02000000000000000000000000000000000000000000000000000000;
+
+    int internal constant MIN_TICK = -887272;
+    int internal constant MAX_TICK = 887272;
 
     function findRoutes(uint8 maxLen,uint8 t,uint amIn,bytes[][] memory pools) public view returns (uint[] memory amounts,bytes[] memory calls){
         unchecked{
@@ -51,7 +54,10 @@ library CRouter{
                         }
                         uint eth = t1==0?0:amounts[0];
                         (uint hAmOut,uint poolCall) = quotePools(amounts[t0]-1,eth,direc,_pools);
-                        uint gasNew = gasFees[t0]+callGas(poolCall);
+                        if(poolInCalls(calls[t0],uint160(poolCall))){
+                            continue;
+                        }
+                        uint gasNew = gasFees[t0]+protGas(poolCall&PID_MASK);
                         {
                             uint gasFeeNew = gasNew * tx.gasprice;
                             uint gasFeeCurrent = gasFees[t1] * tx.gasprice;
@@ -59,15 +65,9 @@ library CRouter{
                                 gasFeeNew=(hAmOut*gasFeeNew)/eth;
                                 gasFeeCurrent=(hAmOut*gasFeeCurrent)/eth;
                             }
-                            if(hAmOut<=gasFeeNew){
-                                continue;
-                            }
                             if(int(hAmOut-gasFeeNew)<=int(amounts[t1]-gasFeeCurrent)){
                                 continue;
                             }
-                        }
-                        if(poolInCalls(calls[t0],uint160(poolCall))){
-                            continue;
                         }
                         amounts[t1]=hAmOut-1;
                         gasFees[t1]=gasNew;
@@ -91,14 +91,14 @@ library CRouter{
     function quotePools(uint amIn,uint eth,bool direc,bytes memory _pools)internal view returns(uint hAmOut,uint poolCall){
         unchecked{
             uint hGasFee;
-            for(uint p;p<_pools.length;p+=0x60){
-                uint slot1;//=uint(bytes32(_pools[p:]));
+            for(uint p;p<_pools.length;p+=0x40){
+                uint slot1;
                 assembly{
                     slot1:=mload(add(add(_pools,p),0x40))
                 }
                 uint rIn;uint rOut;
                 {
-                    uint slot0;//=uint(bytes32(_pools[p:]));
+                    uint slot0;
                     assembly{
                         slot0:=mload(add(add(_pools,p),0x20))
                     }
@@ -108,18 +108,21 @@ library CRouter{
                 if(!direc){
                     (rIn,rOut)=(rOut,rIn);
                 }
-                {
-                    uint slot2;//=uint(bytes32(_pools[p:]));
-                    assembly{
-                        slot2:=mload(add(add(_pools,p),0x60))
-                    }
-                    if(slot2!=0 && amIn+rIn>=(direc?(slot2>>128):uint128(slot2))){
+                uint fee=uint16(slot1>>160);
+                uint amInXFee= amIn * (1e6 - fee);
+                uint amOut = (amInXFee * rOut) / (rIn * 1e6 + amInXFee);
+                if(amOut<=hAmOut){
+                    continue;
+                }
+                uint pid=poolCall&PID_MASK;
+                if(pid!=UNIV2_PID){
+                    uint s=pid!=ALGB_PID?feeAmountTickSpacing(fee):60;
+                    (int tl,int tu)=tickBounds(int24(int(slot1>>176)),s);
+                    if(direc?((rOut-amOut)<<64)/(rIn+amIn)<(tPX64(tl)):((rIn+amIn)<<64)/(rOut-amOut)>(tPX64(tu))){
                         continue;
                     }
                 }
-                uint amInXFee= amIn * uint24(slot1>>160);
-                uint amOut = (amInXFee * rOut) / (rIn * 1e6 + amInXFee);
-                uint gasFee = callGas(slot1) * tx.gasprice;
+                uint gasFee = protGas(pid) * tx.gasprice;
                 if(eth!=0){
                     gasFee=(amOut*gasFee)/eth;
                 }
@@ -140,8 +143,8 @@ library CRouter{
         }
     }
 
-    function callGas(uint poolCall)internal pure returns(uint){
-        return poolCall&PID_MASK==ALGB_PID?300000:100000;
+    function protGas(uint pid)internal pure returns(uint){
+        return pid==ALGB_PID?300000:100000;
     }
 
     function compress56bit(uint uncompressed)internal pure returns(uint){
@@ -179,5 +182,72 @@ library CRouter{
             }
         }
         return false;//(r0,r1);
+    }
+
+    function feeAmountTickSpacing(uint fee)internal pure returns(uint s){
+        if(fee==100){
+            return 1;
+        }
+        if(fee==500){
+            return 10;
+        }
+        if(fee==2500){
+            return 50;
+        }
+        if(fee==3000){
+            return 60;
+        }
+        if(fee==10000){
+            return 200;
+        }
+    }
+
+    function tickBounds(int t,uint s)internal pure returns(int tl, int tu){
+        assembly {tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
+        tu=tl+int(s);
+        if(tl<MIN_TICK){
+            tl=MIN_TICK;
+        }
+        else if(tu>MAX_TICK){
+            tu=MAX_TICK;
+        }
+    }
+
+    function tPX64(int tick) internal pure returns (uint sqrtPriceX64) {
+        unchecked {
+            uint256 absTick;
+            assembly {
+                let mask := sar(255, tick)
+                absTick := xor(mask, add(mask, tick))
+            }
+            uint256 price;
+            assembly {
+                price := xor(shl(128, 1), mul(xor(shl(128, 1), 0xfffcb933bd6fad37aa2d162d1a594001), and(absTick, 0x1)))
+            }
+            if (absTick & 0x2 != 0) price = (price * 0xfff97272373d413259a46990580e213a) >> 128;
+            if (absTick & 0x4 != 0) price = (price * 0xfff2e50f5f656932ef12357cf3c7fdcc) >> 128;
+            if (absTick & 0x8 != 0) price = (price * 0xffe5caca7e10e4e61c3624eaa0941cd0) >> 128;
+            if (absTick & 0x10 != 0) price = (price * 0xffcb9843d60f6159c9db58835c926644) >> 128;
+            if (absTick & 0x20 != 0) price = (price * 0xff973b41fa98c081472e6896dfb254c0) >> 128;
+            if (absTick & 0x40 != 0) price = (price * 0xff2ea16466c96a3843ec78b326b52861) >> 128;
+            if (absTick & 0x80 != 0) price = (price * 0xfe5dee046a99a2a811c461f1969c3053) >> 128;
+            if (absTick & 0x100 != 0) price = (price * 0xfcbe86c7900a88aedcffc83b479aa3a4) >> 128;
+            if (absTick & 0x200 != 0) price = (price * 0xf987a7253ac413176f2b074cf7815e54) >> 128;
+            if (absTick & 0x400 != 0) price = (price * 0xf3392b0822b70005940c7a398e4b70f3) >> 128;
+            if (absTick & 0x800 != 0) price = (price * 0xe7159475a2c29b7443b29c7fa6e889d9) >> 128;
+            if (absTick & 0x1000 != 0) price = (price * 0xd097f3bdfd2022b8845ad8f792aa5825) >> 128;
+            if (absTick & 0x2000 != 0) price = (price * 0xa9f746462d870fdf8a65dc1f90e061e5) >> 128;
+            if (absTick & 0x4000 != 0) price = (price * 0x70d869a156d2a1b890bb3df62baf32f7) >> 128;
+            if (absTick & 0x8000 != 0) price = (price * 0x31be135f97d08fd981231505542fcfa6) >> 128;
+            if (absTick & 0x10000 != 0) price = (price * 0x9aa508b5b7a84e1c677de54f3e99bc9) >> 128;
+            if (absTick & 0x20000 != 0) price = (price * 0x5d6af8dedb81196699c329225ee604) >> 128;
+            if (absTick & 0x40000 != 0) price = (price * 0x2216e584f5fa1ea926041bedfe98) >> 128;
+            if (absTick & 0x80000 != 0) price = (price * 0x48a170391f7dc42444e8fa2) >> 128;
+            assembly {
+                if sgt(tick, 0) { price := div(not(0), price) }
+                sqrtPriceX64 := shr(64, price)
+            }
+            sqrtPriceX64=(sqrtPriceX64**2)>>64;
+        }
     }
 }
