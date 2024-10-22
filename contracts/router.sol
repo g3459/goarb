@@ -3,12 +3,14 @@ library CRouter{
     bool internal constant FRP=true;
     
     uint internal constant PID_MASK=0xff000000000000000000000000000000000000000000000000000000;
+    uint internal constant STATE_MASK=0x7fffffff00000000000000000000000000000000000000000000000000000000;
+    uint internal constant ADDRESS_MASK=0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
+    uint internal constant DIREC_MASK=0x8000000000000000000000000000000000000000000000000000000000000000;
     uint internal constant UNIV2_PID=0x01000000000000000000000000000000000000000000000000000000;
     uint internal constant UNIV3_PID=0;
     uint internal constant ALGB_PID=0x02000000000000000000000000000000000000000000000000000000;
-
-    int internal constant MIN_TICK = -887272;
-    int internal constant MAX_TICK = 887272;
+    int24 internal constant MIN_TICK = -887272;
+    int24 internal constant MAX_TICK = 887272;
 
     function findRoutes(uint8 maxLen,uint8 t,uint amIn,bytes[][] memory pools) public view returns (uint[] memory amounts,bytes[] memory calls){
         unchecked{
@@ -54,7 +56,6 @@ library CRouter{
                         }
                         uint eth = t1==0?0:amounts[0];
                         (uint hAmOut,uint poolCall) = quotePools(amounts[t0]-1,eth,direc,_pools);
-                        
                         if(poolInCalls(calls[t0],uint160(poolCall))){
                             continue;
                         }
@@ -73,8 +74,8 @@ library CRouter{
                         amounts[t1]=hAmOut-1;
                         gasFees[t1]=gasNew;
                         uint amIn56bit=compress56bit(amounts[t0]);
-                        poolCall=(poolCall&0x7fffffffff00000000000000ffffffffffffffffffffffffffffffffffffffff)|(amIn56bit<<160);
-                        if(direc) poolCall|=0x8000000000000000000000000000000000000000000000000000000000000000;
+                        poolCall=(poolCall&(STATE_MASK|PID_MASK|ADDRESS_MASK))|(amIn56bit<<160);
+                        if(direc) poolCall|=DIREC_MASK;
                         calls[t1]=bytes.concat(calls[t0],abi.encode(poolCall));
                         updated|=1<<t1;
                     }
@@ -203,9 +204,9 @@ library CRouter{
         }
     }
 
-    function tickBounds(int t,uint s)internal pure returns(int tl, int tu){
+    function tickBounds(int24 t,uint s)internal pure returns(int24 tl, int24 tu){
         assembly {tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
-        tu=tl+int(s);
+        tu=tl+int24(uint24(s));
         if(tl<MIN_TICK){
             tl=MIN_TICK;
         }

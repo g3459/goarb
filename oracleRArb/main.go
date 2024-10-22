@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"math"
 	"math/big"
@@ -200,7 +201,6 @@ func main() {
 				}
 				Log(4, "Token:", conf.TokenConfs[i].Token, ", AmIn:", amounts[i], ", Price:", ethPriceX64Oracle[i])
 			}
-			Log(4, len(pools[0][1])/0x40)
 			for gasPrice.Cmp(minGasPrice) >= 0 && calls == nil {
 				for i := range conf.TokenConfs {
 					if amounts[i] == nil {
@@ -229,7 +229,14 @@ func main() {
 							ethIn.Rsh(ethIn, 64)
 							mu.Lock()
 							for tOutx, route := range routes {
-								// log.Println(tInx, tOutx, route.AmOut, len(route.Calls))
+								ll := 0
+								if len(pools[tInx]) > 0 {
+									ll += len(pools[tInx][tOutx]) / 0x40
+								}
+								if len(pools[tOutx]) > 0 {
+									ll += len(pools[tOutx][tInx]) / 0x40
+								}
+								fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll)
 								if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 {
 									continue
 								}
