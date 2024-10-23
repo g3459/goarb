@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"math"
 	"math/big"
@@ -229,14 +228,14 @@ func main() {
 							ethIn.Rsh(ethIn, 64)
 							mu.Lock()
 							for tOutx, route := range routes {
-								ll := 0
-								if len(pools[tInx]) > 0 {
-									ll += len(pools[tInx][tOutx]) / 0x40
-								}
-								if len(pools[tOutx]) > 0 {
-									ll += len(pools[tOutx][tInx]) / 0x40
-								}
-								fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll)
+								// ll := 0
+								// if len(pools[tInx]) > 0 {
+								// 	ll += len(pools[tInx][tOutx]) / 0x40
+								// }
+								// if len(pools[tOutx]) > 0 {
+								// 	ll += len(pools[tOutx][tInx]) / 0x40
+								// }
+								// fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll)
 								if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 {
 									continue
 								}
@@ -280,7 +279,6 @@ func main() {
 			Log(4, "END", number, ets.Sub(sts2))
 			if calls != nil {
 				Log(1, calls, callsGasPriceLimit, number)
-				return
 				if !conf.FakeBalance {
 					if bytes.Equal(calls, lastCalls) {
 						Log(2, "Repeated Call")
