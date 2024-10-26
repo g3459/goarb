@@ -55,10 +55,7 @@ library CRouter{
                             continue;
                         }
                         uint eth = t1==0?0:amounts[0];
-                        (uint hAmOut,uint poolCall) = quotePools(amounts[t0]-1,eth,direc,_pools);
-                        if(poolInCalls(calls[t0],uint160(poolCall))){
-                            continue;
-                        }
+                        (uint hAmOut,uint poolCall) = quotePools(amounts[t0]-1,eth,direc,_pools,calls[t0]);
                         uint gasNew = gasFees[t0]+protGas(poolCall&PID_MASK);
                         {
                             uint gasFeeNew = gasNew * tx.gasprice;
@@ -90,13 +87,16 @@ library CRouter{
     //     }
     // }
 
-    function quotePools(uint amIn,uint eth,bool direc,bytes memory _pools)internal view returns(uint hAmOut,uint poolCall){
+    function quotePools(uint amIn,uint eth,bool direc,bytes memory _pools,bytes memory calls)internal view returns(uint hAmOut,uint poolCall){
         unchecked{
             uint hGasFee;
             for(uint p;p<_pools.length;p+=0x40){
                 uint slot1;
                 assembly{
                     slot1:=mload(add(add(_pools,p),0x40))
+                }
+                if(poolInCalls(calls,uint160(slot1))){
+                    continue;
                 }
                 uint rIn;uint rOut;
                 {
@@ -118,8 +118,7 @@ library CRouter{
                 }
                 uint pid=slot1&PID_MASK;
                 if(pid!=UNIV2_PID){
-                    uint s=pid!=ALGB_PID?feeAmountTickSpacing(fee):60;
-                    (int tl,int tu)=tickBounds(int24(int(slot1>>176)),s);
+                    (int tl,int tu)=tickBounds(int24(int(slot1>>176)),pid!=ALGB_PID?feeAmountTickSpacing(fee):60);
                     if(direc?((rOut-amOut)<<64)/(rIn+amIn)<(tPX64(tl)):((rIn+amIn)<<64)/(rOut-amOut)>(tPX64(tu))){
                         continue;
                     }
