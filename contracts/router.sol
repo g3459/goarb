@@ -111,8 +111,8 @@ library CRouter{
                     (rIn,rOut)=(rOut,rIn);
                 }
                 uint fee=uint16(slot1>>160);
-                uint amInXFee= amIn * (1e6 - fee);
-                uint amOut = (amInXFee * rOut) / (rIn * 1e6 + amInXFee);
+                uint amOut= amIn * (1e6 - fee);
+                amOut = (amOut * rOut) / (rIn * 1e6 + amOut);///
                 if(amOut<=hAmOut){
                     continue;
                 }
@@ -131,7 +131,7 @@ library CRouter{
                     continue;
                 }
                 if(FRP){
-                    uint amOutX2 = amInXFee<<1;
+                    uint amOutX2 = (amIn<<1) * (1e6 - fee);
                     amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2);
                     if(int(amOutX2-gasFee)>int((amOut-gasFee)<<1)){
                         continue;

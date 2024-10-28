@@ -55,20 +55,17 @@ contract Caller {
                 bool direc;
                 assembly{direc:=and(poolCall,DIREC_MASK)}
                 if(poolCall&PID_MASK==UNIV2_PID){
-                    uint r0;uint r1;
+                    uint rIn;uint rOut;
                     assembly{
                         mstore(0x80,UNIV2SLOT_SEL)
                         pop(call(gas(), poolCall, 0, 0x80, 0x04, 0x80, 0x40))
-                        r0:=mload(0x80)
-                        r1:=mload(0xa0)
+                        rIn:=mload(0x80)
+                        rOut:=mload(0xa0)
                     }
-                    uint amOut=amIn*997;
-                    amOut = (direc
-                        ? (amOut * r1) / (r0 * 1000 + amOut)
-                        : (amOut * r0) / (r1 * 1000 + amOut));
                     if(direc){
                         assembly{mstore(0x80,TOKEN0_SEL)}
                     }else{
+                        (rIn,rOut)=(rOut,rIn);
                         assembly{mstore(0x80,TOKEN1_SEL)}
                     }
                     assembly{
@@ -79,6 +76,8 @@ contract Caller {
                         mstore(0xa4,amIn)
                         pop(call(gas(), token, 0, 0x80, 0x44, 0, 0))
                     }
+                    uint amOut=(amIn-1)*997;
+                    amOut = (amOut * rOut) / (rIn * 1000 + amOut) - 1;
                     IUniV2Pool(pool).swap(direc?0:amOut, direc?amOut:0, address(this), "");
                 }else{
                     IUniV3Pool(pool).swap(address(this), direc, int(amIn) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
