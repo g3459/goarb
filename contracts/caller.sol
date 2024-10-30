@@ -111,12 +111,9 @@ contract Caller {
                 amIn=uint(am1);
                 assembly{mstore(0x80,TOKEN1_SEL)}
             }
-            address token;
             assembly{
                 pop(call(gas(), caller(), 0, 0x80, 0x04, 0x80, 0x20))
-                token:=mload(0x80)
-            }
-            assembly{
+                let token:=mload(0x80)
                 mstore(0x80,TRANSFER_SEL)
                 mstore(0x84,caller())
                 mstore(0xa4,amIn)
