@@ -214,7 +214,7 @@ func main() {
 						wg.Add(1)
 						go func(amIn *big.Int, tInx uint8, gasPrice *big.Int) {
 							defer wg.Done()
-							res, err := new(caller.Batch).FindRoutes(conf.RouteMaxLen, tInx, amIn, pools, gasPrice, &router, "pending", nil).Submit(deadline, simClient)
+							res, err := new(caller.Batch).FindRoutes(conf.RouteMaxLen, tInx, amIn, pools, gasPrice, &router, "pending", nil).Submit(context.Background(), simClient)
 							if err != nil {
 								Log(2, "FindRoutesRPC Err: ", err)
 								return
