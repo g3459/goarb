@@ -119,7 +119,7 @@ library CRouter{
                 uint pid=slot1&PID_MASK;
                 if(pid!=UNIV2_PID){
                     (int tl,int tu)=tickBounds(int24(int(slot1>>176)),pid!=ALGB_PID?feeAmountTickSpacing(fee):60);
-                    if(direc?((rOut-amOut)<<64)/(rIn+amIn)<(tPX64(tl)):((rIn+amIn)<<64)/(rOut-amOut)>(tPX64(tu))){
+                    if(direc?((rOut-amOut)<<128)/(rIn+amIn)<(tPX128(tl)):((rIn+amIn)<<128)/(rOut-amOut)>(tPX128(tu))){
                         continue;
                     }
                 }
@@ -214,7 +214,7 @@ library CRouter{
         }
     }
 
-    function tPX64(int tick) internal pure returns (uint sqrtPriceX64) {
+    function tPX128(int tick) internal pure returns (uint priceX128) {
         unchecked {
             uint256 absTick;
             assembly {
@@ -246,9 +246,9 @@ library CRouter{
             if (absTick & 0x80000 != 0) price = (price * 0x48a170391f7dc42444e8fa2) >> 128;
             assembly {
                 if sgt(tick, 0) { price := div(not(0), price) }
-                sqrtPriceX64 := shr(64, price)
+                priceX128 := shr(64, price)
             }
-            sqrtPriceX64=(sqrtPriceX64**2)>>64;
+            priceX128=priceX128**2;
         }
     }
 }

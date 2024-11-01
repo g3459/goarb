@@ -25,26 +25,31 @@ contract Caller {
 
     fallback() external payable check{
         unchecked{
+            uint fmp=0x80;
             for(uint i;i<msg.data.length;i+=32){
                 uint poolCall;
                 assembly{
                     poolCall:=calldataload(i)
                 }
                 uint pid = poolCall&PID_MASK;
+                uint outsize;
                 if(pid==UNIV2_PID){
-                    assembly{mstore(0x80,UNIV2SLOT_SEL)}
+                    outsize=0x40;
+                    assembly{mstore(fmp,UNIV2SLOT_SEL)}
                 }else if(pid==ALGB_PID){
-                    assembly{mstore(0x80,ALGBSLOT_SEL)}
+                    assembly{mstore(fmp,ALGBSLOT_SEL)}
                 }else{
-                    assembly{mstore(0x80,UNIV3SLOT_SEL)}
+                    assembly{mstore(fmp,UNIV3SLOT_SEL)}
                 }
                 assembly{
-                    pop(call(gas(), poolCall, 0, 0x80, 0x04, 0x80, 0x20))
+                    pop(call(gas(), poolCall, 0, fmp, 0x04, fmp, outsize))
                     if xor(and(keccak256(0x80,0x20),STATE_MASK),and(poolCall,STATE_MASK)){
                         revert(0,0)
                     }
                 }
+                fmp+=outsize;
             }
+            uint fmp2=0x80;
             for(uint i;i<msg.data.length;i+=32){
                 uint poolCall;
                 assembly{
@@ -57,24 +62,23 @@ contract Caller {
                 if(poolCall&PID_MASK==UNIV2_PID){
                     uint rIn;uint rOut;
                     assembly{
-                        mstore(0x80,UNIV2SLOT_SEL)
-                        pop(call(gas(), poolCall, 0, 0x80, 0x04, 0x80, 0x40))
-                        rIn:=mload(0x80)
-                        rOut:=mload(0xa0)
+                        rIn:=mload(fmp2)
+                        rOut:=mload(add(fmp2,0x20))
                     }
+                    fmp2+=0x40;
                     if(direc){
-                        assembly{mstore(0x80,TOKEN0_SEL)}
+                        assembly{mstore(fmp,TOKEN0_SEL)}
                     }else{
                         (rIn,rOut)=(rOut,rIn);
-                        assembly{mstore(0x80,TOKEN1_SEL)}
+                        assembly{mstore(fmp,TOKEN1_SEL)}
                     }
                     assembly{
-                        pop(call(gas(), poolCall, 0, 0x80, 0x04, 0x80, 0x20))
-                        let token:=mload(0x80)
-                        mstore(0x80,TRANSFER_SEL)
-                        mstore(0x84,pool)
-                        mstore(0xa4,amIn)
-                        pop(call(gas(), token, 0, 0x80, 0x44, 0, 0))
+                        pop(call(gas(), poolCall, 0, fmp, 0x04, fmp, 0x20))
+                        let token:=mload(fmp)
+                        mstore(fmp,TRANSFER_SEL)
+                        mstore(add(fmp,0x04),pool)
+                        mstore(add(fmp,0x24),amIn)
+                        pop(call(gas(), token, 0, fmp, 0x44, 0, 0))
                     }
                     uint amOut=(amIn-1)*997;
                     amOut = (amOut * rOut) / (rIn * 1000 + amOut) - 1;

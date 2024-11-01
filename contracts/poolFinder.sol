@@ -7,9 +7,7 @@ contract CPoolFinder{
         address factory;
         uint8 id;
     }
-
-    // int internal constant MIN_TICK = -887272;
-    // int internal constant MAX_TICK = 887272;
+    
     uint internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
     uint internal constant UNIV2SLOT_SEL=0x0902f1ac00000000000000000000000000000000000000000000000000000000;
     uint internal constant ALGBSLOT_SEL=0xe76c01e400000000000000000000000000000000000000000000000000000000;
