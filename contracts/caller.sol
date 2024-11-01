@@ -37,17 +37,21 @@ contract Caller {
                     outsize=0x40;
                     assembly{mstore(fmp,UNIV2SLOT_SEL)}
                 }else if(pid==ALGB_PID){
+                    outsize=0x20;
                     assembly{mstore(fmp,ALGBSLOT_SEL)}
                 }else{
+                    outsize=0x20;
                     assembly{mstore(fmp,UNIV3SLOT_SEL)}
                 }
                 assembly{
                     pop(call(gas(), poolCall, 0, fmp, 0x04, fmp, outsize))
-                    if xor(and(keccak256(0x80,0x20),STATE_MASK),and(poolCall,STATE_MASK)){
+                    if xor(and(keccak256(fmp,outsize),STATE_MASK),and(poolCall,STATE_MASK)){
                         revert(0,0)
                     }
                 }
-                fmp+=outsize;
+                if(pid==UNIV2_PID){
+                    fmp+=outsize;
+                }
             }
             uint fmp2=0x80;
             for(uint i;i<msg.data.length;i+=32){

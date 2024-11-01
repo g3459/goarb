@@ -54,8 +54,9 @@ type Configuration struct {
 	RouteDepth  uint8             `json:"routeDepth"`
 	RouteMaxLen uint8             `json:"routeMaxLen"`
 	LogFile     string            `json:"logFile"`
-	Timeout     time.Duration     `json:"timeout"`
-	ExecTimeout time.Duration     `json:"execTimeout"`
+	//Timeout     time.Duration     `json:"timeout"`
+	Polling     time.Duration `json:"polling"`
+	ExecTimeout time.Duration `json:"execTimeout"`
 }
 
 var (
@@ -156,160 +157,165 @@ func main() {
 	})
 	///
 	//logic execution
-	var wg sync.WaitGroup
-	var mu sync.Mutex
 	for {
-		for k, rpcclient := range rpcClients {
+		for _, rpcclient := range rpcClients {
+
 			if clientBanned(rpcclient) {
 				continue
 			}
 			err = nil
-			deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(conf.Timeout*time.Millisecond))
-			sts2 := time.Now()
+			deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(conf.Polling*time.Millisecond))
+			sts := time.Now()
 			_, err2 := batch.Submit(deadline, rpcclient)
 			if err2 != nil {
-				banClient(rpcclient, conf.Timeout*time.Millisecond*60)
+				banClient(rpcclient, conf.Polling*time.Millisecond*60)
 				Log(2, "BatchRPC Err: ", err2)
 				continue
 			}
 			if err != nil {
-				banClient(rpcclient, conf.Timeout*time.Millisecond*60)
+				banClient(rpcclient, conf.Polling*time.Millisecond*60)
 				Log(2, "BatchExec Err: ", err)
 				continue
 			}
-			sts := time.Now()
+			sts2 := time.Now()
 			if number < hNumber {
 				continue
 			}
 			if number > hNumber {
 				hNumber = number
 			}
-			// token := common.HexToAddress("0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063")
-			// amount := big.NewInt(59067310702122457)
-			// amount.Mul(amount, big.NewInt(1000))
-			// caller.Batch{}.Transfer(conf.Caller, &token, &sender, amount, conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
+			// token := common.HexToAddress("0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619")
+			// amount := big.NewInt(1)
+			// //amount.Mul(amount, big.NewInt(1000))
+			// res, errr := caller.Batch{}.Transfer(conf.Caller, &token, &sender, amount, conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
+			// Log(0, res, errr)
 			// continue
-			Log(4, "START", k, number, sts.Sub(sts2))
-			minGasPrice := new(big.Int).Add(baseFee, conf.MinMinerTip)
-			var calls []byte
-			callsGasPriceLimit := minGasPrice
-			gasPrice := new(big.Int).Lsh(conf.MaxGasPrice, 2)
-			for i := range conf.TokenConfs {
-				if amounts[i] == nil {
-					continue
-				}
-				Log(4, "Token:", conf.TokenConfs[i].Token, ", AmIn:", amounts[i], ", Price:", ethPriceX64Oracle[i])
-			}
-			for gasPrice.Cmp(minGasPrice) >= 0 && calls == nil {
+
+			Log(4, "START", number, sts2.Sub(sts))
+			go func() {
+				minGasPrice := new(big.Int).Add(baseFee, conf.MinMinerTip)
+				var calls []byte
+				callsGasPriceLimit := minGasPrice
+				gasPrice := new(big.Int).Lsh(conf.MaxGasPrice, 2)
 				for i := range conf.TokenConfs {
 					if amounts[i] == nil {
 						continue
 					}
-					if ethPriceX64Oracle[i] == nil {
-						continue
-					}
-					amInMin := new(big.Int).Div(new(big.Int).Lsh(conf.MinEth, 64), ethPriceX64Oracle[i])
-					amIn := new(big.Int).Set(amounts[i])
-					for amIn.Cmp(amInMin) > 0 {
-						wg.Add(1)
-						go func(amIn *big.Int, tInx uint8, gasPrice *big.Int) {
-							defer wg.Done()
-							res, err := new(caller.Batch).FindRoutes(conf.RouteMaxLen, tInx, amIn, pools, gasPrice, &router, "pending", nil).Submit(context.Background(), simClient)
-							if err != nil {
-								Log(2, "FindRoutesRPC Err: ", err)
-								return
-							}
-							routes, b := res[0].([]caller.Route)
-							if !b {
-								Log(2, amIn, tInx, "FindRoutesExec Err: ", res[0].(error))
-								return
-							}
-							ethIn := new(big.Int).Mul(amIn, ethPriceX64Oracle[tInx])
-							ethIn.Rsh(ethIn, 64)
-							mu.Lock()
-							for tOutx, route := range routes {
-								// ll := 0
-								// if len(pools[tInx]) > 0 {
-								// 	ll += len(pools[tInx][tOutx]) / 0x40
-								// }
-								// if len(pools[tOutx]) > 0 {
-								// 	ll += len(pools[tOutx][tInx]) / 0x40
-								// }
-								// fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll)
-								if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 {
-									continue
-								}
-								ethOut := new(big.Int).Mul(route.AmOut, ethPriceX64Oracle[tOutx])
-								ethOut.Rsh(ethOut, 64)
-								ben := new(big.Int).Sub(ethOut, ethIn)
-								if ben.Sign() < 0 {
-									continue
-								}
-								ratiotemp := new(big.Float).SetInt(ethOut)
-								ratiotemp.Quo(ratiotemp, new(big.Float).SetInt(ethIn))
-								ratio, _ := ratiotemp.Float64()
-								if ratio < conf.MinRatio {
-									continue
-								}
-								txGas := big.NewInt(int64(CallsGas(route.Calls)))
-								if new(big.Int).Sub(ben, new(big.Int).Mul(txGas, gasPrice)).Sign() > 0 {
-									continue
-								}
-								txGas.Add(txGas, conf.MinGasBen)
-								gasPriceLimit := new(big.Int).Div(ben, txGas)
-								if gasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
-									continue
-								}
-								if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 {
-									continue
-								}
-								callsGasPriceLimit = gasPriceLimit
-								calls = route.Calls
-							}
-							mu.Unlock()
-						}(amIn, uint8(i), gasPrice)
-						Log(4, "START", i, amIn, gasPrice)
-						amIn = new(big.Int).Rsh(amIn, 1)
-					}
+					Log(4, "Token:", conf.TokenConfs[i].Token, ", AmIn:", amounts[i], ", Price:", ethPriceX64Oracle[i])
 				}
-				wg.Wait()
-				gasPrice = new(big.Int).Rsh(gasPrice, 1)
-			}
-			ets := time.Now()
-			Log(4, "END", number, ets.Sub(sts2))
-			if calls != nil {
-				Log(1, calls, callsGasPriceLimit, number)
-				if !conf.FakeBalance {
-					if bytes.Equal(calls, lastCalls) {
-						Log(2, "Repeated Call")
-					} else {
-						lastCalls = calls
-						minerTip := new(big.Int).Sub(callsGasPriceLimit, baseFee)
-						if minerTip.Cmp(conf.MaxMinerTip) > 0 {
-							minerTip = conf.MaxMinerTip
+				var wg sync.WaitGroup
+				var mu sync.Mutex
+				for gasPrice.Cmp(minGasPrice) >= 0 && calls == nil {
+					for i := range conf.TokenConfs {
+						if amounts[i] == nil {
+							continue
 						}
-						if callsGasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
-							callsGasPriceLimit = conf.MaxGasPrice
+						if ethPriceX64Oracle[i] == nil {
+							continue
 						}
-						b := new(caller.Batch).SendTx(&types.DynamicFeeTx{ChainID: conf.ChainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: callsGasPriceLimit, Gas: ExecuteCallsGas(calls), To: conf.Caller, Value: new(big.Int), Data: calls, AccessList: AccessListForCalls(calls)}, conf.PrivateKey, nil)
-						for _, rpcclient := range rpcClients {
-							go func(rpcclient *rpc.Client) {
-								res, err := b.Submit(context.Background(), rpcclient)
+						amInMin := new(big.Int).Div(new(big.Int).Lsh(conf.MinEth, 64), ethPriceX64Oracle[i])
+						amIn := new(big.Int).Set(amounts[i])
+						for amIn.Cmp(amInMin) > 0 {
+							wg.Add(1)
+							go func(amIn *big.Int, tInx uint8, gasPrice *big.Int) {
+								defer wg.Done()
+								res, err := new(caller.Batch).FindRoutes(conf.RouteMaxLen, tInx, amIn, pools, gasPrice, &router, "pending", nil).Submit(context.Background(), simClient)
 								if err != nil {
-									Log(3, "ExecutePoolCallsRPC Err: ", err)
+									Log(2, "FindRoutesRPC Err: ", err)
 									return
 								}
-								hash, b := res[0].(*string)
+								routes, b := res[0].([]caller.Route)
 								if !b {
-									Log(3, "ExecutePoolCallsSend Err: ", res[0].(error))
+									Log(2, amIn, tInx, "FindRoutesExec Err: ", res[0].(error))
 									return
 								}
-								Log(3, *hash, number, ets.Sub(sts2))
-							}(rpcclient)
+								ethIn := new(big.Int).Mul(amIn, ethPriceX64Oracle[tInx])
+								ethIn.Rsh(ethIn, 64)
+								mu.Lock()
+								for tOutx, route := range routes {
+									// ll := 0
+									// if len(pools[tInx]) > 0 {
+									// 	ll += len(pools[tInx][tOutx]) / 0x40
+									// }
+									// if len(pools[tOutx]) > 0 {
+									// 	ll += len(pools[tOutx][tInx]) / 0x40
+									// }
+									// fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll)
+									if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 {
+										continue
+									}
+									ethOut := new(big.Int).Mul(route.AmOut, ethPriceX64Oracle[tOutx])
+									ethOut.Rsh(ethOut, 64)
+									ben := new(big.Int).Sub(ethOut, ethIn)
+									if ben.Sign() < 0 {
+										continue
+									}
+									ratiotemp := new(big.Float).SetInt(ethOut)
+									ratiotemp.Quo(ratiotemp, new(big.Float).SetInt(ethIn))
+									ratio, _ := ratiotemp.Float64()
+									if ratio < conf.MinRatio {
+										continue
+									}
+									txGas := big.NewInt(int64(CallsGas(route.Calls)))
+									if new(big.Int).Sub(ben, new(big.Int).Mul(txGas, gasPrice)).Sign() > 0 {
+										continue
+									}
+									txGas.Add(txGas, conf.MinGasBen)
+									gasPriceLimit := new(big.Int).Div(ben, txGas)
+									if gasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
+										continue
+									}
+									if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 {
+										continue
+									}
+									callsGasPriceLimit = gasPriceLimit
+									calls = route.Calls
+								}
+								mu.Unlock()
+							}(amIn, uint8(i), gasPrice)
+							Log(5, "START", i, amIn, gasPrice)
+							amIn = new(big.Int).Rsh(amIn, 1)
+						}
+					}
+					wg.Wait()
+					gasPrice = new(big.Int).Rsh(gasPrice, 1)
+				}
+				ets := time.Now()
+				Log(4, "END", number, ets.Sub(sts))
+				if calls != nil {
+					Log(1, calls, callsGasPriceLimit, number)
+					if !conf.FakeBalance {
+						if bytes.Equal(calls, lastCalls) {
+							Log(2, "Repeated Call")
+						} else {
+							lastCalls = calls
+							minerTip := new(big.Int).Sub(callsGasPriceLimit, baseFee)
+							if minerTip.Cmp(conf.MaxMinerTip) > 0 {
+								minerTip = conf.MaxMinerTip
+							}
+							if callsGasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
+								callsGasPriceLimit = conf.MaxGasPrice
+							}
+							b := new(caller.Batch).SendTx(&types.DynamicFeeTx{ChainID: conf.ChainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: callsGasPriceLimit, Gas: ExecuteCallsGas(calls), To: conf.Caller, Value: new(big.Int), Data: calls, AccessList: AccessListForCalls(calls)}, conf.PrivateKey, nil)
+							for _, rpcclient := range rpcClients {
+								go func(rpcclient *rpc.Client) {
+									res, err := b.Submit(context.Background(), rpcclient)
+									if err != nil {
+										Log(3, "ExecutePoolCallsRPC Err: ", err)
+										return
+									}
+									hash, b := res[0].(*string)
+									if !b {
+										Log(3, "ExecutePoolCallsSend Err: ", res[0].(error))
+										return
+									}
+									Log(3, *hash, number, ets.Sub(sts2))
+								}(rpcclient)
+							}
 						}
 					}
 				}
-			}
+			}()
 			<-deadline.Done()
 			cancel()
 		}

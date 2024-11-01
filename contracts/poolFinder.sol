@@ -144,7 +144,7 @@ contract CPoolFinder{
                 if(reserve0>0&&reserve1>0){
                     uint8 id=protocol.id;
                     assembly{
-                        stateHash:=keccak256(fmp,0x20)
+                        stateHash:=keccak256(fmp,0x40)
                         mstore(fmp,or(shl(128,reserve0),reserve1))
                         fmp:=add(fmp,0x20)
                         mstore(fmp,or(and(stateHash,STATE_MASK),or(shl(216,id),or(shl(160,3000),pool))))
