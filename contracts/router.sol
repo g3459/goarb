@@ -119,7 +119,7 @@ library CRouter{
                 uint pid=slot1&PID_MASK;
                 if(pid!=UNIV2_PID){
                     (int tl,int tu)=tickBounds(int24(int(slot1>>176)),pid!=ALGB_PID?feeAmountTickSpacing(fee):60);
-                    if(direc?((rOut-amOut)<<128)/(rIn+amIn)<(tPX128(tl)):((rIn+amIn)<<128)/(rOut-amOut)>(tPX128(tu))){
+                    if(direc?((rOut-amOut)<<128)/(rIn+amIn)<tPX128(tl):((rIn+amIn)<<128)/(rOut-amOut)>tPX128(tu)){
                         continue;
                     }
                 }
@@ -145,7 +145,7 @@ library CRouter{
     }
 
     function protGas(uint pid)internal pure returns(uint){
-        return pid==ALGB_PID?300000:100000;
+        unchecked{return pid==ALGB_PID?300000:100000;}
     }
 
     function compress56bit(uint uncompressed)internal pure returns(uint){
@@ -163,54 +163,60 @@ library CRouter{
     }
 
     function poolInCalls(bytes memory calls,uint160 pool)internal pure returns(bool){
-        // uint fees=uint24(slot1>>160);
-        // uint160 pool=uint160(slot1);
-        for (uint i=0x20; i <= calls.length; i += 0x20) {
-            uint _poolCall;
-            assembly{_poolCall:= mload(add(calls, i))}
-            if (pool == uint160(_poolCall)){
-                return true;
-                // uint amounts[t0]=decompress56bit(_poolCall>>160);
-                // uint amounts[t0]XFee=amounts[t0]*fees;
-                // bool v2fee = uint8(slot1>>216)==1;
-                // if(_poolCall&0x8000000000000000000000000000000000000000000000000000000000000000==0){
-                //     r0-=(amounts[t0]XFee*r0)/(r1*1e6+amounts[t0]XFee);
-                //     r1+=v2fee?amounts[t0]:(amounts[t0]XFee/1e6);
-                // }else{
-                //     r1-=(amounts[t0]XFee*r1)/(r0*1e6+amounts[t0]XFee);
-                //     r0+=v2fee?amounts[t0]:(amounts[t0]XFee/1e6);
-                // }
+        unchecked{
+            // uint fees=uint24(slot1>>160);
+            // uint160 pool=uint160(slot1);
+            for (uint i=0x20; i <= calls.length; i += 0x20) {
+                uint _poolCall;
+                assembly{_poolCall:= mload(add(calls, i))}
+                if (pool == uint160(_poolCall)){
+                    return true;
+                    // uint amounts[t0]=decompress56bit(_poolCall>>160);
+                    // uint amounts[t0]XFee=amounts[t0]*fees;
+                    // bool v2fee = uint8(slot1>>216)==1;
+                    // if(_poolCall&0x8000000000000000000000000000000000000000000000000000000000000000==0){
+                    //     r0-=(amounts[t0]XFee*r0)/(r1*1e6+amounts[t0]XFee);
+                    //     r1+=v2fee?amounts[t0]:(amounts[t0]XFee/1e6);
+                    // }else{
+                    //     r1-=(amounts[t0]XFee*r1)/(r0*1e6+amounts[t0]XFee);
+                    //     r0+=v2fee?amounts[t0]:(amounts[t0]XFee/1e6);
+                    // }
+                }
             }
+            return false;//(r0,r1);
         }
-        return false;//(r0,r1);
     }
 
     function feeAmountTickSpacing(uint fee)internal pure returns(uint s){
-        if(fee==100){
-            return 1;
-        }
-        if(fee==500){
-            return 10;
-        }
-        if(fee==2500){
-            return 50;
-        }
-        if(fee==3000){
-            return 60;
-        }
-        if(fee==10000){
-            return 200;
+        unchecked{
+            if(fee==100){
+                return 1;
+            }
+            if(fee==500){
+                return 10;
+            }
+            if(fee==2500){
+                return 50;
+            }
+            if(fee==3000){
+                return 60;
+            }
+            if(fee==10000){
+                return 200;
+            }
         }
     }
 
     function tickBounds(int24 t,uint s)internal pure returns(int24 tl, int24 tu){
-        assembly {tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
-        tu=tl+int24(uint24(s));
-        if(tl<MIN_TICK){
-            tl=MIN_TICK;
-        }
-        else if(tu>MAX_TICK){
-            tu=MAX_TICK;
+        unchecked{
+            assembly {tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
+            tu=tl+int24(uint24(s));
+            if(tl<MIN_TICK){
+                tl=MIN_TICK;
+            }
+            else if(tu>MAX_TICK){
+                tu=MAX_TICK;
+            }
         }
     }
 
