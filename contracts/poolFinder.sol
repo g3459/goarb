@@ -1,4 +1,7 @@
 import "./router.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraV3Pool.sol";
 
 contract CPoolFinder{
 
@@ -222,23 +225,6 @@ contract CPoolFinder{
             assembly{mstore(0x40,fmp)}
         }
     }
-}
-
-//interfaces
-
-interface IUniV2Pool{
-    function getReserves()external view returns(uint reserve0, uint reserve1, uint blockTimestampLast);
-}
-
-interface IUniV3Pool{
-    function slot0() external view returns(uint sqrtPX96, int t, uint observationIndex, uint observationCardinality, uint observationCardinalityNext, uint feeProtocol, bool unlocked);
-    function liquidity() external view returns(uint liquidity);
-}
-
-interface IAlgebraV3Pool{
-    function globalState() external view returns(uint sqrtPX96, int t, uint fee, uint timePointdex, uint comunityFeet0, uint comunityFeeT1, bool unlocked);
-    function tickSpacing() external view returns(int s);
-    function liquidity() external view returns(uint liquidity);
 }
 
 

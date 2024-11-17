@@ -1,3 +1,9 @@
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraV3Pool.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+
 contract Caller {
 
     uint internal constant STATE_MASK=0x7fffffff00000000000000000000000000000000000000000000000000000000;
@@ -13,10 +19,10 @@ contract Caller {
     uint internal constant ALGBSLOT_SEL=0xe76c01e400000000000000000000000000000000000000000000000000000000;
     uint internal constant UNIV3SLOT_SEL=0x3850c7bd00000000000000000000000000000000000000000000000000000000;
 
-    address internal constant owner=0xcE158711d84594b298B5EB0eEb16C3018C253371;
+    address internal immutable owner;
     
     constructor() payable{
-        unchecked{require(owner==msg.sender);}
+        unchecked{owner=msg.sender;}
     }
 
     // function setAddress(address a,bool b) external payable check{
@@ -106,7 +112,7 @@ contract Caller {
 
     modifier check{
         _;
-        unchecked{require(owner==tx.origin || owner==msg.sender);}
+        unchecked{require(owner==tx.origin);}
     }
 
     modifier swapCallback(int am0,int am1){
@@ -137,30 +143,4 @@ contract Caller {
 
     function algebraSwapCallback(int am0, int am1, bytes calldata) external payable swapCallback(am0,am1) check{}
 
-}
-
-interface IERC20{
-    function balanceOf(address ) external view returns ( uint256 );
-    function transfer(address, uint256 ) external returns ( uint256 );
-}
-
-interface IUniV3Pool{
-    function token0() external view returns ( address );
-    function token1() external view returns ( address );
-    function swap(address recipient, bool zeroForOne, int amountSpecified, uint160 sqrtPriceLimitX96, bytes calldata data) external returns(int amount0, int amount1);
-    function slot0() external view returns(uint sqrtPX96, int t, uint observationIndex, uint observationCardinality, uint observationCardinalityNext, uint feeProtocol, bool unlocked);
-}
-
-interface IUniV2Pool{
-    function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
-    function getReserves()external view returns(uint reserve0, uint reserve1, uint blockTimestampLast);
-    function token0() external view returns ( address );
-    function token1() external view returns ( address );
-}
-
-interface IAlgebraV3Pool{
-    function swap(address recipient, bool zeroForOne, int amountSpecified, uint160 sqrtPriceLimitX96, bytes calldata data) external returns(int amount0, int amount1);
-    function globalState() external view returns(uint sqrtPX96, int t, uint fee, uint timePointIndex, uint comunityFeet0, uint comunityFeeT1, bool unlocked);
-    function tickSpacing() external view returns(int s);
-    function liquidity() external view returns(uint liquidity);
 }

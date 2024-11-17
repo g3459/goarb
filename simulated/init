@@ -1,2 +1,6 @@
 
+while :
+do
+    echo starting
     ~/go/bin/go1.22.8 run .
+done

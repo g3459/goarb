@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"math/big"
+	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -92,5 +94,6 @@ func main() {
 	}
 	sim.Commit()
 	log.Println("Router:", router)
-	select {}
+	<-time.After(10 * time.Minute)
+	os.Exit(0)
 }
