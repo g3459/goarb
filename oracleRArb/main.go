@@ -168,12 +168,12 @@ func main() {
 			sts := time.Now()
 			_, err2 := batch.Submit(deadline, rpcclient)
 			if err2 != nil {
-				banClient(rpcclient, conf.Polling*time.Millisecond*60)
+				banClient(rpcclient, conf.Polling*time.Millisecond*40)
 				Log(2, "BatchRPC Err: ", err2)
 				continue
 			}
 			if err != nil {
-				banClient(rpcclient, conf.Polling*time.Millisecond*60)
+				banClient(rpcclient, conf.Polling*time.Millisecond*40)
 				Log(2, "BatchExec Err: ", err)
 				continue
 			}
@@ -184,9 +184,9 @@ func main() {
 			if number > hNumber {
 				hNumber = number
 			}
-			// token := common.HexToAddress("0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619")
-			// amount := big.NewInt(1)
-			// //amount.Mul(amount, big.NewInt(1000))
+			// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
+			// amount := big.NewInt(50)
+			// amount.Mul(amount, big.NewInt(1e18))
 			// res, errr := caller.Batch{}.Transfer(conf.Caller, &token, &sender, amount, conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
 			// Log(0, res, errr)
 			// continue

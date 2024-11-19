@@ -3,4 +3,5 @@ while :
 do
     echo starting
     ~/go/bin/go1.22.8 run .
+    sleep 1
 done
