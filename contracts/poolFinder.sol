@@ -98,7 +98,7 @@ contract CPoolFinder{
                         amt0=(amt0 * rt0) / (rt1 * 1e6 + amt0);
                         uint amt1=fAmounts[t0]*fee;
                         amt1=(amt1 * rt1) / (rt0 * 1e6 + amt1);
-                        if((amt1+(amt1>>1)<fAmounts[t1]) && (amt0+(amt0>>1)<fAmounts[t0])){
+                        if((amt1+(amt1>>2)<fAmounts[t1]) && (amt0+(amt0>>2)<fAmounts[t0])){
                             continue;
                         }
                         assembly{

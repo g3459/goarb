@@ -1,6 +1,7 @@
 library CRouter{
 
     bool internal constant FRP=true;
+    bool internal constant GPE=true;
     
     uint internal constant PID_MASK=0xff000000000000000000000000000000000000000000000000000000;
     uint internal constant STATE_MASK=0x7fffffff00000000000000000000000000000000000000000000000000000000;
@@ -56,20 +57,25 @@ library CRouter{
                         }
                         uint eth = t1==0?0:amounts[0];
                         (uint hAmOut,uint poolCall) = quotePools(amounts[t0]-1,eth,direc,_pools,calls[t0]);
-                        uint gasNew = gasFees[t0]+protGas(poolCall&PID_MASK);
-                        {
-                            uint gasFeeNew = gasNew * tx.gasprice;
-                            uint gasFeeCurrent = gasFees[t1] * tx.gasprice;
-                            if(eth!=0){
-                                gasFeeNew=(hAmOut*gasFeeNew)/eth;
-                                gasFeeCurrent=(hAmOut*gasFeeCurrent)/eth;
+                        if(hAmOut<=amounts[t1]){
+                            continue;
+                        }
+                        if(GPE){
+                            uint gasNew = gasFees[t0]+protGas(poolCall&PID_MASK);
+                            {
+                                uint gasFeeNew = gasNew * tx.gasprice;
+                                uint gasFeeCurrent = gasFees[t1] * tx.gasprice;
+                                if(eth!=0){
+                                    gasFeeNew=(hAmOut*gasFeeNew)/eth;
+                                    gasFeeCurrent=(hAmOut*gasFeeCurrent)/eth;
+                                }
+                                if(int(hAmOut-gasFeeNew)<=int(amounts[t1]-gasFeeCurrent)){
+                                    continue;
+                                }
                             }
-                            if(int(hAmOut-gasFeeNew)<=int(amounts[t1]-gasFeeCurrent)){
-                                continue;
-                            }
+                            gasFees[t1]=gasNew;
                         }
                         amounts[t1]=hAmOut-1;
-                        gasFees[t1]=gasNew;
                         uint amIn56bit=compress56bit(amounts[t0]);
                         poolCall=(poolCall&(STATE_MASK|PID_MASK|ADDRESS_MASK))|(amIn56bit<<160);
                         if(direc) poolCall|=DIREC_MASK;
@@ -123,21 +129,23 @@ library CRouter{
                         continue;
                     }
                 }
-                uint gasFee = protGas(pid) * tx.gasprice;
-                if(eth!=0){
-                    gasFee=(amOut*gasFee)/eth;
-                }
-                if(int(amOut-gasFee)<=int(hAmOut-hGasFee)){
-                    continue;
-                }
-                if(FRP){
-                    uint amOutX2 = (amIn<<1) * (1e6 - fee);
-                    amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2);
-                    if(int(amOutX2-gasFee)>int((amOut-gasFee)<<1)){
+                if(GPE){
+                    uint gasFee = protGas(pid) * tx.gasprice;
+                    if(eth!=0){
+                        gasFee=(amOut*gasFee)/eth;
+                    }
+                    if(int(amOut-gasFee)<=int(hAmOut-hGasFee)){
                         continue;
                     }
+                    if(FRP){
+                        uint amOutX2 = (amIn<<1) * (1e6 - fee);
+                        amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2);
+                        if(int(amOutX2-gasFee)>int((amOut-gasFee)<<1)){
+                            continue;
+                        }
+                    }
+                    hGasFee=gasFee;
                 }
-                hGasFee=gasFee;
                 hAmOut=amOut;
                 poolCall=slot1;
             }
