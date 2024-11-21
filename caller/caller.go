@@ -18,9 +18,8 @@ type Route struct {
 }
 
 type Protocol struct {
-	Factory  *common.Address `json:"factory"`
-	InitCode *common.Hash    `json:"initCode"`
-	Id       uint8           `json:"id"`
+	Factory *common.Address `json:"factory"`
+	Id      uint8           `json:"id"`
 }
 
 type step struct {

@@ -925,11 +925,6 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 			{
 				"components": [
 					{
-						"internalType": "bytes32",
-						"name": "initCode",
-						"type": "bytes32"
-					},
-					{
 						"internalType": "address",
 						"name": "factory",
 						"type": "address"
@@ -970,11 +965,6 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 			},
 			{
 				"components": [
-					{
-						"internalType": "bytes32",
-						"name": "initCode",
-						"type": "bytes32"
-					},
 					{
 						"internalType": "address",
 						"name": "factory",

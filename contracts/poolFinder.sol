@@ -1,20 +1,19 @@
 import "./router.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraV3Pool.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
+import "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraFactory.sol";
 
 contract CPoolFinder{
 
     struct Protocol{
-        bytes32 initCode;
         address factory;
         uint8 id;
     }
     
     uint internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
-    uint internal constant UNIV2SLOT_SEL=0x0902f1ac00000000000000000000000000000000000000000000000000000000;
-    uint internal constant ALGBSLOT_SEL=0xe76c01e400000000000000000000000000000000000000000000000000000000;
-    uint internal constant UNIV3SLOT_SEL=0x3850c7bd00000000000000000000000000000000000000000000000000000000;
 
     function findPools(uint minEth,address[] calldata tokens,Protocol[] calldata protocols)public view returns(bytes[][] memory pools){
         unchecked {
@@ -49,15 +48,15 @@ contract CPoolFinder{
             }
             for(uint i; i<protocols.length;i++){
                 if(protocols[i].id==0){
-                    mstoreUniV3Pool(protocols[i],token0,token1,100);
-                    mstoreUniV3Pool(protocols[i],token0,token1,500);
-                    mstoreUniV3Pool(protocols[i],token0,token1,2500);
-                    mstoreUniV3Pool(protocols[i],token0,token1,3000);
-                    mstoreUniV3Pool(protocols[i],token0,token1,10000);
+                    mstoreUniV3Pool(protocols[i].factory,token0,token1,100);
+                    mstoreUniV3Pool(protocols[i].factory,token0,token1,500);
+                    mstoreUniV3Pool(protocols[i].factory,token0,token1,2500);
+                    mstoreUniV3Pool(protocols[i].factory,token0,token1,3000);
+                    mstoreUniV3Pool(protocols[i].factory,token0,token1,10000);
                 }else if(protocols[i].id==1){
-                    mstoreUniV2Pool(protocols[i],token0,token1);
+                    mstoreUniV2Pool(protocols[i].factory,token0,token1);
                 }else if(protocols[i].id==2){
-                    mstoreAlgbPool(protocols[i],token0,token1);
+                    mstoreAlgbPool(protocols[i].factory,token0,token1);
                 }
             }
             uint len;
@@ -131,21 +130,22 @@ contract CPoolFinder{
         }
     }
 
-    function mstoreUniV2Pool(Protocol calldata protocol,address t0,address t1) internal view{
+    function mstoreUniV2Pool(address factory,address t0,address t1) internal view{
         unchecked{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
-            address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',protocol.factory, keccak256(abi.encodePacked(t0, t1)) ,protocol.initCode)))));
+            address pool=IUniswapV2Factory(factory).getPair(t0,t1);
             if(pool.code.length!=0){
                 uint reserve0; uint reserve1;bytes32 stateHash;
+                bytes4 sel=IUniswapV2Pair(pool).getReserves.selector;
                 assembly{
-                    mstore(fmp,UNIV2SLOT_SEL)
+                    mstore(fmp,sel)
                     pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
                     reserve0:=mload(fmp)
                     reserve1:=mload(add(fmp,0x20))
                 }
                 if(reserve0>0&&reserve1>0){
-                    uint8 id=protocol.id;
+                    uint8 id=1;
                     assembly{
                         stateHash:=keccak256(fmp,0x40)
                         mstore(fmp,or(shl(128,reserve0),reserve1))
@@ -159,30 +159,31 @@ contract CPoolFinder{
         }
     }
 
-    function mstoreUniV3Pool(Protocol calldata protocol,address t0,address t1,uint fee)internal view{
+    function mstoreUniV3Pool(address factory,address t0,address t1,uint24 fee)internal view{
         unchecked{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
-            address pool=address(uint160(uint(keccak256(abi.encodePacked(hex'ff',protocol.factory, keccak256(abi.encode(t0, t1,fee)),protocol.initCode)))));
+            address pool=IUniswapV3Factory(factory).getPool(t0,t1,fee);
             if(pool.code.length!=0){
-                uint liquidity=IUniV3Pool(pool).liquidity();
+                uint liquidity=IUniswapV3Pool(pool).liquidity();
                 if(liquidity>0){
                     uint sqrtPX64;
+                    bytes4 sel=IUniswapV3Pool(pool).slot0.selector;
                     assembly{
-                        mstore(fmp,UNIV3SLOT_SEL)
+                        mstore(fmp,sel)
                         pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
                         sqrtPX64 := shr(32,mload(fmp))
                     }
                     uint reserve0=(liquidity<<64)/(sqrtPX64+1);
                     uint reserve1=(liquidity*sqrtPX64)>>64;
                     if(reserve0>0&&reserve1>0){
-                        uint8 id=protocol.id;
+                        uint8 id=0;
                         assembly{
                             let t:=mload(add(fmp,0x20))
                             let stateHash:=keccak256(fmp,0x20)
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
-                            mstore(fmp,or(and(stateHash,STATE_MASK),or(shl(216,id),or(shl(176,and(t,0xffffff)),or(shl(160,fee),pool)))))
+                            mstore(fmp,or(and(stateHash,STATE_MASK),or(shl(216,0),or(shl(176,and(t,0xffffff)),or(shl(160,fee),pool)))))
                             fmp:=add(fmp,0x20)
                         }
                     }
@@ -192,24 +193,25 @@ contract CPoolFinder{
         }
     }
 
-    function mstoreAlgbPool(Protocol calldata protocol,address t0,address t1)internal view{
+    function mstoreAlgbPool(address factory,address t0,address t1)internal view{
         unchecked{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
-            address pool =  address(uint160(uint(keccak256(abi.encodePacked(hex'ff',protocol.factory,keccak256(abi.encode(t0, t1)),protocol.initCode)))));
+            address pool = IAlgebraFactory(factory).poolByPair(t0,t1);
             if(pool.code.length!=0){
-                uint liquidity =IAlgebraV3Pool(pool).liquidity();
+                uint liquidity =IAlgebraPool(pool).liquidity();
                 if(liquidity>0){
                     uint sqrtPX64;
+                    bytes4 sel=IAlgebraPool(pool).globalState.selector;
                     assembly{
-                        mstore(fmp,ALGBSLOT_SEL)
+                        mstore(fmp,sel)
                         pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x60))
                         sqrtPX64 := shr(32,mload(fmp))
                     }
                     uint reserve0=(liquidity<<64)/(sqrtPX64+1);
                     uint reserve1=(liquidity*sqrtPX64)>>64;
                     if(reserve0>0&&reserve1>0){
-                        uint8 id=protocol.id;
+                        uint8 id=2;
                         assembly{
                             let t:=mload(add(fmp,0x20))
                             let fee:=mload(add(fmp,0x40))
