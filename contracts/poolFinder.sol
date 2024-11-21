@@ -47,16 +47,17 @@ contract CPoolFinder{
                 mstore(0x40,add(pools,0x20))
             }
             for(uint i; i<protocols.length;i++){
+                address factory=protocols[i].factory;
                 if(protocols[i].id==0){
-                    mstoreUniV3Pool(protocols[i].factory,token0,token1,100);
-                    mstoreUniV3Pool(protocols[i].factory,token0,token1,500);
-                    mstoreUniV3Pool(protocols[i].factory,token0,token1,2500);
-                    mstoreUniV3Pool(protocols[i].factory,token0,token1,3000);
-                    mstoreUniV3Pool(protocols[i].factory,token0,token1,10000);
+                    mstoreUniV3Pool(factory,token0,token1,100);
+                    mstoreUniV3Pool(factory,token0,token1,500);
+                    mstoreUniV3Pool(factory,token0,token1,2500);
+                    mstoreUniV3Pool(factory,token0,token1,3000);
+                    mstoreUniV3Pool(factory,token0,token1,10000);
                 }else if(protocols[i].id==1){
-                    mstoreUniV2Pool(protocols[i].factory,token0,token1);
+                    mstoreUniV2Pool(factory,token0,token1);
                 }else if(protocols[i].id==2){
-                    mstoreAlgbPool(protocols[i].factory,token0,token1);
+                    mstoreAlgbPool(factory,token0,token1);
                 }
             }
             uint len;
@@ -135,7 +136,7 @@ contract CPoolFinder{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
             address pool=IUniswapV2Factory(factory).getPair(t0,t1);
-            if(pool.code.length!=0){
+            if(pool!=address(0)){
                 uint reserve0; uint reserve1;bytes32 stateHash;
                 bytes4 sel=IUniswapV2Pair(pool).getReserves.selector;
                 assembly{
@@ -164,7 +165,7 @@ contract CPoolFinder{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
             address pool=IUniswapV3Factory(factory).getPool(t0,t1,fee);
-            if(pool.code.length!=0){
+            if(pool!=address(0)){
                 uint liquidity=IUniswapV3Pool(pool).liquidity();
                 if(liquidity>0){
                     uint sqrtPX64;
@@ -198,7 +199,7 @@ contract CPoolFinder{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
             address pool = IAlgebraFactory(factory).poolByPair(t0,t1);
-            if(pool.code.length!=0){
+            if(pool!=address(0)){
                 uint liquidity =IAlgebraPool(pool).liquidity();
                 if(liquidity>0){
                     uint sqrtPX64;
