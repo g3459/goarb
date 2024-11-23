@@ -5,17 +5,22 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
 import "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraFactory.sol";
+import {IPoolFactory as IVeloV2Factory} from "https://github.com/velodrome-finance/contracts/contracts/interfaces/factories/IPoolFactory.sol";
+import {IPool as IVeloV2Pool} from "https://github.com/velodrome-finance/contracts/contracts/interfaces/IPool.sol";
+import {ICLFactory as IVeloV3Factory} from "https://github.com/velodrome-finance/slipstream/contracts/core/interfaces/ICLFactory.sol";
+import {ICLPool as IVeloV3Pool} from "https://github.com/velodrome-finance/slipstream/contracts/core/interfaces/ICLPool.sol";
 
 contract CPoolFinder{
-
-    struct Protocol{
-        address factory;
-        uint8 id;
-    }
     
     uint internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
+    uint internal constant PID_MASK = 0x0000000000000000000000ff0000000000000000000000000000000000000000;
+    uint internal constant UNIV2_PID = 0x010000000000000000000000000000000000000000;
+    uint internal constant UNIV3_PID = 0;
+    uint internal constant ALGB_PID = 0x020000000000000000000000000000000000000000;
+    uint internal constant VELOV1_PID = 0x030000000000000000000000000000000000000000;
+    uint internal constant VELOV2_PID = 0x040000000000000000000000000000000000000000;
 
-    function findPools(uint minEth,address[] calldata tokens,Protocol[] calldata protocols)public view returns(bytes[][] memory pools){
+    function findPools(uint minEth,address[] calldata tokens,uint[] calldata protocols)public view returns(bytes[][] memory pools){
         unchecked {
             pools=new bytes[][](tokens.length);
             for(uint t0;t0<tokens.length;t0++){
@@ -37,7 +42,7 @@ contract CPoolFinder{
         }
     }
 
-    function findPoolsSingle(address token0,address token1,Protocol[] calldata protocols)public view returns(bytes memory pools){
+    function findPoolsSingle(address token0,address token1,uint[] calldata protocols)public view returns(bytes memory pools){
         unchecked{
             if(token0>token1){
                 (token0,token1)=(token1,token0);
@@ -47,16 +52,17 @@ contract CPoolFinder{
                 mstore(0x40,add(pools,0x20))
             }
             for(uint i; i<protocols.length;i++){
-                address factory=protocols[i].factory;
-                if(protocols[i].id==0){
+                address factory=address(uint160(protocols[i]));
+                uint pid=protocols[i] & PID_MASK;
+                if(pid==UNIV3_PID){
                     mstoreUniV3Pool(factory,token0,token1,100);
                     mstoreUniV3Pool(factory,token0,token1,500);
                     mstoreUniV3Pool(factory,token0,token1,2500);
                     mstoreUniV3Pool(factory,token0,token1,3000);
                     mstoreUniV3Pool(factory,token0,token1,10000);
-                }else if(protocols[i].id==1){
+                }else if(pid==UNIV2_PID){
                     mstoreUniV2Pool(factory,token0,token1);
-                }else if(protocols[i].id==2){
+                }else if(pid==ALGB_PID){
                     mstoreAlgbPool(factory,token0,token1);
                 }
             }
@@ -228,6 +234,39 @@ contract CPoolFinder{
             assembly{mstore(0x40,fmp)}
         }
     }
+
+    function mstoreVeloV2Pool(address factory,address t0,address t1,bool stable)internal view{
+        unchecked{
+            bytes32 fmp;
+            assembly{fmp:=mload(0x40)}
+            address pool=IVeloV2Factory(factory).getPool(t0,t1,stable);
+            if(pool!=address(0)){
+                uint reserve0; uint reserve1;bytes32 stateHash;
+                uint fee = IVeloV2Factory(factory).getFee(pool,stable);
+                bytes4 sel=IVeloV2Pool(pool).getReserves.selector;
+                assembly{
+                    mstore(fmp,sel)
+                    pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
+                    reserve0:=mload(fmp)
+                    reserve1:=mload(add(fmp,0x20))
+                }
+                if(reserve0>0&&reserve1>0){
+                    uint8 id=3;
+                    assembly{
+                        stateHash:=keccak256(fmp,0x40)
+                        mstore(fmp,or(shl(128,reserve0),reserve1))
+                        fmp:=add(fmp,0x20)
+                        mstore(fmp,or(and(stateHash,STATE_MASK),or(shl(216,id),or(shl(160,fee),pool))))
+                        fmp:=add(fmp,0x20)
+                    }
+                }
+            }
+            assembly{mstore(0x40,fmp)}
+        }
+    }
+
+
+    
 }
 
 

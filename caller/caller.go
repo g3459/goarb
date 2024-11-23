@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/g3459/goarb/contracts/interfaces"
 	"github.com/g3459/goarb/utils"
 )
 
@@ -39,7 +38,7 @@ func (batch Batch) Call(txParams map[string]interface{}, block string, decoder f
 }
 
 func (batch Batch) BalanceOf(token *common.Address, account *common.Address, block string, callback func(interface{})) Batch {
-	data, err := interfaces.Erc20ABI.Pack("balanceOf", account)
+	data, err := Erc20ABI.Pack("balanceOf", account)
 	if err != nil {
 		panic(err)
 	}
@@ -47,12 +46,16 @@ func (batch Batch) BalanceOf(token *common.Address, account *common.Address, blo
 }
 
 func (batch Batch) FindPools(minEth *big.Int, tokens []common.Address, protocols []Protocol, poolFinder *common.Address, block string, callback func(interface{})) Batch {
-	data, _ := interfaces.PoolFinderABI.Pack("findPools", minEth, tokens, protocols)
+	parsed := make([]*big.Int, len(protocols))
+	for i, v := range protocols {
+		parsed[i] = new(big.Int).SetBytes(append([]byte{v.Id}, v.Factory.Bytes()...))
+	}
+	data, _ := PoolFinderABI.Pack("findPools", minEth, tokens, parsed)
 	return batch.Call(map[string]interface{}{"to": poolFinder, "input": hexutil.Encode(data)}, block, poolsDecoder, callback)
 }
 
 func (batch Batch) FindRoutes(maxLen uint8, tIn uint8, amIn *big.Int, pools [][][]byte, gasPrice *big.Int, router *common.Address, block string, callback func(interface{})) Batch {
-	data, _ := interfaces.RouterABI.Pack("findRoutes", maxLen, tIn, amIn, pools)
+	data, _ := RouterABI.Pack("findRoutes", maxLen, tIn, amIn, pools)
 	return batch.Call(map[string]interface{}{"to": router, "gasPrice": hexutil.EncodeBig(gasPrice), "input": hexutil.Encode(data)}, block, routesDecoder, callback)
 }
 
@@ -81,12 +84,12 @@ func (batch Batch) SendTx(tx *types.DynamicFeeTx, privateKey *common.Hash, callb
 }
 
 func (batch Batch) ExecuteCall(to *common.Address, call []byte, caller *common.Address, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {
-	data, _ := interfaces.CallerABI.Pack("execute", to, call)
+	data, _ := CallerABI.Pack("execute", to, call)
 	return batch.SendTx(&types.DynamicFeeTx{ChainID: chainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: maxFeePerGas, Gas: 1000000, To: caller, Value: new(big.Int), Data: data}, privateKey, callback)
 }
 
 func (batch Batch) Transfer(caller *common.Address, token *common.Address, to *common.Address, amount *big.Int, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {
-	data, _ := interfaces.Erc20ABI.Pack("transfer", to, amount)
+	data, _ := Erc20ABI.Pack("transfer", to, amount)
 	return batch.ExecuteCall(token, data, caller, minerTip, maxFeePerGas, nonce, chainId, privateKey, callback)
 }
 

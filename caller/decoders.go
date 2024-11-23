@@ -3,12 +3,11 @@ package caller
 import (
 	"math/big"
 
-	"github.com/g3459/goarb/contracts/interfaces"
 	"github.com/g3459/goarb/utils"
 )
 
 func poolsDecoder(result interface{}) interface{} {
-	res, err := interfaces.PoolFinderABI.Unpack("findPools", utils.DecodeHex(*result.(*string)))
+	res, err := PoolFinderABI.Unpack("findPools", utils.DecodeHex(*result.(*string)))
 	if err != nil {
 		return err
 	}
@@ -16,7 +15,7 @@ func poolsDecoder(result interface{}) interface{} {
 }
 
 func routesDecoder(result interface{}) interface{} {
-	res, err := interfaces.RouterABI.Unpack("findRoutes", utils.DecodeHex(*result.(*string)))
+	res, err := RouterABI.Unpack("findRoutes", utils.DecodeHex(*result.(*string)))
 	if err != nil {
 		return err
 	}

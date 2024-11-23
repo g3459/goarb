@@ -1,7 +1,7 @@
 library CRouter{
 
-    bool internal constant FRP=true;
-    bool internal constant GPE=true;
+    bool internal constant FRP=false;
+    bool internal constant GPE=false;
     
     uint internal constant PID_MASK=0xff000000000000000000000000000000000000000000000000000000;
     uint internal constant STATE_MASK=0x7fffffff00000000000000000000000000000000000000000000000000000000;

@@ -20,6 +20,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/g3459/goarb/caller"
+	"github.com/g3459/goarb/contracts/bytecodes"
+	"github.com/g3459/goarb/simulated"
 	"github.com/gorilla/websocket"
 )
 
@@ -61,13 +63,13 @@ type Configuration struct {
 
 var (
 	conf              Configuration
-	router            = common.HexToAddress("0x8988167E088c87Cd314Df6d3C2b83da5aCb93AcE")
+	router            *common.Address
 	ethPriceX64Oracle []*big.Int
 	rpcClients        = make(map[string]*rpc.Client)
 	rpcClientsBanMap  = map[*rpc.Client]time.Time{}
 	simClient         *rpc.Client
 	hNumber           uint64
-	sender            common.Address
+	sender            *common.Address
 	logFile           *os.File
 	lastCalls         []byte
 )
@@ -147,7 +149,7 @@ func main() {
 		}
 	})
 	nonce := uint64(0)
-	batch = batch.Nonce(&sender, "latest", func(res interface{}) {
+	batch = batch.Nonce(sender, "latest", func(res interface{}) {
 		var b bool
 		nonce, b = res.(uint64)
 		if !b {
@@ -219,7 +221,7 @@ func main() {
 							wg.Add(1)
 							go func(amIn *big.Int, tInx uint8, gasPrice *big.Int) {
 								defer wg.Done()
-								res, err := new(caller.Batch).FindRoutes(conf.RouteMaxLen, tInx, amIn, pools, gasPrice, &router, "pending", nil).Submit(context.Background(), simClient)
+								res, err := new(caller.Batch).FindRoutes(conf.RouteMaxLen, tInx, amIn, pools, gasPrice, router, "pending", nil).Submit(context.Background(), simClient)
 								if err != nil {
 									Log(2, "FindRoutesRPC Err: ", err)
 									return
@@ -337,15 +339,21 @@ func readConf() (conf Configuration) {
 		Log(-1, "ReadConfFile Err: ", err)
 	}
 	json.Unmarshal(rawConf, &conf)
-	sender = crypto.PubkeyToAddress(crypto.ToECDSAUnsafe((conf.PrivateKey)[:]).PublicKey)
+	_sender := crypto.PubkeyToAddress(crypto.ToECDSAUnsafe((conf.PrivateKey)[:]).PublicKey)
+	sender = &_sender
 	return conf
 }
 
 func startRpcClients(rpcUrls []string) {
 	var err error
-	simClient, err = rpc.Dial("ws://localhost:8546")
+	sim := simulated.NewSimulated()
+	simClient = sim.Client().Client()
+	// b := caller.Batch{}
+	// res, err := b.SendTx(&types.DynamicFeeTx{ChainID: big.NewInt(1337), Nonce: 0, GasTipCap: new(big.Int), GasFeeCap: new(big.Int), Gas: 10000000, Value: new(big.Int), Data: bytecodes.RouterBytecode}, conf.PrivateKey, nil).Submit(context.Background(), simClient)
+	// Log(0, *res[0].(*string))
+	router, err = simulated.DeployContract(sim, bytecodes.RouterBytecode)
 	if err != nil {
-		Log(-1, "simrpcDial Err: ", err)
+		Log(-1, "simDeployContract Err: ", err)
 	}
 	for _, url := range rpcUrls {
 		deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(1000*time.Millisecond))

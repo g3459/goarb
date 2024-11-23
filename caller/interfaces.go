@@ -1,4 +1,4 @@
-package interfaces
+package caller
 
 import (
 	"strings"
@@ -923,21 +923,9 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 				"type": "address[]"
 			},
 			{
-				"components": [
-					{
-						"internalType": "address",
-						"name": "factory",
-						"type": "address"
-					},
-					{
-						"internalType": "uint8",
-						"name": "id",
-						"type": "uint8"
-					}
-				],
-				"internalType": "struct CPoolFinder.Protocol[]",
+				"internalType": "uint256[]",
 				"name": "protocols",
-				"type": "tuple[]"
+				"type": "uint256[]"
 			}
 		],
 		"name": "findPools",
@@ -964,21 +952,9 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 				"type": "address"
 			},
 			{
-				"components": [
-					{
-						"internalType": "address",
-						"name": "factory",
-						"type": "address"
-					},
-					{
-						"internalType": "uint8",
-						"name": "id",
-						"type": "uint8"
-					}
-				],
-				"internalType": "struct CPoolFinder.Protocol[]",
+				"internalType": "uint256[]",
 				"name": "protocols",
-				"type": "tuple[]"
+				"type": "uint256[]"
 			}
 		],
 		"name": "findPoolsSingle",
