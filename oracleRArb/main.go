@@ -149,7 +149,7 @@ func main() {
 		}
 	})
 	nonce := uint64(0)
-	batch = batch.Nonce(sender, "latest", func(res interface{}) {
+	batch = batch.Nonce(sender, "pending", func(res interface{}) {
 		var b bool
 		nonce, b = res.(uint64)
 		if !b {
@@ -161,7 +161,6 @@ func main() {
 	//logic execution
 	for {
 		for _, rpcclient := range rpcClients {
-
 			if clientBanned(rpcclient) {
 				continue
 			}
@@ -192,7 +191,6 @@ func main() {
 			// res, errr := caller.Batch{}.Transfer(conf.Caller, &token, &sender, amount, conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
 			// Log(0, res, errr)
 			// continue
-
 			Log(4, "START", number, sts2.Sub(sts))
 			go func() {
 				minGasPrice := new(big.Int).Add(baseFee, conf.MinMinerTip)
@@ -243,7 +241,7 @@ func main() {
 									// 	ll += len(pools[tOutx][tInx]) / 0x40
 									// }
 									// fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll)
-									if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 {
+									if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 || bytes.Equal(route.Calls, lastCalls) {
 										continue
 									}
 									ethOut := new(big.Int).Mul(route.AmOut, ethPriceX64Oracle[tOutx])
@@ -270,6 +268,7 @@ func main() {
 									if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 {
 										continue
 									}
+
 									callsGasPriceLimit = gasPriceLimit
 									calls = route.Calls
 								}
@@ -287,33 +286,29 @@ func main() {
 				if calls != nil {
 					Log(1, calls, callsGasPriceLimit, number)
 					if !conf.FakeBalance {
-						if bytes.Equal(calls, lastCalls) {
-							Log(2, "Repeated Call")
-						} else {
-							lastCalls = calls
-							minerTip := new(big.Int).Sub(callsGasPriceLimit, baseFee)
-							if minerTip.Cmp(conf.MaxMinerTip) > 0 {
-								minerTip = conf.MaxMinerTip
-							}
-							if callsGasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
-								callsGasPriceLimit = conf.MaxGasPrice
-							}
-							b := new(caller.Batch).SendTx(&types.DynamicFeeTx{ChainID: conf.ChainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: callsGasPriceLimit, Gas: ExecuteCallsGas(calls), To: conf.Caller, Value: new(big.Int), Data: calls, AccessList: AccessListForCalls(calls)}, conf.PrivateKey, nil)
-							for _, rpcclient := range rpcClients {
-								go func(rpcclient *rpc.Client) {
-									res, err := b.Submit(context.Background(), rpcclient)
-									if err != nil {
-										Log(3, "ExecutePoolCallsRPC Err: ", err)
-										return
-									}
-									hash, b := res[0].(*string)
-									if !b {
-										Log(3, "ExecutePoolCallsSend Err: ", res[0].(error))
-										return
-									}
-									Log(3, *hash, number, ets.Sub(sts2))
-								}(rpcclient)
-							}
+						lastCalls = calls
+						minerTip := new(big.Int).Sub(callsGasPriceLimit, baseFee)
+						if minerTip.Cmp(conf.MaxMinerTip) > 0 {
+							minerTip = conf.MaxMinerTip
+						}
+						if callsGasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
+							callsGasPriceLimit = conf.MaxGasPrice
+						}
+						b := new(caller.Batch).SendTx(&types.DynamicFeeTx{ChainID: conf.ChainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: callsGasPriceLimit, Gas: ExecuteCallsGas(calls), To: conf.Caller, Value: new(big.Int), Data: calls, AccessList: AccessListForCalls(calls)}, conf.PrivateKey, nil)
+						for _, rpcclient := range rpcClients {
+							go func(rpcclient *rpc.Client) {
+								res, err := b.Submit(context.Background(), rpcclient)
+								if err != nil {
+									Log(3, "ExecutePoolCallsRPC Err: ", err)
+									return
+								}
+								hash, b := res[0].(*string)
+								if !b {
+									Log(3, "ExecutePoolCallsSend Err: ", res[0].(error))
+									return
+								}
+								Log(3, *hash, number, ets.Sub(sts2))
+							}(rpcclient)
 						}
 					}
 				}
@@ -356,15 +351,32 @@ func startRpcClients(rpcUrls []string) {
 		Log(-1, "simDeployContract Err: ", err)
 	}
 	for _, url := range rpcUrls {
-		deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(1000*time.Millisecond))
-		client, err := rpc.DialContext(deadline, url)
-		cancel()
-		if err != nil {
-			Log(1, "rpcDial Err: ", err, url)
-			continue
-		}
-		Log(1, "rpcDial: ", url)
-		rpcClients[url] = client
+		func() {
+			deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(2000*time.Millisecond))
+			defer cancel()
+			client, err := rpc.DialContext(deadline, url)
+			if err != nil {
+				Log(1, "rpcDial Err: ", err, url)
+				return
+			}
+			batch := caller.Batch{}
+			res, err := batch.BlockByNumber("pending", nil).Submit(deadline, client)
+			if err != nil {
+				Log(1, "rpcDial Err: ", err, url)
+				return
+			}
+			_blockInfo, b := res[0].(*map[string]interface{})
+			if !b {
+				Log(1, "rpcDial Err: ", err, url)
+				return
+			}
+			number, _ := hexutil.DecodeUint64((*_blockInfo)["number"].(string))
+			Log(1, "rpcDial: ", url, number)
+			rpcClients[url] = client
+		}()
+	}
+	if len(rpcClients) == 0 {
+		Log(-1, "Unable to connect any rpc")
 	}
 }
 

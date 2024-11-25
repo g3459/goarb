@@ -1,14 +1,16 @@
 import "./router.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
-import "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
-import "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraFactory.sol";
-import {IPoolFactory as IVeloV2Factory} from "https://github.com/velodrome-finance/contracts/contracts/interfaces/factories/IPoolFactory.sol";
-import {IPool as IVeloV2Pool} from "https://github.com/velodrome-finance/contracts/contracts/interfaces/IPool.sol";
-import {ICLFactory as IVeloV3Factory} from "https://github.com/velodrome-finance/slipstream/contracts/core/interfaces/ICLFactory.sol";
-import {ICLPool as IVeloV3Pool} from "https://github.com/velodrome-finance/slipstream/contracts/core/interfaces/ICLPool.sol";
+
+import {IPoolFactory as IVeloV2Factory} from "./interfaces/velodrome-finance/contracts/contracts/interfaces/factories/IPoolFactory.sol";
+import {IPool as IVeloV2Pool} from "./interfaces/velodrome-finance/contracts/contracts/interfaces/IPool.sol";
+import {ICLFactory as IVeloV3Factory} from "./interfaces/velodrome-finance/slipstream/contracts/core/interfaces/ICLFactory.sol";
+import {ICLPool as IVeloV3Pool} from "./interfaces/velodrome-finance/slipstream/contracts/core/interfaces/ICLPool.sol";
+import "./interfaces/Uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "./interfaces/Uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import "./interfaces/Uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "./interfaces/Uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebraFactory.sol";
+import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebraPool.sol";
+import "./interfaces/openzeppelin/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 contract CPoolFinder{
     
@@ -185,12 +187,13 @@ contract CPoolFinder{
                     uint reserve1=(liquidity*sqrtPX64)>>64;
                     if(reserve0>0&&reserve1>0){
                         uint8 id=0;
+                        uint8 s=uniV3FeeAmountTickSpacing(fee);
                         assembly{
                             let t:=mload(add(fmp,0x20))
                             let stateHash:=keccak256(fmp,0x20)
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
-                            mstore(fmp,or(and(stateHash,STATE_MASK),or(shl(216,0),or(shl(176,and(t,0xffffff)),or(shl(160,fee),pool)))))
+                            mstore(fmp,or(and(stateHash,STATE_MASK),or(shl(216,id),or(shl(200,s),or(shl(176,and(t,0xffffff)),or(shl(160,fee),pool))))))
                             fmp:=add(fmp,0x20)
                         }
                     }
@@ -225,7 +228,7 @@ contract CPoolFinder{
                             let stateHash:=keccak256(fmp,0x20)
                             mstore(fmp,or(shl(128,reserve0),reserve1))
                             fmp:=add(fmp,0x20)
-                            mstore(fmp,or(and(stateHash,STATE_MASK),or(shl(216,id),or(shl(176,and(t,0xffffff)),or(shl(160,fee),pool)))))
+                            mstore(fmp,or(and(stateHash,STATE_MASK),or(shl(216,id),or(shl(200,60),or(shl(176,and(t,0xffffff)),or(shl(160,fee),pool))))))
                             fmp:=add(fmp,0x20)
                         }
                     }
@@ -262,6 +265,26 @@ contract CPoolFinder{
                 }
             }
             assembly{mstore(0x40,fmp)}
+        }
+    }
+
+    function uniV3FeeAmountTickSpacing(uint24 fee)internal pure returns(uint8 s){
+        unchecked{
+            if(fee==100){
+                return 1;
+            }
+            if(fee==500){
+                return 10;
+            }
+            if(fee==2500){
+                return 50;
+            }
+            if(fee==3000){
+                return 60;
+            }
+            if(fee==10000){
+                return 200;
+            }
         }
     }
 

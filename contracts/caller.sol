@@ -1,7 +1,7 @@
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraV3Pool.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./interfaces/Uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "./interfaces/Uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebraPool.sol";
+import "./interfaces/openzeppelin/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 
 contract Caller {
@@ -93,9 +93,9 @@ contract Caller {
                     }
                     uint amOut=(amIn-1)*997;
                     amOut = (amOut * rOut) / (rIn * 1000 + amOut) - 1;
-                    IUniV2Pool(pool).swap(direc?0:amOut, direc?amOut:0, address(this), "");
+                    IUniswapV2Pair(pool).swap(direc?0:amOut, direc?amOut:0, address(this), "");
                 }else{
-                    IUniV3Pool(pool).swap(address(this), direc, int(amIn) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
+                    IUniswapV3Pool(pool).swap(address(this), direc, int(amIn) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
                 }
             }
         }

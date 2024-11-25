@@ -1,7 +1,7 @@
 library CRouter{
 
-    bool internal constant FRP=false;
-    bool internal constant GPE=false;
+    bool internal constant FRP=true;
+    bool internal constant GPE=true;
     
     uint internal constant PID_MASK=0xff000000000000000000000000000000000000000000000000000000;
     uint internal constant STATE_MASK=0x7fffffff00000000000000000000000000000000000000000000000000000000;
@@ -10,6 +10,8 @@ library CRouter{
     uint internal constant UNIV2_PID=0x01000000000000000000000000000000000000000000000000000000;
     uint internal constant UNIV3_PID=0;
     uint internal constant ALGB_PID=0x02000000000000000000000000000000000000000000000000000000;
+    uint internal constant VELOV2_PID=0x03000000000000000000000000000000000000000000000000000000;
+
     int24 internal constant MIN_TICK = -887272;
     int24 internal constant MAX_TICK = 887272;
 
@@ -123,8 +125,8 @@ library CRouter{
                     continue;
                 }
                 uint pid=slot1&PID_MASK;
-                if(pid!=UNIV2_PID){
-                    (int tl,int tu)=tickBounds(int24(int(slot1>>176)),pid!=ALGB_PID?feeAmountTickSpacing(fee):60);
+                if(pid==UNIV3_PID || pid==ALGB_PID){
+                    (int tl,int tu)=tickBounds(int24(int(slot1>>176)),uint8(slot1>>200));
                     if(direc?((rOut-amOut)<<128)/(rIn+amIn)<tPX128(tl):((rIn+amIn)<<128)/(rOut-amOut)>tPX128(tu)){
                         continue;
                     }
@@ -195,30 +197,10 @@ library CRouter{
         }
     }
 
-    function feeAmountTickSpacing(uint fee)internal pure returns(uint s){
-        unchecked{
-            if(fee==100){
-                return 1;
-            }
-            if(fee==500){
-                return 10;
-            }
-            if(fee==2500){
-                return 50;
-            }
-            if(fee==3000){
-                return 60;
-            }
-            if(fee==10000){
-                return 200;
-            }
-        }
-    }
-
-    function tickBounds(int24 t,uint s)internal pure returns(int24 tl, int24 tu){
+    function tickBounds(int24 t,uint8 s)internal pure returns(int24 tl, int24 tu){
         unchecked{
             assembly {tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
-            tu=tl+int24(uint24(s));
+            tu=tl+int8(s);
             if(tl<MIN_TICK){
                 tl=MIN_TICK;
             }
