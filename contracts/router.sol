@@ -11,6 +11,7 @@ library CRouter{
     uint internal constant UNIV3_PID=0;
     uint internal constant ALGB_PID=0x02000000000000000000000000000000000000000000000000000000;
     uint internal constant VELOV2_PID=0x03000000000000000000000000000000000000000000000000000000;
+    uint internal constant VELOV3_PID=0x04000000000000000000000000000000000000000000000000000000;
 
     int24 internal constant MIN_TICK = -887272;
     int24 internal constant MAX_TICK = 887272;
@@ -125,9 +126,9 @@ library CRouter{
                     continue;
                 }
                 uint pid=slot1&PID_MASK;
-                if(pid==UNIV3_PID || pid==ALGB_PID){
-                    (int tl,int tu)=tickBounds(int24(int(slot1>>176)),uint8(slot1>>200));
-                    if(direc?((rOut-amOut)<<128)/(rIn+amIn)<tPX128(tl):((rIn+amIn)<<128)/(rOut-amOut)>tPX128(tu)){
+                if(pid==UNIV3_PID || pid==ALGB_PID || pid==VELOV3_PID){
+                    (int24 tl,int24 tu)=tickBounds(int24(uint24(slot1>>176)),uint8(slot1>>200));
+                    if(direc?((rOut-amOut)<<128)/(rIn+amIn)<tickSqrtPX64(tl)**2:((rIn+amIn)<<128)/(rOut-amOut)>tickSqrtPX64(tu)**2){
                         continue;
                     }
                 }
@@ -210,10 +211,11 @@ library CRouter{
         }
     }
 
-    function tPX128(int tick) internal pure returns (uint priceX128) {
+    function tickSqrtPX64(int24 tick) internal pure returns (uint160 sqrtPX64) {
         unchecked {
             uint256 absTick;
             assembly {
+                tick := signextend(2, tick)
                 let mask := sar(255, tick)
                 absTick := xor(mask, add(mask, tick))
             }
@@ -242,9 +244,8 @@ library CRouter{
             if (absTick & 0x80000 != 0) price = (price * 0x48a170391f7dc42444e8fa2) >> 128;
             assembly {
                 if sgt(tick, 0) { price := div(not(0), price) }
-                priceX128 := shr(64, price)
+                sqrtPX64 := shr(64, price)
             }
-            priceX128=priceX128**2;
         }
     }
 }

@@ -19,8 +19,8 @@ contract CPoolFinder{
     uint internal constant UNIV2_PID = 0x010000000000000000000000000000000000000000;
     uint internal constant UNIV3_PID = 0;
     uint internal constant ALGB_PID = 0x020000000000000000000000000000000000000000;
-    uint internal constant VELOV1_PID = 0x030000000000000000000000000000000000000000;
-    uint internal constant VELOV2_PID = 0x040000000000000000000000000000000000000000;
+    uint internal constant VELOV2_PID = 0x030000000000000000000000000000000000000000;
+    uint internal constant VELOV3_PID = 0x040000000000000000000000000000000000000000;
 
     function findPools(uint minEth,address[] calldata tokens,uint[] calldata protocols)public view returns(bytes[][] memory pools){
         unchecked {
@@ -44,10 +44,10 @@ contract CPoolFinder{
         }
     }
 
-    function findPoolsSingle(address token0,address token1,uint[] calldata protocols)public view returns(bytes memory pools){
+    function findPoolsSingle(address t0,address t1,uint[] calldata protocols)public view returns(bytes memory pools){
         unchecked{
-            if(token0>token1){
-                (token0,token1)=(token1,token0);
+            if(t0>t1){
+                (t0,t1)=(t1,t0);
             }
             assembly{
                 pools:=mload(0x40)
@@ -57,15 +57,24 @@ contract CPoolFinder{
                 address factory=address(uint160(protocols[i]));
                 uint pid=protocols[i] & PID_MASK;
                 if(pid==UNIV3_PID){
-                    mstoreUniV3Pool(factory,token0,token1,100);
-                    mstoreUniV3Pool(factory,token0,token1,500);
-                    mstoreUniV3Pool(factory,token0,token1,2500);
-                    mstoreUniV3Pool(factory,token0,token1,3000);
-                    mstoreUniV3Pool(factory,token0,token1,10000);
+                    mstoreUniV3Pool(factory,t0,t1,100,1);
+                    mstoreUniV3Pool(factory,t0,t1,500,10);
+                    //mstoreUniV3Pool(factory,t0,t1,2500,50);
+                    mstoreUniV3Pool(factory,t0,t1,3000,60);
+                    mstoreUniV3Pool(factory,t0,t1,10000,200);
                 }else if(pid==UNIV2_PID){
-                    mstoreUniV2Pool(factory,token0,token1);
+                    mstoreUniV2Pool(factory,t0,t1);
                 }else if(pid==ALGB_PID){
-                    mstoreAlgbPool(factory,token0,token1);
+                    mstoreAlgbPool(factory,t0,t1);
+                }else if(pid==VELOV2_PID){
+                    mstoreVeloV2Pool(factory, t0, t1, true);
+                    mstoreVeloV2Pool(factory, t0, t1, false);
+                }else if(pid==VELOV3_PID){
+                    mstoreVeloV3Pool(factory, t0, t1, 1);
+                    mstoreVeloV3Pool(factory, t0, t1, 50);
+                    mstoreVeloV3Pool(factory, t0, t1, 100);
+                    mstoreVeloV3Pool(factory, t0, t1, 200);
+                    mstoreVeloV3Pool(factory, t0, t1, 2000);
                 }
             }
             uint len;
@@ -168,7 +177,7 @@ contract CPoolFinder{
         }
     }
 
-    function mstoreUniV3Pool(address factory,address t0,address t1,uint24 fee)internal view{
+    function mstoreUniV3Pool(address factory,address t0,address t1,uint16 fee,uint8 s)internal view{
         unchecked{
             bytes32 fmp;
             assembly{fmp:=mload(0x40)}
@@ -187,7 +196,6 @@ contract CPoolFinder{
                     uint reserve1=(liquidity*sqrtPX64)>>64;
                     if(reserve0>0&&reserve1>0){
                         uint8 id=0;
-                        uint8 s=uniV3FeeAmountTickSpacing(fee);
                         assembly{
                             let t:=mload(add(fmp,0x20))
                             let stateHash:=keccak256(fmp,0x20)
@@ -268,25 +276,43 @@ contract CPoolFinder{
         }
     }
 
-    function uniV3FeeAmountTickSpacing(uint24 fee)internal pure returns(uint8 s){
+    function mstoreVeloV3Pool(address factory,address t0,address t1,int24 s)internal view{
         unchecked{
-            if(fee==100){
-                return 1;
+            bytes32 fmp;
+            assembly{fmp:=mload(0x40)}
+            address pool=IVeloV3Factory(factory).getPool(t0,t1,s);
+            if(pool!=address(0)){
+                uint liquidity=IVeloV3Pool(pool).liquidity();
+                if(liquidity>0){
+                    uint fee=IVeloV3Factory(factory).getSwapFee(pool);
+                    uint sqrtPX64;
+                    bytes4 sel=IVeloV3Pool(pool).slot0.selector;
+                    assembly{
+                        mstore(fmp,sel)
+                        pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
+                        sqrtPX64 := shr(32,mload(fmp))
+                    }
+                    uint reserve0=(liquidity<<64)/(sqrtPX64+1);
+                    uint reserve1=(liquidity*sqrtPX64)>>64;
+                    if(reserve0>0&&reserve1>0){
+                        uint8 id=4;
+                        assembly{
+                            let t:=mload(add(fmp,0x20))
+                            let stateHash:=keccak256(fmp,0x20)
+                            mstore(fmp,or(shl(128,reserve0),reserve1))
+                            fmp:=add(fmp,0x20)
+                            mstore(fmp,or(and(stateHash,STATE_MASK),or(shl(216,id),or(shl(200,s),or(shl(176,and(t,0xffffff)),or(shl(160,fee),pool))))))
+                            fmp:=add(fmp,0x20)
+                        }
+                    }
+                }
             }
-            if(fee==500){
-                return 10;
-            }
-            if(fee==2500){
-                return 50;
-            }
-            if(fee==3000){
-                return 60;
-            }
-            if(fee==10000){
-                return 200;
-            }
+            assembly{mstore(0x40,fmp)}
         }
     }
+
+
+    //utils
 
 
     
