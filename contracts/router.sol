@@ -127,7 +127,7 @@ library CRouter{
                 }
                 uint pid=slot1&PID_MASK;
                 if(pid==UNIV3_PID || pid==ALGB_PID || pid==VELOV3_PID){
-                    (int24 tl,int24 tu)=tickBounds(int24(uint24(slot1>>176)),uint8(slot1>>200));
+                    (int24 tl,int24 tu)=tickBounds(int24(uint24(slot1>>176)),int16(uint16(slot1>>200)));
                     if(direc?((rOut-amOut)<<128)/(rIn+amIn)<tickSqrtPX64(tl)**2:((rIn+amIn)<<128)/(rOut-amOut)>tickSqrtPX64(tu)**2){
                         continue;
                     }
@@ -198,10 +198,10 @@ library CRouter{
         }
     }
 
-    function tickBounds(int24 t,uint8 s)internal pure returns(int24 tl, int24 tu){
+    function tickBounds(int24 t,int16 s)internal pure returns(int24 tl, int24 tu){
         unchecked{
             assembly {tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
-            tu=tl+int8(s);
+            tu=tl+s;
             if(tl<MIN_TICK){
                 tl=MIN_TICK;
             }

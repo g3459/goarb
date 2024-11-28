@@ -188,7 +188,7 @@ func main() {
 			// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
 			// amount := big.NewInt(50)
 			// amount.Mul(amount, big.NewInt(1e18))
-			// res, errr := caller.Batch{}.Transfer(conf.Caller, &token, &sender, amount, conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
+			// res, errr := caller.Batch{}.Transfer(conf.Caller, &token, sender, amount, conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
 			// Log(0, res, errr)
 			// continue
 			Log(4, "START", number, sts2.Sub(sts))
@@ -240,7 +240,7 @@ func main() {
 									// if len(pools[tOutx]) > 0 {
 									// 	ll += len(pools[tOutx][tInx]) / 0x40
 									// }
-									// fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll)
+									//fmt.Println(tInx, tOutx, route.AmOut, route.Calls, len(route.Calls)/0x20)
 									if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 || bytes.Equal(route.Calls, lastCalls) {
 										continue
 									}
@@ -268,7 +268,6 @@ func main() {
 									if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 {
 										continue
 									}
-
 									callsGasPriceLimit = gasPriceLimit
 									calls = route.Calls
 								}
@@ -350,9 +349,13 @@ func startRpcClients(rpcUrls []string) {
 	if err != nil {
 		Log(-1, "simDeployContract Err: ", err)
 	}
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 	for _, url := range rpcUrls {
-		func() {
-			deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(2000*time.Millisecond))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(3000*time.Millisecond))
 			defer cancel()
 			client, err := rpc.DialContext(deadline, url)
 			if err != nil {
@@ -371,12 +374,15 @@ func startRpcClients(rpcUrls []string) {
 				return
 			}
 			number, _ := hexutil.DecodeUint64((*_blockInfo)["number"].(string))
+			mu.Lock()
 			Log(1, "rpcDial: ", url, number)
 			rpcClients[url] = client
+			mu.Unlock()
 		}()
 	}
+	wg.Wait()
 	if len(rpcClients) == 0 {
-		Log(-1, "Unable to connect any rpc")
+		Log(-1, errors.New("Unable to connect any rpc"))
 	}
 }
 
@@ -391,25 +397,30 @@ func clientBanned(client *rpc.Client) bool {
 func startUsdOracles() {
 	ethPriceX64Oracle = make([]*big.Int, len(conf.TokenConfs))
 	ethPriceX64Oracle[0] = new(big.Int).Lsh(big.NewInt(1), 64)
+	var wg sync.WaitGroup
 	for i, v := range conf.TokenConfs {
 		if v.Oracle.Active && len(v.Oracle.Name) > 0 && v.Oracle.Name != "usd" || i == 0 {
-			err := startBinanceUsdOracle(v.Oracle.Name)
-			if err != nil {
-				Log(-1, "binanceDial Err: ", err)
-			} else {
-				Log(1, "binanceDial: ", v.Oracle.Name)
-				continue
-			}
-			err = startBybitUsdOracle(v.Oracle.Name)
-			if err != nil {
-				Log(-1, "bybitDial Err: ", err)
-			} else {
-				Log(1, "bybitDial: ", v.Oracle.Name)
-				continue
-			}
-
+			wg.Add(1)
+			go func(baseToken string) {
+				defer wg.Done()
+				err := startBinanceUsdOracle(baseToken)
+				if err != nil {
+					Log(-1, "binanceDial Err: ", err)
+				} else {
+					Log(1, "binanceDial: ", baseToken)
+					return
+				}
+				err = startBybitUsdOracle(baseToken)
+				if err != nil {
+					Log(-1, "bybitDial Err: ", err)
+				} else {
+					Log(1, "bybitDial: ", baseToken)
+					return
+				}
+			}(v.Oracle.Name)
 		}
 	}
+	wg.Wait()
 }
 
 func startBinanceUsdOracle(baseToken string) error {
@@ -419,6 +430,7 @@ func startBinanceUsdOracle(baseToken string) error {
 		return err
 	}
 	go func() {
+		defer c.Close()
 		go func() {
 			pingticker := time.NewTicker(30 * time.Second)
 			defer pingticker.Stop()
@@ -431,7 +443,6 @@ func startBinanceUsdOracle(baseToken string) error {
 				}
 			}
 		}()
-		defer c.Close()
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
