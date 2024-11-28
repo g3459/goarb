@@ -1,10 +1,17 @@
-import "./interfaces/Uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {IPoolFactory as IVeloV2Factory} from "./interfaces/velodrome-finance/contracts/contracts/interfaces/factories/IPoolFactory.sol";
+import {IPool as IVeloV2Pool} from "./interfaces/velodrome-finance/contracts/contracts/interfaces/IPool.sol";
+import {ICLFactory as IVeloV3Factory} from "./interfaces/velodrome-finance/slipstream/contracts/core/interfaces/ICLFactory.sol";
+import {ICLPool as IVeloV3Pool} from "./interfaces/velodrome-finance/slipstream/contracts/core/interfaces/ICLPool.sol";
 import "./interfaces/Uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "./interfaces/Uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import "./interfaces/Uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "./interfaces/Uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebraFactory.sol";
 import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebraPool.sol";
 import "./interfaces/openzeppelin/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 
-contract Caller {
+contract CCaller {
 
     uint internal constant STATE_MASK=0x7fffffff00000000000000000000000000000000000000000000000000000000;
     uint internal constant PID_MASK=0xff000000000000000000000000000000000000000000000000000000;
@@ -12,12 +19,7 @@ contract Caller {
     uint internal constant UNIV2_PID=0x01000000000000000000000000000000000000000000000000000000;
     uint internal constant UNIV3_PID=0;
     uint internal constant ALGB_PID=0x02000000000000000000000000000000000000000000000000000000;
-    uint internal constant TOKEN0_SEL=0x0dfe168100000000000000000000000000000000000000000000000000000000;
-    uint internal constant TOKEN1_SEL=0xd21220a700000000000000000000000000000000000000000000000000000000;
     uint internal constant TRANSFER_SEL=0xa9059cbb00000000000000000000000000000000000000000000000000000000;
-    uint internal constant UNIV2SLOT_SEL=0x0902f1ac00000000000000000000000000000000000000000000000000000000;
-    uint internal constant ALGBSLOT_SEL=0xe76c01e400000000000000000000000000000000000000000000000000000000;
-    uint internal constant UNIV3SLOT_SEL=0x3850c7bd00000000000000000000000000000000000000000000000000000000;
 
     address internal immutable owner;
     
@@ -39,17 +41,19 @@ contract Caller {
                 }
                 uint pid = poolCall&PID_MASK;
                 uint outsize;
+                bytes4 sel;
                 if(pid==UNIV2_PID){
                     outsize=0x40;
-                    assembly{mstore(fmp,UNIV2SLOT_SEL)}
+                    sel=IUniswapV2Pair(address(0)).getReserves.selector;
                 }else if(pid==ALGB_PID){
                     outsize=0x20;
-                    assembly{mstore(fmp,ALGBSLOT_SEL)}
+                    sel=IAlgebraPool(address(0)).globalState.selector;
                 }else{
                     outsize=0x20;
-                    assembly{mstore(fmp,UNIV3SLOT_SEL)}
+                    sel=IUniswapV3Pool(address(0)).slot0.selector;
                 }
                 assembly{
+                    mstore(fmp,sel)
                     pop(call(gas(), poolCall, 0, fmp, 0x04, fmp, outsize))
                     if xor(and(keccak256(fmp,outsize),STATE_MASK),and(poolCall,STATE_MASK)){
                         revert(0,0)
@@ -77,13 +81,15 @@ contract Caller {
                         rOut:=mload(add(fmp2,0x20))
                     }
                     fmp2+=0x40;
+                    bytes4 tokenSel;
                     if(direc){
-                        assembly{mstore(fmp,TOKEN0_SEL)}
+                        tokenSel=IUniswapV3Pool(address(0)).token0.selector;
                     }else{
                         (rIn,rOut)=(rOut,rIn);
-                        assembly{mstore(fmp,TOKEN1_SEL)}
+                        tokenSel=IUniswapV3Pool(address(0)).token1.selector;
                     }
                     assembly{
+                        mstore(fmp,tokenSel)
                         pop(call(gas(), poolCall, 0, fmp, 0x04, fmp, 0x20))
                         let token:=mload(fmp)
                         mstore(fmp,TRANSFER_SEL)
@@ -119,14 +125,16 @@ contract Caller {
         _;
         unchecked{
             uint amIn;
+            bytes4 tokenSel;
             if(am0>am1){
                 amIn=uint(am0);
-                assembly{mstore(0x80,TOKEN0_SEL)}
+                tokenSel=IUniswapV3Pool(address(0)).token0.selector;
             }else{
                 amIn=uint(am1);
-                assembly{mstore(0x80,TOKEN1_SEL)}
+                tokenSel=IUniswapV3Pool(address(0)).token0.selector;
             }
             assembly{
+                mstore(0x80,tokenSel)
                 pop(call(gas(), caller(), 0, 0x80, 0x04, 0x80, 0x20))
                 let token:=mload(0x80)
                 mstore(0x80,TRANSFER_SEL)

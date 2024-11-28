@@ -22,6 +22,10 @@ contract CPoolFinder{
     uint internal constant VELOV2_PID = 0x030000000000000000000000000000000000000000;
     uint internal constant VELOV3_PID = 0x040000000000000000000000000000000000000000;
 
+    constructor(){
+        require(CRouter.FRP==false&&CRouter.GPE==false);
+    }
+
     function findPools(uint minEth,address[] calldata tokens,uint[] calldata protocols)public view returns(bytes[][] memory pools){
         unchecked {
             pools=new bytes[][](tokens.length);
