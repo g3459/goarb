@@ -1,18 +1,17 @@
 library CRouter{
 
-    bool internal constant FRP=false;
-    bool internal constant GPE=false;
-    
-    uint internal constant PID_MASK=0xff000000000000000000000000000000000000000000000000000000;
+    bool internal constant FRP=true;
+    bool internal constant GPE=true;
+
     uint internal constant STATE_MASK=0x7fffffff00000000000000000000000000000000000000000000000000000000;
     uint internal constant ADDRESS_MASK=0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
     uint internal constant DIREC_MASK=0x8000000000000000000000000000000000000000000000000000000000000000;
+    uint internal constant PID_MASK=0xff000000000000000000000000000000000000000000000000000000;
     uint internal constant UNIV2_PID=0x01000000000000000000000000000000000000000000000000000000;
     uint internal constant UNIV3_PID=0;
     uint internal constant ALGB_PID=0x02000000000000000000000000000000000000000000000000000000;
     uint internal constant VELOV2_PID=0x03000000000000000000000000000000000000000000000000000000;
     uint internal constant VELOV3_PID=0x04000000000000000000000000000000000000000000000000000000;
-
     int24 internal constant MIN_TICK = -887272;
     int24 internal constant MAX_TICK = 887272;
 
@@ -127,7 +126,8 @@ library CRouter{
                 }
                 uint pid=slot1&PID_MASK;
                 if(pid==UNIV3_PID || pid==ALGB_PID || pid==VELOV3_PID){
-                    (int24 tl,int24 tu)=tickBounds(int24(uint24(slot1>>176)),int16(uint16(slot1>>200)));
+                    int24 s=int24(uint24(uint16(slot1>>200)));
+                    (int24 tl,int24 tu)=tickBounds(int24(uint24(slot1>>176)),s);
                     if(direc?((rOut-amOut)<<128)/(rIn+amIn)<tickSqrtPX64(tl)**2:((rIn+amIn)<<128)/(rOut-amOut)>tickSqrtPX64(tu)**2){
                         continue;
                     }
@@ -198,10 +198,30 @@ library CRouter{
         }
     }
 
-    function tickBounds(int24 t,int16 s)internal pure returns(int24 tl, int24 tu){
+    // function feeAmountTickSpacing(uint fee)internal pure returns(int24 s){
+    //     unchecked{
+    //         if(fee==100){
+    //             return 1;
+    //         }
+    //         if(fee==500){
+    //             return 10;
+    //         }
+    //         if(fee==2500){
+    //             return 50;
+    //         }
+    //         if(fee==3000){
+    //             return 60;
+    //         }
+    //         if(fee==10000){
+    //             return 200;
+    //         }
+    //     }
+    // }
+
+    function tickBounds(int24 t,int24 s)internal pure returns(int24 tl, int24 tu){
         unchecked{
             assembly {tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)}
-            tu=tl+s;
+            tu=tl+int24(s);
             if(tl<MIN_TICK){
                 tl=MIN_TICK;
             }
@@ -211,7 +231,7 @@ library CRouter{
         }
     }
 
-    function tickSqrtPX64(int24 tick) internal pure returns (uint160 sqrtPX64) {
+    function tickSqrtPX64(int24 tick) internal pure returns (uint sqrtPX64) {
         unchecked {
             uint256 absTick;
             assembly {

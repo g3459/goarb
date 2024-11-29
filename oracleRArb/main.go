@@ -240,7 +240,7 @@ func main() {
 									// if len(pools[tOutx]) > 0 {
 									// 	ll += len(pools[tOutx][tInx]) / 0x40
 									// }
-									//fmt.Println(tInx, tOutx, route.AmOut, route.Calls, len(route.Calls)/0x20)
+									//fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll)
 									if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 || bytes.Equal(route.Calls, lastCalls) {
 										continue
 									}
