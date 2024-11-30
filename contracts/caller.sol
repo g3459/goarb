@@ -27,10 +27,6 @@ contract CCaller {
         unchecked{owner=msg.sender;}
     }
 
-    // function setAddress(address a,bool b) external payable check{
-    //     unchecked{whitelist[a]=b;}
-    // }
-
     fallback() external payable check{
         unchecked{
             uint fmp=0x80;
@@ -45,25 +41,19 @@ contract CCaller {
                 if(pid==UNIV2_PID){
                     outsize=0x40;
                     sel=IUniswapV2Pair(address(0)).getReserves.selector;
-                }else if(pid==ALGB_PID){
-                    outsize=0x20;
-                    sel=IAlgebraPool(address(0)).globalState.selector;
                 }else{
                     outsize=0x20;
-                    sel=IUniswapV3Pool(address(0)).slot0.selector;
+                    sel=pid==ALGB_PID?IAlgebraPool(address(0)).globalState.selector:IUniswapV3Pool(address(0)).slot0.selector;
                 }
                 assembly{
                     mstore(fmp,sel)
-                    pop(call(gas(), poolCall, 0, fmp, 0x04, fmp, outsize))
+                    pop(staticcall(gas(), poolCall, fmp, 0x04, fmp, outsize))
                     if xor(and(keccak256(fmp,outsize),STATE_MASK),and(poolCall,STATE_MASK)){
                         revert(0,0)
                     }
                 }
-                if(pid==UNIV2_PID){
-                    fmp+=outsize;
-                }
+                fmp+=outsize;
             }
-            assembly{mstore(0x40,fmp)}
             uint fmp2=0x80;
             for(uint i;i<msg.data.length;i+=32){
                 uint poolCall;
@@ -81,16 +71,10 @@ contract CCaller {
                         rOut:=mload(add(fmp2,0x20))
                     }
                     fmp2+=0x40;
-                    bytes4 tokenSel;
-                    if(direc){
-                        tokenSel=IUniswapV3Pool(address(0)).token0.selector;
-                    }else{
-                        (rIn,rOut)=(rOut,rIn);
-                        tokenSel=IUniswapV3Pool(address(0)).token1.selector;
-                    }
+                    bytes4 tokenSel=direc?IUniswapV2Pair.token0.selector:IUniswapV2Pair.token1.selector;
                     assembly{
                         mstore(fmp,tokenSel)
-                        pop(call(gas(), poolCall, 0, fmp, 0x04, fmp, 0x20))
+                        pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x20))
                         let token:=mload(fmp)
                         mstore(fmp,TRANSFER_SEL)
                         mstore(add(fmp,0x04),pool)
@@ -99,9 +83,44 @@ contract CCaller {
                     }
                     uint amOut=(amIn-1)*997;
                     amOut = (amOut * rOut) / (rIn * 1000 + amOut) - 1;
-                    IUniswapV2Pair(pool).swap(direc?0:amOut, direc?amOut:0, address(this), "");
+                    bytes4 swapSel=IUniswapV2Pair.swap.selector;
+                    assembly{
+                        mstore(fmp,swapSel)
+                        mstore(add(fmp,0x44),address())
+                    }
+                    if(direc){
+                        assembly{mstore(add(fmp,0x24),amOut)}
+                    }else{
+                        assembly{mstore(add(fmp,0x04),amOut)}
+                    }
+                    assembly{
+                        let s:=call(gas(), pool, 0, fmp, 0x64, 0, 0)
+                        if iszero(s){
+                            revert(0,0)
+                        }
+                    }
                 }else{
-                    IUniswapV3Pool(pool).swap(address(this), direc, int(amIn) , direc ? 4295128740 : 1461446703485210103287273052203988822378723970341, "");
+                    fmp2+=0x20;
+                    bytes4 swapSel=IUniswapV3Pool(pool).swap.selector;
+                    assembly{
+                        mstore(fmp,swapSel)
+                        mstore(add(fmp,0x04),address())
+                    }
+                    uint sqrtL;
+                    if(direc){
+                        sqrtL=4295128740;
+                        assembly{mstore(add(fmp,0x24),direc)}
+                    }else{
+                        sqrtL=1461446703485210103287273052203988822378723970341;
+                    }
+                    assembly{
+                        mstore(add(fmp,0x44),amIn)
+                        mstore(add(fmp,0x64),sqrtL)
+                        let s:=call(gas(), pool, 0, fmp, 0x84, 0, 0)
+                        if iszero(s){
+                            revert(0,0)
+                        }
+                    }
                 }
             }
         }
@@ -124,15 +143,7 @@ contract CCaller {
     modifier swapCallback(int am0,int am1){
         _;
         unchecked{
-            uint amIn;
-            bytes4 tokenSel;
-            if(am0>am1){
-                amIn=uint(am0);
-                tokenSel=IUniswapV3Pool(address(0)).token0.selector;
-            }else{
-                amIn=uint(am1);
-                tokenSel=IUniswapV3Pool(address(0)).token0.selector;
-            }
+            (bytes4 tokenSel,uint amIn)=am0>am1?(IUniswapV2Pair.token0.selector,uint(am0)):(IUniswapV2Pair.token1.selector,uint(am1));
             assembly{
                 mstore(0x80,tokenSel)
                 pop(call(gas(), caller(), 0, 0x80, 0x04, 0x80, 0x20))

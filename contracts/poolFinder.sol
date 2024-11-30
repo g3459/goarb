@@ -18,6 +18,8 @@ contract CPoolFinder{
     uint internal constant PID_MASK = 0x0000000000000000000000ff0000000000000000000000000000000000000000;
     uint internal constant UNIV2_PID = 0x010000000000000000000000000000000000000000;
     uint internal constant UNIV3_PID = 0;
+    uint internal constant UNIV3_PK_PID = 0x050000000000000000000000000000000000000000;
+    uint internal constant UNIV3_AL_PID = 0x060000000000000000000000000000000000000000;
     uint internal constant ALGB_PID = 0x020000000000000000000000000000000000000000;
     uint internal constant VELOV2_PID = 0x030000000000000000000000000000000000000000;
     uint internal constant VELOV3_PID = 0x040000000000000000000000000000000000000000;
@@ -63,7 +65,6 @@ contract CPoolFinder{
                 if(pid==UNIV3_PID){
                     mstoreUniV3Pool(factory,t0,t1,100,1);
                     mstoreUniV3Pool(factory,t0,t1,500,10);
-                    //mstoreUniV3Pool(factory,t0,t1,2500,50);
                     mstoreUniV3Pool(factory,t0,t1,3000,60);
                     mstoreUniV3Pool(factory,t0,t1,10000,200);
                 }else if(pid==UNIV2_PID){
@@ -79,6 +80,18 @@ contract CPoolFinder{
                     mstoreVeloV3Pool(factory, t0, t1, 100);
                     mstoreVeloV3Pool(factory, t0, t1, 200);
                     mstoreVeloV3Pool(factory, t0, t1, 2000);
+                }else if(pid==UNIV3_PK_PID){
+                    mstoreUniV3Pool(factory,t0,t1,100,1);
+                    mstoreUniV3Pool(factory,t0,t1,500,10);
+                    mstoreUniV3Pool(factory,t0,t1,2500,50);
+                    mstoreUniV3Pool(factory,t0,t1,10000,200);
+                }else if(pid==UNIV3_AL_PID){
+                    mstoreUniV3Pool(factory,t0,t1,100,2);
+                    mstoreUniV3Pool(factory,t0,t1,200,4);
+                    mstoreUniV3Pool(factory,t0,t1,300,6);
+                    mstoreUniV3Pool(factory,t0,t1,400,8);
+                    mstoreUniV3Pool(factory,t0,t1,3000,60);
+                    mstoreUniV3Pool(factory,t0,t1,10000,200);
                 }
             }
             uint len;
