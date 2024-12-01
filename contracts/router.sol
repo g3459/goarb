@@ -11,7 +11,6 @@ library CRouter{
     uint internal constant UNIV3_PID=0;
     uint internal constant ALGB_PID=0x02000000000000000000000000000000000000000000000000000000;
     uint internal constant VELOV2_PID=0x03000000000000000000000000000000000000000000000000000000;
-    uint internal constant VELOV3_PID=0x04000000000000000000000000000000000000000000000000000000;
     int24 internal constant MIN_TICK = -887272;
     int24 internal constant MAX_TICK = 887272;
 
@@ -125,7 +124,7 @@ library CRouter{
                     continue;
                 }
                 uint pid=slot1&PID_MASK;
-                if(pid==UNIV3_PID || pid==ALGB_PID || pid==VELOV3_PID){
+                if(pid==UNIV3_PID || pid==ALGB_PID){
                     int24 s=int24(uint24(uint16(slot1>>200)));
                     (int24 tl,int24 tu)=tickBounds(int24(uint24(slot1>>176)),s);
                     if(direc?((rOut-amOut)<<128)/(rIn+amIn)<tickSqrtPX64(tl)**2:((rIn+amIn)<<128)/(rOut-amOut)>tickSqrtPX64(tu)**2){

@@ -312,7 +312,7 @@ contract CPoolFinder{
                     uint reserve0=(liquidity<<64)/(sqrtPX64+1);
                     uint reserve1=(liquidity*sqrtPX64)>>64;
                     if(reserve0>0&&reserve1>0){
-                        uint8 id=4;
+                        uint8 id=0;
                         assembly{
                             let t:=mload(add(fmp,0x20))
                             let stateHash:=keccak256(fmp,0x20)
