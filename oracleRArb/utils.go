@@ -1,7 +1,10 @@
 package main
 
 import (
+	"log"
 	"math/big"
+	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -70,4 +73,23 @@ func PoolDif(calls1 []byte, calls2 []byte) bool {
 		}
 	}
 	return true
+}
+
+func ExecTimeout(d time.Duration) {
+	go func() {
+		<-time.After(d)
+		os.Exit(0)
+	}()
+}
+
+type any = interface{}
+
+func Log(level int, params ...any) {
+	if conf.LogLevel >= level || conf.LogLevel == 0 {
+		if level < 0 {
+			log.Panicln(params...)
+		} else {
+			log.Println(params...)
+		}
+	}
 }
