@@ -28,7 +28,7 @@ contract CPoolFinder {
     }
 
     function findPools(
-        uint256 minEth,
+        uint256 minLiqEth,
         address[] calldata tokens,
         uint256[] calldata protocols
     ) public view returns (bytes[][] memory pools) {
@@ -48,7 +48,7 @@ contract CPoolFinder {
                     }
                 }
             }
-            (uint256[] memory amounts, ) = CRouter.findRoutesInt(2, 0, minEth, pools);
+            (uint256[] memory amounts, ) = CRouter.findRoutesInt(2, 0, minLiqEth, pools);
             filterPools(amounts, pools);
         }
     }
@@ -127,31 +127,21 @@ contract CPoolFinder {
                         continue;
                     }
                     uint256 _len;
-                    uint256 p;
-                    while (p < _pools.length) {
+                    for (uint256 p; p < _pools.length; p += 0x40) {
                         uint256 slot0;
-                        uint256 slot1;
                         assembly {
-                            p := add(p, 0x20)
-                            slot0 := mload(add(_pools, p))
-                            p := add(p, 0x20)
-                            slot1 := mload(add(_pools, p))
+                            slot0 := mload(add(_pools, add(p, 0x20)))
                         }
                         uint256 rt0 = slot0 >> 128;
                         uint256 rt1 = uint128(slot0);
-                        uint256 fee = 1e6 - uint24(slot1 >> 160);
-                        uint256 amt0 = fAmounts[t1] * fee;
-                        amt0 = (amt0 * rt0) / (rt1 * 1e6 + amt0);
-                        uint256 amt1 = fAmounts[t0] * fee;
-                        amt1 = (amt1 * rt1) / (rt0 * 1e6 + amt1);
-                        if ((amt1 + (amt1 >> 2) < fAmounts[t1]) && (amt0 + (amt0 >> 2) < fAmounts[t0])) {
+                        if (rt0 <= fAmounts[t0] && rt1 <= fAmounts[t1]) {
                             continue;
                         }
                         assembly {
                             _len := add(_len, 0x20)
                             mstore(add(_pools, _len), slot0)
                             _len := add(_len, 0x20)
-                            mstore(add(_pools, _len), slot1)
+                            mstore(add(_pools, _len), mload(add(_pools, add(p, 0x40))))
                         }
                     }
                     if (_len > 0) {
@@ -216,10 +206,7 @@ contract CPoolFinder {
                     assembly {
                         stateHash := keccak256(fmp, 0x40)
                         mstore(fmp, or(shl(128, reserve0), reserve1))
-                        mstore(
-                            add(fmp, 0x20),
-                            or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(160, 3000), pool)))
-                        )
+                        mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(160, 3000), pool))))
                         mstore(0x40, add(fmp, 0x40))
                     }
                 }
@@ -277,16 +264,7 @@ contract CPoolFinder {
                             let t := mload(add(fmp, 0x20))
                             let stateHash := keccak256(fmp, 0x20)
                             mstore(fmp, or(shl(128, reserve0), reserve1))
-                            mstore(
-                                add(fmp, 0x20),
-                                or(
-                                    and(stateHash, STATE_MASK),
-                                    or(
-                                        shl(216, id),
-                                        or(shl(200, s), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool)))
-                                    )
-                                )
-                            )
+                            mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(200, s), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
                             mstore(0x40, add(fmp, 0x40))
                         }
                     }
@@ -345,16 +323,7 @@ contract CPoolFinder {
                             let fee := mload(add(fmp, 0x40))
                             let stateHash := keccak256(fmp, 0x20)
                             mstore(fmp, or(shl(128, reserve0), reserve1))
-                            mstore(
-                                add(fmp, 0x20),
-                                or(
-                                    and(stateHash, STATE_MASK),
-                                    or(
-                                        shl(216, id),
-                                        or(shl(200, 60), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool)))
-                                    )
-                                )
-                            )
+                            mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(200, 60), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
                             mstore(0x40, add(fmp, 0x40))
                         }
                     }
@@ -415,10 +384,7 @@ contract CPoolFinder {
                     assembly {
                         stateHash := keccak256(fmp, 0x40)
                         mstore(fmp, or(shl(128, reserve0), reserve1))
-                        mstore(
-                            add(fmp, 0x20),
-                            or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(160, fee), pool)))
-                        )
+                        mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(160, fee), pool))))
                         mstore(0x40, add(fmp, 0x40))
                     }
                 }
@@ -487,16 +453,7 @@ contract CPoolFinder {
                             let t := mload(add(fmp, 0x20))
                             let stateHash := keccak256(fmp, 0x20)
                             mstore(fmp, or(shl(128, reserve0), reserve1))
-                            mstore(
-                                add(fmp, 0x20),
-                                or(
-                                    and(stateHash, STATE_MASK),
-                                    or(
-                                        shl(216, id),
-                                        or(shl(200, s), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool)))
-                                    )
-                                )
-                            )
+                            mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(200, s), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
                             mstore(0x40, add(fmp, 0x40))
                         }
                     }

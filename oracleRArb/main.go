@@ -45,6 +45,7 @@ type Configuration struct {
 	ChainId     *big.Int          `json:"chainId"`
 	MaxGasPrice *big.Int          `json:"maxGasPrice"`
 	MinEth      *big.Int          `json:"minEth"`
+	MinLiqEth   *big.Int          `json:"minLiqEth"`
 	MaxMinerTip *big.Int          `json:"maxMinerTip"`
 	MinMinerTip *big.Int          `json:"minMinerTip"`
 	MinGasBen   *big.Int          `json:"minGasBen"`
@@ -92,7 +93,6 @@ func main() {
 	// 	defer logFile.Close()
 	// }
 	startUsdOracles()
-
 	startRpcClients(conf.RpcUrls)
 	//batch declaration
 	var err error
@@ -140,7 +140,7 @@ func main() {
 	for i, v := range conf.TokenConfs {
 		tokens[i] = *v.Token
 	}
-	batch = batch.FindPools(new(big.Int).Lsh(conf.MinEth, 1), tokens, conf.Protocols, conf.PoolFinder, "pending", func(res interface{}) {
+	batch = batch.FindPools(conf.MinLiqEth, tokens, conf.Protocols, conf.PoolFinder, "pending", func(res interface{}) {
 		var b bool
 		pools, b = res.([][][]byte)
 		if !b {
@@ -185,7 +185,7 @@ func main() {
 			if number > hNumber {
 				hNumber = number
 			}
-			// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
+			// token := common.HexToAddress("0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619")
 			// res, errr := caller.Batch{}.ExecuteApprove(conf.Caller, &token, sender, common.MaxHash.Big(), conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
 			// Log(0, res, errr)
 			// continue
@@ -238,7 +238,7 @@ func main() {
 									// if len(pools[tOutx]) > 0 {
 									// 	ll += len(pools[tOutx][tInx]) / 0x40
 									// }
-									//fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll)
+									// fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll)
 									if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 || bytes.Equal(route.Calls, lastCalls) {
 										continue
 									}

@@ -1,6 +1,6 @@
 library CRouter {
-    bool internal constant FRP = true;
-    bool internal constant GPE = true;
+    bool internal constant FRP = false;
+    bool internal constant GPE = false;
 
     uint256 internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
     uint256 internal constant ADDRESS_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
@@ -148,11 +148,7 @@ library CRouter {
                 if (pid == UNIV3_PID || pid == ALGB_PID) {
                     int24 s = int24(uint24(uint16(slot1 >> 200)));
                     (int24 tl, int24 tu) = tickBounds(int24(uint24(slot1 >> 176)), s);
-                    if (
-                        direc
-                            ? ((rOut - amOut) << 128) / (rIn + amIn) < tickSqrtPX64(tl)**2
-                            : ((rIn + amIn) << 128) / (rOut - amOut) > tickSqrtPX64(tu)**2
-                    ) {
+                    if (direc ? ((rOut - amOut) << 128) / (rIn + amIn) < tickSqrtPX64(tl)**2 : ((rIn + amIn) << 128) / (rOut - amOut) > tickSqrtPX64(tu)**2) {
                         continue;
                     }
                 }

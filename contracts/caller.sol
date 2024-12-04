@@ -1,14 +1,14 @@
-import {IPoolFactory as IVeloV2Factory} from './interfaces/velodrome-finance/contracts/contracts/interfaces/factories/IPoolFactory.sol';
-import {IPool as IVeloV2Pool} from './interfaces/velodrome-finance/contracts/contracts/interfaces/IPool.sol';
-import {ICLFactory as IVeloV3Factory} from './interfaces/velodrome-finance/slipstream/contracts/core/interfaces/ICLFactory.sol';
-import {ICLPool as IVeloV3Pool} from './interfaces/velodrome-finance/slipstream/contracts/core/interfaces/ICLPool.sol';
-import './interfaces/Uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
-import './interfaces/Uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
-import './interfaces/Uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
-import './interfaces/Uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
-import './interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebraFactory.sol';
-import './interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebraPool.sol';
-import './interfaces/openzeppelin/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol';
+import {IPoolFactory as IVeloV2Factory} from "./interfaces/velodrome-finance/contracts/contracts/interfaces/factories/IPoolFactory.sol";
+import {IPool as IVeloV2Pool} from "./interfaces/velodrome-finance/contracts/contracts/interfaces/IPool.sol";
+import {ICLFactory as IVeloV3Factory} from "./interfaces/velodrome-finance/slipstream/contracts/core/interfaces/ICLFactory.sol";
+import {ICLPool as IVeloV3Pool} from "./interfaces/velodrome-finance/slipstream/contracts/core/interfaces/ICLPool.sol";
+import "./interfaces/Uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "./interfaces/Uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import "./interfaces/Uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "./interfaces/Uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebraFactory.sol";
+import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebraPool.sol";
+import "./interfaces/openzeppelin/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 contract CCaller {
     uint256 internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
@@ -44,9 +44,7 @@ contract CCaller {
                     sel = IUniswapV2Pair(address(0)).getReserves.selector;
                 } else {
                     outsize = 0x20;
-                    sel = pid == ALGB_PID
-                        ? IAlgebraPool(address(0)).globalState.selector
-                        : IUniswapV3Pool(address(0)).slot0.selector;
+                    sel = pid == ALGB_PID ? IAlgebraPool(address(0)).globalState.selector : IUniswapV3Pool(address(0)).slot0.selector;
                 }
                 assembly {
                     mstore(fmp, sel)
@@ -160,9 +158,7 @@ contract CCaller {
     modifier swapCallback(int256 am0, int256 am1) {
         _;
         unchecked {
-            (bytes4 tokenSel, uint256 amIn) = am0 > am1
-                ? (IUniswapV2Pair.token0.selector, uint256(am0))
-                : (IUniswapV2Pair.token1.selector, uint256(am1));
+            (bytes4 tokenSel, uint256 amIn) = am0 > am1 ? (IUniswapV2Pair.token0.selector, uint256(am0)) : (IUniswapV2Pair.token1.selector, uint256(am1));
             assembly {
                 mstore(0x80, tokenSel)
                 pop(call(gas(), caller(), 0, 0x80, 0x04, 0x80, 0x20))
