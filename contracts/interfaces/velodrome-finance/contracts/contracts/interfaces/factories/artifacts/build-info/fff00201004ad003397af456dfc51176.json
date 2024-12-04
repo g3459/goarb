@@ -1,0 +1,517 @@
+{
+	"id": "fff00201004ad003397af456dfc51176",
+	"_format": "hh-sol-build-info-1",
+	"solcVersion": "0.8.29-nightly.2024.12.2",
+	"solcLongVersion": "0.8.29-nightly.2024.12.2+commit.6b000bde",
+	"input": {
+		"language": "Solidity",
+		"settings": {
+			"optimizer": {
+				"enabled": true,
+				"runs": 200,
+				"details": {
+					"peephole": true,
+					"inliner": true,
+					"jumpdestRemover": true,
+					"orderLiterals": true,
+					"deduplicate": true,
+					"cse": true,
+					"constantOptimizer": true,
+					"simpleCounterForLoopUncheckedIncrement": true,
+					"yul": true,
+					"yulDetails": {
+						"stackAllocation": true
+					}
+				}
+			},
+			"evmVersion": "cancun",
+			"viaIR": true,
+			"debug": {
+				"revertStrings": "default",
+				"debugInfo": []
+			},
+			"metadata": {
+				"appendCBOR": false,
+				"useLiteralContent": true,
+				"bytecodeHash": "none"
+			},
+			"outputSelection": {
+				"*": {
+					"*": [
+						"evm.bytecode",
+						"abi"
+					]
+				}
+			},
+			"remappings": []
+		},
+		"sources": {
+			"interfaces/velodrome-finance/contracts/contracts/interfaces/factories/IPoolFactory.sol": {
+				"content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ninterface IPoolFactory {\n    event SetFeeManager(address feeManager);\n    event SetPauser(address pauser);\n    event SetPauseState(bool state);\n    event SetVoter(address voter);\n    event PoolCreated(address indexed token0, address indexed token1, bool indexed stable, address pool, uint256);\n    event SetCustomFee(address indexed pool, uint256 fee);\n\n    error FeeInvalid();\n    error FeeTooHigh();\n    error InvalidPool();\n    error NotFeeManager();\n    error NotPauser();\n    error NotVoter();\n    error PoolAlreadyExists();\n    error SameAddress();\n    error ZeroFee();\n    error ZeroAddress();\n\n    /// @notice returns the number of pools created from this factory\n    function allPoolsLength() external view returns (uint256);\n\n    /// @notice Is a valid pool created by this factory.\n    /// @param .\n    function isPool(address pool) external view returns (bool);\n\n    /// @notice Return address of pool created by this factory\n    /// @param tokenA .\n    /// @param tokenB .\n    /// @param stable True if stable, false if volatile\n    function getPool(address tokenA, address tokenB, bool stable) external view returns (address);\n\n    /// @notice Support for v3-style pools which wraps around getPool(tokenA,tokenB,stable)\n    /// @dev fee is converted to stable boolean.\n    /// @param tokenA .\n    /// @param tokenB .\n    /// @param fee  1 if stable, 0 if volatile, else returns address(0)\n    // function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address);\n\n    /// @dev Only called once to set to Voter.sol - Voter does not have a function\n    ///      to call this contract method, so once set it's immutable.\n    ///      This also follows convention of setVoterAndDistributor() in VotingEscrow.sol\n    /// @param _voter .\n    function setVoter(address _voter) external;\n\n    function setPauser(address _pauser) external;\n\n    function setPauseState(bool _state) external;\n\n    function setFeeManager(address _feeManager) external;\n\n    /// @notice Set default fee for stable and volatile pools.\n    /// @dev Throws if higher than maximum fee.\n    ///      Throws if fee is zero.\n    /// @param _stable Stable or volatile pool.\n    /// @param _fee .\n    function setFee(bool _stable, uint256 _fee) external;\n\n    /// @notice Set overriding fee for a pool from the default\n    /// @dev A custom fee of zero means the default fee will be used.\n    function setCustomFee(address _pool, uint256 _fee) external;\n\n    /// @notice Returns fee for a pool, as custom fees are possible.\n    function getFee(address _pool, bool _stable) external view returns (uint256);\n\n    /// @notice Create a pool given two tokens and if they're stable/volatile\n    /// @dev token order does not matter\n    /// @param tokenA .\n    /// @param tokenB .\n    /// @param stable .\n    function createPool(address tokenA, address tokenB, bool stable) external returns (address pool);\n\n    /// @notice Support for v3-style pools which wraps around createPool(tokena,tokenB,stable)\n    /// @dev fee is converted to stable boolean\n    /// @dev token order does not matter\n    /// @param tokenA .\n    /// @param tokenB .\n    /// @param fee 1 if stable, 0 if volatile, else revert\n    function createPool(address tokenA, address tokenB, uint24 fee) external returns (address pool);\n\n    function isPaused() external view returns (bool);\n\n    function voter() external view returns (address);\n\n    function implementation() external view returns (address);\n}\n"
+			}
+		}
+	},
+	"output": {
+		"contracts": {
+			"interfaces/velodrome-finance/contracts/contracts/interfaces/factories/IPoolFactory.sol": {
+				"IPoolFactory": {
+					"abi": [
+						{
+							"inputs": [],
+							"name": "FeeInvalid",
+							"type": "error"
+						},
+						{
+							"inputs": [],
+							"name": "FeeTooHigh",
+							"type": "error"
+						},
+						{
+							"inputs": [],
+							"name": "InvalidPool",
+							"type": "error"
+						},
+						{
+							"inputs": [],
+							"name": "NotFeeManager",
+							"type": "error"
+						},
+						{
+							"inputs": [],
+							"name": "NotPauser",
+							"type": "error"
+						},
+						{
+							"inputs": [],
+							"name": "NotVoter",
+							"type": "error"
+						},
+						{
+							"inputs": [],
+							"name": "PoolAlreadyExists",
+							"type": "error"
+						},
+						{
+							"inputs": [],
+							"name": "SameAddress",
+							"type": "error"
+						},
+						{
+							"inputs": [],
+							"name": "ZeroAddress",
+							"type": "error"
+						},
+						{
+							"inputs": [],
+							"name": "ZeroFee",
+							"type": "error"
+						},
+						{
+							"anonymous": false,
+							"inputs": [
+								{
+									"indexed": true,
+									"internalType": "address",
+									"name": "token0",
+									"type": "address"
+								},
+								{
+									"indexed": true,
+									"internalType": "address",
+									"name": "token1",
+									"type": "address"
+								},
+								{
+									"indexed": true,
+									"internalType": "bool",
+									"name": "stable",
+									"type": "bool"
+								},
+								{
+									"indexed": false,
+									"internalType": "address",
+									"name": "pool",
+									"type": "address"
+								},
+								{
+									"indexed": false,
+									"internalType": "uint256",
+									"name": "",
+									"type": "uint256"
+								}
+							],
+							"name": "PoolCreated",
+							"type": "event"
+						},
+						{
+							"anonymous": false,
+							"inputs": [
+								{
+									"indexed": true,
+									"internalType": "address",
+									"name": "pool",
+									"type": "address"
+								},
+								{
+									"indexed": false,
+									"internalType": "uint256",
+									"name": "fee",
+									"type": "uint256"
+								}
+							],
+							"name": "SetCustomFee",
+							"type": "event"
+						},
+						{
+							"anonymous": false,
+							"inputs": [
+								{
+									"indexed": false,
+									"internalType": "address",
+									"name": "feeManager",
+									"type": "address"
+								}
+							],
+							"name": "SetFeeManager",
+							"type": "event"
+						},
+						{
+							"anonymous": false,
+							"inputs": [
+								{
+									"indexed": false,
+									"internalType": "bool",
+									"name": "state",
+									"type": "bool"
+								}
+							],
+							"name": "SetPauseState",
+							"type": "event"
+						},
+						{
+							"anonymous": false,
+							"inputs": [
+								{
+									"indexed": false,
+									"internalType": "address",
+									"name": "pauser",
+									"type": "address"
+								}
+							],
+							"name": "SetPauser",
+							"type": "event"
+						},
+						{
+							"anonymous": false,
+							"inputs": [
+								{
+									"indexed": false,
+									"internalType": "address",
+									"name": "voter",
+									"type": "address"
+								}
+							],
+							"name": "SetVoter",
+							"type": "event"
+						},
+						{
+							"inputs": [],
+							"name": "allPoolsLength",
+							"outputs": [
+								{
+									"internalType": "uint256",
+									"name": "",
+									"type": "uint256"
+								}
+							],
+							"stateMutability": "view",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "tokenA",
+									"type": "address"
+								},
+								{
+									"internalType": "address",
+									"name": "tokenB",
+									"type": "address"
+								},
+								{
+									"internalType": "bool",
+									"name": "stable",
+									"type": "bool"
+								}
+							],
+							"name": "createPool",
+							"outputs": [
+								{
+									"internalType": "address",
+									"name": "pool",
+									"type": "address"
+								}
+							],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "tokenA",
+									"type": "address"
+								},
+								{
+									"internalType": "address",
+									"name": "tokenB",
+									"type": "address"
+								},
+								{
+									"internalType": "uint24",
+									"name": "fee",
+									"type": "uint24"
+								}
+							],
+							"name": "createPool",
+							"outputs": [
+								{
+									"internalType": "address",
+									"name": "pool",
+									"type": "address"
+								}
+							],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "_pool",
+									"type": "address"
+								},
+								{
+									"internalType": "bool",
+									"name": "_stable",
+									"type": "bool"
+								}
+							],
+							"name": "getFee",
+							"outputs": [
+								{
+									"internalType": "uint256",
+									"name": "",
+									"type": "uint256"
+								}
+							],
+							"stateMutability": "view",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "tokenA",
+									"type": "address"
+								},
+								{
+									"internalType": "address",
+									"name": "tokenB",
+									"type": "address"
+								},
+								{
+									"internalType": "bool",
+									"name": "stable",
+									"type": "bool"
+								}
+							],
+							"name": "getPool",
+							"outputs": [
+								{
+									"internalType": "address",
+									"name": "",
+									"type": "address"
+								}
+							],
+							"stateMutability": "view",
+							"type": "function"
+						},
+						{
+							"inputs": [],
+							"name": "implementation",
+							"outputs": [
+								{
+									"internalType": "address",
+									"name": "",
+									"type": "address"
+								}
+							],
+							"stateMutability": "view",
+							"type": "function"
+						},
+						{
+							"inputs": [],
+							"name": "isPaused",
+							"outputs": [
+								{
+									"internalType": "bool",
+									"name": "",
+									"type": "bool"
+								}
+							],
+							"stateMutability": "view",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "pool",
+									"type": "address"
+								}
+							],
+							"name": "isPool",
+							"outputs": [
+								{
+									"internalType": "bool",
+									"name": "",
+									"type": "bool"
+								}
+							],
+							"stateMutability": "view",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "_pool",
+									"type": "address"
+								},
+								{
+									"internalType": "uint256",
+									"name": "_fee",
+									"type": "uint256"
+								}
+							],
+							"name": "setCustomFee",
+							"outputs": [],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "bool",
+									"name": "_stable",
+									"type": "bool"
+								},
+								{
+									"internalType": "uint256",
+									"name": "_fee",
+									"type": "uint256"
+								}
+							],
+							"name": "setFee",
+							"outputs": [],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "_feeManager",
+									"type": "address"
+								}
+							],
+							"name": "setFeeManager",
+							"outputs": [],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "bool",
+									"name": "_state",
+									"type": "bool"
+								}
+							],
+							"name": "setPauseState",
+							"outputs": [],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "_pauser",
+									"type": "address"
+								}
+							],
+							"name": "setPauser",
+							"outputs": [],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "_voter",
+									"type": "address"
+								}
+							],
+							"name": "setVoter",
+							"outputs": [],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						},
+						{
+							"inputs": [],
+							"name": "voter",
+							"outputs": [
+								{
+									"internalType": "address",
+									"name": "",
+									"type": "address"
+								}
+							],
+							"stateMutability": "view",
+							"type": "function"
+						}
+					],
+					"evm": {
+						"bytecode": {
+							"functionDebugData": {},
+							"generatedSources": [],
+							"linkReferences": {},
+							"object": "",
+							"opcodes": "",
+							"sourceMap": ""
+						}
+					}
+				}
+			}
+		},
+		"errors": [
+			{
+				"component": "general",
+				"errorCode": "3805",
+				"formattedMessage": "Warning: This is a pre-release compiler version, please do not use it in production.\n\n",
+				"message": "This is a pre-release compiler version, please do not use it in production.",
+				"severity": "warning",
+				"type": "Warning"
+			}
+		],
+		"sources": {
+			"interfaces/velodrome-finance/contracts/contracts/interfaces/factories/IPoolFactory.sol": {
+				"id": 0
+			}
+		}
+	}
+}

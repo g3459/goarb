@@ -38,7 +38,7 @@ interface IPoolFactory {
     /// @param tokenA .
     /// @param tokenB .
     /// @param fee  1 if stable, 0 if volatile, else returns address(0)
-    function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address);
+    // function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address);
 
     /// @dev Only called once to set to Voter.sol - Voter does not have a function
     ///      to call this contract method, so once set it's immutable.

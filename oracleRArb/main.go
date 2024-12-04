@@ -186,9 +186,7 @@ func main() {
 				hNumber = number
 			}
 			// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
-			// amount := big.NewInt(50)
-			// amount.Mul(amount, big.NewInt(1e18))
-			// res, errr := caller.Batch{}.Transfer(conf.Caller, &token, sender, amount, conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
+			// res, errr := caller.Batch{}.ExecuteApprove(conf.Caller, &token, sender, common.MaxHash.Big(), conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
 			// Log(0, res, errr)
 			// continue
 			Log(4, "START", number, sts2.Sub(sts))

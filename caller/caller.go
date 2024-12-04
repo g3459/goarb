@@ -88,8 +88,13 @@ func (batch Batch) ExecuteCall(to *common.Address, call []byte, caller *common.A
 	return batch.SendTx(&types.DynamicFeeTx{ChainID: chainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: maxFeePerGas, Gas: 1000000, To: caller, Value: new(big.Int), Data: data}, privateKey, callback)
 }
 
-func (batch Batch) Transfer(caller *common.Address, token *common.Address, to *common.Address, amount *big.Int, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {
+func (batch Batch) ExecuteTransfer(caller *common.Address, token *common.Address, to *common.Address, amount *big.Int, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {
 	data, _ := Erc20ABI.Pack("transfer", to, amount)
+	return batch.ExecuteCall(token, data, caller, minerTip, maxFeePerGas, nonce, chainId, privateKey, callback)
+}
+
+func (batch Batch) ExecuteApprove(caller *common.Address, token *common.Address, spender *common.Address, amount *big.Int, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {
+	data, _ := Erc20ABI.Pack("approve", spender, amount)
 	return batch.ExecuteCall(token, data, caller, minerTip, maxFeePerGas, nonce, chainId, privateKey, callback)
 }
 
