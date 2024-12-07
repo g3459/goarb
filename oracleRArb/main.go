@@ -103,7 +103,7 @@ func main() {
 			if !v.Oracle.Active {
 				continue
 			}
-			batch = batch.BalanceOf(v.Token, conf.Caller, "latest", func(res interface{}) {
+			batch = batch.BalanceOf(v.Token, conf.Caller, "pending", func(res interface{}) {
 				am, b := res.(*big.Int)
 				if !b {
 					err = errors.New("BalanceOf " + v.Token.Hex() + " Err: " + res.(error).Error())
@@ -114,6 +114,9 @@ func main() {
 		}
 	} else {
 		for i, v := range conf.TokenConfs {
+			if !v.Oracle.Active {
+				continue
+			}
 			if v.FakeBalance != nil {
 				amounts[i] = v.FakeBalance
 			} else {
@@ -149,7 +152,7 @@ func main() {
 		}
 	})
 	nonce := uint64(0)
-	batch = batch.Nonce(sender, "latest", func(res interface{}) {
+	batch = batch.Nonce(sender, "pending", func(res interface{}) {
 		var b bool
 		nonce, b = res.(uint64)
 		if !b {
@@ -185,10 +188,12 @@ func main() {
 			if number > hNumber {
 				hNumber = number
 			}
+			// token := common.HexToAddress("0x2791bca1f2de4661ed88a30c99a7a9449aa84174")
 			// token := common.HexToAddress("0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619")
+			// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
 			// res, errr := caller.Batch{}.ExecuteApprove(conf.Caller, &token, sender, common.MaxHash.Big(), conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
 			// Log(0, res, errr)
-			// continue
+			continue
 			Log(4, "START", number, sts2.Sub(sts))
 			go func() {
 				minGasPrice := new(big.Int).Add(baseFee, conf.MinMinerTip)
@@ -238,7 +243,8 @@ func main() {
 									// if len(pools[tOutx]) > 0 {
 									// 	ll += len(pools[tOutx][tInx]) / 0x40
 									// }
-									// fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll)
+									// fmt.Println(tInx, tOutx, conf.TokenConfs[tOutx].Token, route.AmOut, len(route.Calls)/0x20, ll)
+									// continue
 									if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 || bytes.Equal(route.Calls, lastCalls) {
 										continue
 									}

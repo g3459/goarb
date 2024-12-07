@@ -45,17 +45,23 @@ func (batch Batch) BalanceOf(token *common.Address, account *common.Address, blo
 	return batch.Call(map[string]interface{}{"to": token, "input": hexutil.Encode(data)}, block, bigIntDecoder, callback)
 }
 
-func (batch Batch) FindPools(minEth *big.Int, tokens []common.Address, protocols []Protocol, poolFinder *common.Address, block string, callback func(interface{})) Batch {
+func (batch Batch) FindPools(minLiqEth *big.Int, tokens []common.Address, protocols []Protocol, poolFinder *common.Address, block string, callback func(interface{})) Batch {
 	parsed := make([]*big.Int, len(protocols))
 	for i, v := range protocols {
 		parsed[i] = new(big.Int).SetBytes(append([]byte{v.Id}, v.Factory.Bytes()...))
 	}
-	data, _ := PoolFinderABI.Pack("findPools", minEth, tokens, parsed)
+	data, err := PoolFinderABI.Pack("findPools", minLiqEth, tokens, parsed)
+	if err != nil {
+		panic(err)
+	}
 	return batch.Call(map[string]interface{}{"to": poolFinder, "input": hexutil.Encode(data)}, block, poolsDecoder, callback)
 }
 
 func (batch Batch) FindRoutes(maxLen uint8, tIn uint8, amIn *big.Int, pools [][][]byte, gasPrice *big.Int, router *common.Address, block string, callback func(interface{})) Batch {
-	data, _ := RouterABI.Pack("findRoutes", maxLen, tIn, amIn, pools)
+	data, err := RouterABI.Pack("findRoutes", maxLen, tIn, amIn, pools)
+	if err != nil {
+		panic(err)
+	}
 	return batch.Call(map[string]interface{}{"to": router, "gasPrice": hexutil.EncodeBig(gasPrice), "input": hexutil.Encode(data)}, block, routesDecoder, callback)
 }
 
@@ -84,17 +90,26 @@ func (batch Batch) SendTx(tx *types.DynamicFeeTx, privateKey *common.Hash, callb
 }
 
 func (batch Batch) ExecuteCall(to *common.Address, call []byte, caller *common.Address, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {
-	data, _ := CallerABI.Pack("execute", to, call)
+	data, err := CallerABI.Pack("execute", to, call)
+	if err != nil {
+		panic(err)
+	}
 	return batch.SendTx(&types.DynamicFeeTx{ChainID: chainId, Nonce: nonce, GasTipCap: minerTip, GasFeeCap: maxFeePerGas, Gas: 1000000, To: caller, Value: new(big.Int), Data: data}, privateKey, callback)
 }
 
 func (batch Batch) ExecuteTransfer(caller *common.Address, token *common.Address, to *common.Address, amount *big.Int, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {
-	data, _ := Erc20ABI.Pack("transfer", to, amount)
+	data, err := Erc20ABI.Pack("transfer", to, amount)
+	if err != nil {
+		panic(err)
+	}
 	return batch.ExecuteCall(token, data, caller, minerTip, maxFeePerGas, nonce, chainId, privateKey, callback)
 }
 
 func (batch Batch) ExecuteApprove(caller *common.Address, token *common.Address, spender *common.Address, amount *big.Int, minerTip *big.Int, maxFeePerGas *big.Int, nonce uint64, chainId *big.Int, privateKey *common.Hash, callback func(interface{})) Batch {
-	data, _ := Erc20ABI.Pack("approve", spender, amount)
+	data, err := Erc20ABI.Pack("approve", spender, amount)
+	if err != nil {
+		panic(err)
+	}
 	return batch.ExecuteCall(token, data, caller, minerTip, maxFeePerGas, nonce, chainId, privateKey, callback)
 }
 

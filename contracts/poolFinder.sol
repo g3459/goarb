@@ -36,9 +36,7 @@ contract CPoolFinder {
             pools = new bytes[][](tokens.length);
             for (uint256 t0; t0 < tokens.length; t0++) {
                 for (uint256 t1; t1 < tokens.length; t1++) {
-                    if (t0 == t1 || tokens[t0] > tokens[t1]) {
-                        continue;
-                    }
+                    if (t0 == t1 || tokens[t0] > tokens[t1]) continue;
                     bytes memory _pools = findPoolsSingle(tokens[t0], tokens[t1], protocols);
                     if (_pools.length > 0) {
                         if (pools[t0].length == 0) {
@@ -119,13 +117,9 @@ contract CPoolFinder {
         unchecked {
             for (uint256 t0; t0 < pools.length; t0++) {
                 for (uint256 t1; t1 < pools[t0].length; t1++) {
-                    if (t0 == t1) {
-                        continue;
-                    }
+                    if (t0 == t1) continue;
                     bytes memory _pools = pools[t0][t1];
-                    if (_pools.length == 0) {
-                        continue;
-                    }
+                    if (_pools.length == 0) continue;
                     uint256 _len;
                     for (uint256 p; p < _pools.length; p += 0x40) {
                         uint256 slot0;
@@ -134,9 +128,8 @@ contract CPoolFinder {
                         }
                         uint256 rt0 = slot0 >> 128;
                         uint256 rt1 = uint128(slot0);
-                        if (rt0 <= fAmounts[t0] && rt1 <= fAmounts[t1]) {
-                            continue;
-                        }
+                        if (rt0 <= fAmounts[t0] && rt1 <= fAmounts[t1]) continue;
+                        if (_len==p) continue;
                         assembly {
                             _len := add(_len, 0x20)
                             mstore(add(_pools, _len), slot0)
@@ -188,28 +181,26 @@ contract CPoolFinder {
                     pool := mload(fmp)
                 }
             }
-            if (pool != address(0)) {
-                uint256 reserve0;
-                uint256 reserve1;
-                bytes32 stateHash;
-                {
-                    bytes4 sel = IUniswapV2Pair(pool).getReserves.selector;
-                    assembly {
-                        mstore(fmp, sel)
-                        pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
-                        reserve0 := mload(fmp)
-                        reserve1 := mload(add(fmp, 0x20))
-                    }
+            if (pool == address(0)) return;
+            uint256 reserve0;
+            uint256 reserve1;
+            bytes32 stateHash;
+            {
+                bytes4 sel = IUniswapV2Pair(pool).getReserves.selector;
+                assembly {
+                    mstore(fmp, sel)
+                    pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
+                    reserve0 := mload(fmp)
+                    reserve1 := mload(add(fmp, 0x20))
                 }
-                if (reserve0 > 0 && reserve1 > 0) {
-                    uint8 id = 1;
-                    assembly {
-                        stateHash := keccak256(fmp, 0x40)
-                        mstore(fmp, or(shl(128, reserve0), reserve1))
-                        mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(160, 3000), pool))))
-                        mstore(0x40, add(fmp, 0x40))
-                    }
-                }
+            }
+            if (reserve0 == 0 || reserve1 == 0) return;
+            uint8 id = 1;
+            assembly {
+                stateHash := keccak256(fmp, 0x40)
+                mstore(fmp, or(shl(128, reserve0), reserve1))
+                mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(160, 3000), pool))))
+                mstore(0x40, add(fmp, 0x40))
             }
         }
     }
@@ -238,37 +229,36 @@ contract CPoolFinder {
                     pool := mload(fmp)
                 }
             }
-            if (pool != address(0)) {
-                uint256 liquidity;
-                {
-                    bytes4 sel = IUniswapV3Pool(pool).liquidity.selector;
-                    assembly {
-                        mstore(fmp, sel)
-                        pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x20))
-                        liquidity := mload(fmp)
-                    }
+            if (pool == address(0)) return;
+            uint256 liquidity;
+            {
+                bytes4 sel = IUniswapV3Pool(pool).liquidity.selector;
+                assembly {
+                    mstore(fmp, sel)
+                    pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x20))
+                    liquidity := mload(fmp)
                 }
-                if (liquidity > 0) {
-                    uint256 sqrtPX64;
-                    bytes4 sel = IUniswapV3Pool(pool).slot0.selector;
-                    assembly {
-                        mstore(fmp, sel)
-                        pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
-                        sqrtPX64 := shr(32, mload(fmp))
-                    }
-                    uint256 reserve0 = (liquidity << 64) / (sqrtPX64 + 1);
-                    uint256 reserve1 = (liquidity * sqrtPX64) >> 64;
-                    if (reserve0 > 0 && reserve1 > 0) {
-                        uint8 id = 0;
-                        assembly {
-                            let t := mload(add(fmp, 0x20))
-                            let stateHash := keccak256(fmp, 0x20)
-                            mstore(fmp, or(shl(128, reserve0), reserve1))
-                            mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(200, s), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
-                            mstore(0x40, add(fmp, 0x40))
-                        }
-                    }
+            }
+            if (liquidity == 0) return;
+            uint256 sqrtPX64;
+            {
+                bytes4 sel = IUniswapV3Pool(pool).slot0.selector;
+                assembly {
+                    mstore(fmp, sel)
+                    pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
+                    sqrtPX64 := shr(32, mload(fmp))
                 }
+            }
+            uint256 reserve0 = (liquidity << 64) / (sqrtPX64 + 1);
+            uint256 reserve1 = (liquidity * sqrtPX64) >> 64;
+            if (reserve0 == 0 || reserve1 == 0) return;
+            uint8 id = 0;
+            assembly {
+                let t := mload(add(fmp, 0x20))
+                let stateHash := keccak256(fmp, 0x20)
+                mstore(fmp, or(shl(128, reserve0), reserve1))
+                mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(200, s), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
+                mstore(0x40, add(fmp, 0x40))
             }
         }
     }
@@ -294,40 +284,37 @@ contract CPoolFinder {
                     pool := mload(fmp)
                 }
             }
-            if (pool != address(0)) {
-                uint256 liquidity;
-                {
-                    bytes4 sel = IAlgebraPool(pool).liquidity.selector;
-                    assembly {
-                        mstore(fmp, sel)
-                        pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x20))
-                        liquidity := mload(fmp)
-                    }
+            if (pool == address(0)) return;
+            uint256 liquidity;
+            {
+                bytes4 sel = IAlgebraPool(pool).liquidity.selector;
+                assembly {
+                    mstore(fmp, sel)
+                    pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x20))
+                    liquidity := mload(fmp)
                 }
-                if (liquidity > 0) {
-                    uint256 sqrtPX64;
-                    {
-                        bytes4 sel = IAlgebraPool(pool).globalState.selector;
-                        assembly {
-                            mstore(fmp, sel)
-                            pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x60))
-                            sqrtPX64 := shr(32, mload(fmp))
-                        }
-                    }
-                    uint256 reserve0 = (liquidity << 64) / (sqrtPX64 + 1);
-                    uint256 reserve1 = (liquidity * sqrtPX64) >> 64;
-                    if (reserve0 > 0 && reserve1 > 0) {
-                        uint8 id = 2;
-                        assembly {
-                            let t := mload(add(fmp, 0x20))
-                            let fee := mload(add(fmp, 0x40))
-                            let stateHash := keccak256(fmp, 0x20)
-                            mstore(fmp, or(shl(128, reserve0), reserve1))
-                            mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(200, 60), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
-                            mstore(0x40, add(fmp, 0x40))
-                        }
-                    }
+            }
+            if (liquidity == 0) return;
+            uint256 sqrtPX64;
+            {
+                bytes4 sel = IAlgebraPool(pool).globalState.selector;
+                assembly {
+                    mstore(fmp, sel)
+                    pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x60))
+                    sqrtPX64 := shr(32, mload(fmp))
                 }
+            }
+            uint256 reserve0 = (liquidity << 64) / (sqrtPX64 + 1);
+            uint256 reserve1 = (liquidity * sqrtPX64) >> 64;
+            if (reserve0 == 0 || reserve1 == 0) return;
+            uint8 id = 2;
+            assembly {
+                let t := mload(add(fmp, 0x20))
+                let fee := mload(add(fmp, 0x40))
+                let stateHash := keccak256(fmp, 0x20)
+                mstore(fmp, or(shl(128, reserve0), reserve1))
+                mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(200, 60), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
+                mstore(0x40, add(fmp, 0x40))
             }
         }
     }
@@ -355,39 +342,37 @@ contract CPoolFinder {
                     pool := mload(fmp)
                 }
             }
-            if (pool != address(0)) {
-                uint256 reserve0;
-                uint256 reserve1;
-                bytes32 stateHash;
-                uint256 fee;
-                {
-                    bytes4 sel = IVeloV2Factory(factory).getFee.selector;
-                    assembly {
-                        mstore(fmp, sel)
-                        mstore(add(0x04, pool), pool)
-                        mstore(add(0x24, pool), stable)
-                        pop(staticcall(gas(), factory, fmp, 0x24, fmp, 0x20))
-                        fee := mload(fmp)
-                    }
+            if (pool == address(0)) return;
+            uint256 reserve0;
+            uint256 reserve1;
+            bytes32 stateHash;
+            uint256 fee;
+            {
+                bytes4 sel = IVeloV2Factory(factory).getFee.selector;
+                assembly {
+                    mstore(fmp, sel)
+                    mstore(add(0x04, pool), pool)
+                    mstore(add(0x24, pool), stable)
+                    pop(staticcall(gas(), factory, fmp, 0x24, fmp, 0x20))
+                    fee := mload(fmp)
                 }
-                {
-                    bytes4 sel = IVeloV2Pool(pool).getReserves.selector;
-                    assembly {
-                        mstore(fmp, sel)
-                        pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
-                        reserve0 := mload(fmp)
-                        reserve1 := mload(add(fmp, 0x20))
-                    }
+            }
+            {
+                bytes4 sel = IVeloV2Pool(pool).getReserves.selector;
+                assembly {
+                    mstore(fmp, sel)
+                    pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
+                    reserve0 := mload(fmp)
+                    reserve1 := mload(add(fmp, 0x20))
                 }
-                if (reserve0 > 0 && reserve1 > 0) {
-                    uint8 id = 3;
-                    assembly {
-                        stateHash := keccak256(fmp, 0x40)
-                        mstore(fmp, or(shl(128, reserve0), reserve1))
-                        mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(160, fee), pool))))
-                        mstore(0x40, add(fmp, 0x40))
-                    }
-                }
+            }
+            if (reserve0 == 0 || reserve1 == 0) return;
+            uint8 id = 3;
+            assembly {
+                stateHash := keccak256(fmp, 0x40)
+                mstore(fmp, or(shl(128, reserve0), reserve1))
+                mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(160, fee), pool))))
+                mstore(0x40, add(fmp, 0x40))
             }
         }
     }
@@ -415,49 +400,46 @@ contract CPoolFinder {
                     pool := mload(fmp)
                 }
             }
-            if (pool != address(0)) {
-                uint256 liquidity;
-                {
-                    bytes4 sel = IVeloV3Pool(pool).liquidity.selector;
-                    assembly {
-                        mstore(fmp, sel)
-                        pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x20))
-                        liquidity := mload(fmp)
-                    }
+            if (pool == address(0)) return;
+            uint256 liquidity;
+            {
+                bytes4 sel = IVeloV3Pool(pool).liquidity.selector;
+                assembly {
+                    mstore(fmp, sel)
+                    pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x20))
+                    liquidity := mload(fmp)
                 }
-                if (liquidity > 0) {
-                    uint256 fee;
-                    {
-                        bytes4 sel = IVeloV3Factory(factory).getSwapFee.selector;
-                        assembly {
-                            mstore(fmp, sel)
-                            mstore(add(0x04, fmp), pool)
-                            pop(staticcall(gas(), factory, fmp, 0x24, fmp, 0x20))
-                            fee := mload(fmp)
-                        }
-                    }
-                    uint256 sqrtPX64;
-                    {
-                        bytes4 sel = IVeloV3Pool(pool).slot0.selector;
-                        assembly {
-                            mstore(fmp, sel)
-                            pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
-                            sqrtPX64 := shr(32, mload(fmp))
-                        }
-                    }
-                    uint256 reserve0 = (liquidity << 64) / (sqrtPX64 + 1);
-                    uint256 reserve1 = (liquidity * sqrtPX64) >> 64;
-                    if (reserve0 > 0 && reserve1 > 0) {
-                        uint8 id = 0;
-                        assembly {
-                            let t := mload(add(fmp, 0x20))
-                            let stateHash := keccak256(fmp, 0x20)
-                            mstore(fmp, or(shl(128, reserve0), reserve1))
-                            mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(200, s), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
-                            mstore(0x40, add(fmp, 0x40))
-                        }
-                    }
+            }
+            if (liquidity == 0) return;
+            uint256 fee;
+            {
+                bytes4 sel = IVeloV3Factory(factory).getSwapFee.selector;
+                assembly {
+                    mstore(fmp, sel)
+                    mstore(add(0x04, fmp), pool)
+                    pop(staticcall(gas(), factory, fmp, 0x24, fmp, 0x20))
+                    fee := mload(fmp)
                 }
+            }
+            uint256 sqrtPX64;
+            {
+                bytes4 sel = IVeloV3Pool(pool).slot0.selector;
+                assembly {
+                    mstore(fmp, sel)
+                    pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
+                    sqrtPX64 := shr(32, mload(fmp))
+                }
+            }
+            uint256 reserve0 = (liquidity << 64) / (sqrtPX64 + 1);
+            uint256 reserve1 = (liquidity * sqrtPX64) >> 64;
+            if (reserve0 == 0 || reserve1 == 0) return;
+            uint8 id = 0;
+            assembly {
+                let t := mload(add(fmp, 0x20))
+                let stateHash := keccak256(fmp, 0x20)
+                mstore(fmp, or(shl(128, reserve0), reserve1))
+                mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(200, s), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
+                mstore(0x40, add(fmp, 0x40))
             }
         }
     }

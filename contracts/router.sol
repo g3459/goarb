@@ -1,6 +1,6 @@
 library CRouter {
-    bool internal constant FRP = false;
-    bool internal constant GPE = false;
+    bool internal constant FRP = true;
+    bool internal constant GPE = true;
 
     uint256 internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
     uint256 internal constant ADDRESS_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;

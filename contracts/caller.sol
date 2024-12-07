@@ -12,8 +12,8 @@ import "./interfaces/openzeppelin/openzeppelin-contracts/contracts/token/ERC20/I
 
 contract CCaller {
     uint256 internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
-    uint256 internal constant PID_MASK = 0xff000000000000000000000000000000000000000000000000000000;
     uint256 internal constant DIREC_MASK = 0x8000000000000000000000000000000000000000000000000000000000000000;
+    uint256 internal constant PID_MASK = 0xff000000000000000000000000000000000000000000000000000000;
     uint256 internal constant UNIV2_PID = 0x01000000000000000000000000000000000000000000000000000000;
     uint256 internal constant UNIV3_PID = 0;
     uint256 internal constant ALGB_PID = 0x02000000000000000000000000000000000000000000000000000000;
@@ -28,6 +28,10 @@ contract CCaller {
         }
     }
 
+    // function test(bytes32 a)public view returns(int){
+    //     return int(uint(a));
+    // }
+
     fallback() external payable check {
         unchecked {
             uint256 fmp = 0x80;
@@ -41,10 +45,10 @@ contract CCaller {
                 bytes4 sel;
                 if (pid == UNIV2_PID) {
                     outsize = 0x40;
-                    sel = IUniswapV2Pair(address(0)).getReserves.selector;
+                    sel = IUniswapV2Pair.getReserves.selector;
                 } else {
                     outsize = 0x20;
-                    sel = pid == ALGB_PID ? IAlgebraPool(address(0)).globalState.selector : IUniswapV3Pool(address(0)).slot0.selector;
+                    sel = pid == UNIV3_PID ? IUniswapV3Pool(address(0)).slot0.selector : IAlgebraPool(address(0)).globalState.selector;
                 }
                 assembly {
                     mstore(fmp, sel)
@@ -55,6 +59,7 @@ contract CCaller {
                 }
                 fmp += outsize;
             }
+            // assembly{mstore(0x40,fmp)}
             uint256 fmp2 = 0x80;
             for (uint256 i; i < msg.data.length; i += 32) {
                 uint256 poolCall;
@@ -68,13 +73,6 @@ contract CCaller {
                     direc := and(poolCall, DIREC_MASK)
                 }
                 if (poolCall & PID_MASK == UNIV2_PID) {
-                    uint256 rIn;
-                    uint256 rOut;
-                    assembly {
-                        rIn := mload(fmp2)
-                        rOut := mload(add(fmp2, 0x20))
-                    }
-                    fmp2 += 0x40;
                     bytes4 tokenSel = direc ? IUniswapV2Pair.token0.selector : IUniswapV2Pair.token1.selector;
                     assembly {
                         mstore(fmp, tokenSel)
@@ -85,25 +83,34 @@ contract CCaller {
                         mstore(add(fmp, 0x24), amIn)
                         pop(call(gas(), token, 0, fmp, 0x44, 0, 0))
                     }
-                    uint256 amOut = (amIn - 1) * 997;
-                    amOut = (amOut * rOut) / (rIn * 1000 + amOut) - 1;
                     bytes4 swapSel = IUniswapV2Pair.swap.selector;
                     assembly {
                         mstore(fmp, swapSel)
                         mstore(add(fmp, 0x44), address())
+                        mstore(add(fmp, 0x64), 0x80)
+                        mstore(add(fmp, 0x84), 0)
                     }
+                    uint256 rIn;
+                    uint256 rOut;
+                    assembly {
+                        rIn := mload(fmp2)
+                        rOut := mload(add(fmp2, 0x20))
+                    }
+                    uint256 amOut = (amIn - 1) * 997;
+                    amOut = (amOut * rOut) / (rIn * 1000 + amOut) - 1;
                     if (direc) {
                         assembly {
+                            mstore(add(fmp, 0x04), 0)
                             mstore(add(fmp, 0x24), amOut)
                         }
                     } else {
                         assembly {
                             mstore(add(fmp, 0x04), amOut)
+                            mstore(add(fmp, 0x24), 0)
                         }
                     }
                     assembly {
-                        let s := call(gas(), pool, 0, fmp, 0x64, 0, 0)
-                        if iszero(s) {
+                        if iszero(call(gas(), pool, 0, fmp, 0xa4, 0, 0)) {
                             revert(0, 0)
                         }
                     }
@@ -113,21 +120,15 @@ contract CCaller {
                     assembly {
                         mstore(fmp, swapSel)
                         mstore(add(fmp, 0x04), address())
-                    }
-                    uint256 sqrtL;
-                    if (direc) {
-                        sqrtL = 4295128740;
-                        assembly {
-                            mstore(add(fmp, 0x24), direc)
-                        }
-                    } else {
-                        sqrtL = 1461446703485210103287273052203988822378723970341;
-                    }
-                    assembly {
+                        mstore(add(fmp, 0x24), direc)
                         mstore(add(fmp, 0x44), amIn)
+                    }
+                    uint256 sqrtL = direc ? 4295128740 : 1461446703485210103287273052203988822378723970341;
+                    assembly {
                         mstore(add(fmp, 0x64), sqrtL)
-                        let s := call(gas(), pool, 0, fmp, 0x84, 0, 0)
-                        if iszero(s) {
+                        mstore(add(fmp, 0x84), 0xa0)
+                        mstore(add(fmp, 0xa4), 0)
+                        if iszero(call(gas(), pool, 0, fmp, 0xc4, 0, 0)) {
                             revert(0, 0)
                         }
                     }
