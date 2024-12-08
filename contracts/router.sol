@@ -1,6 +1,6 @@
 library CRouter {
-    bool internal constant FRP = true;
-    bool internal constant GPE = true;
+    bool internal constant FRP = false;
+    bool internal constant GPE = false;
 
     uint256 internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
     uint256 internal constant ADDRESS_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
@@ -18,7 +18,15 @@ library CRouter {
         uint8 t,
         uint256 amIn,
         bytes[][] memory pools
-    ) public view returns (uint256[] memory amounts, bytes[] memory calls) {
+    )
+        public
+        view
+        returns (
+            uint256[] memory amounts,
+            bytes[] memory calls,
+            uint256[] memory gasUsage
+        )
+    {
         unchecked {
             return findRoutesInt(maxLen, t, amIn, pools);
         }
@@ -29,12 +37,23 @@ library CRouter {
         uint8 t,
         uint256 amIn,
         bytes[][] memory pools
-    ) internal view returns (uint256[] memory amounts, bytes[] memory calls) {
+    )
+        internal
+        view
+        returns (
+            uint256[] memory amounts,
+            bytes[] memory calls,
+            uint256[] memory gasUsage
+        )
+    {
         unchecked {
             amounts = new uint256[](pools.length);
             amounts[t] = amIn;
             calls = new bytes[](pools.length);
-            findRoutes(maxLen * 0x20, pools, amounts, calls);
+            if (GPE) {
+                gasUsage = new uint256[](pools.length);
+            }
+            findRoutes(maxLen * 0x20, pools, amounts, calls, gasUsage);
         }
     }
 
@@ -42,10 +61,10 @@ library CRouter {
         uint8 maxLen,
         bytes[][] memory pools,
         uint256[] memory amounts,
-        bytes[] memory calls
+        bytes[] memory calls,
+        uint256[] memory gasUsage
     ) internal view {
         unchecked {
-            uint256[] memory gasFees = new uint256[](pools.length);
             uint256 updated = type(uint256).max >> (256 - pools.length);
             while (updated != 0) {
                 for (uint256 t0; t0 < pools.length; t0++) {
@@ -76,10 +95,10 @@ library CRouter {
                             continue;
                         }
                         if (GPE) {
-                            uint256 gasNew = gasFees[t0] + protGas(poolCall & PID_MASK);
+                            uint256 gasNew = gasUsage[t0] + protGas(poolCall & PID_MASK);
                             {
                                 uint256 gasFeeNew = gasNew * tx.gasprice;
-                                uint256 gasFeeCurrent = gasFees[t1] * tx.gasprice;
+                                uint256 gasFeeCurrent = gasUsage[t1] * tx.gasprice;
                                 if (eth != 0) {
                                     gasFeeNew = (hAmOut * gasFeeNew) / eth;
                                     gasFeeCurrent = (hAmOut * gasFeeCurrent) / eth;
@@ -88,11 +107,11 @@ library CRouter {
                                     continue;
                                 }
                             }
-                            gasFees[t1] = gasNew;
+                            gasUsage[t1] = gasNew;
                         }
                         amounts[t1] = hAmOut - 1;
-                        uint256 amIn56bit = compress56bit(amounts[t0]);
-                        poolCall = (poolCall & (STATE_MASK | PID_MASK | ADDRESS_MASK)) | (amIn56bit << 160);
+                        uint256 amOut56bit = compress56bit(hAmOut - 1);
+                        poolCall = (poolCall & (STATE_MASK | PID_MASK | ADDRESS_MASK)) | (amOut56bit << 160);
                         if (direc) poolCall |= DIREC_MASK;
                         calls[t1] = bytes.concat(calls[t0], abi.encode(poolCall));
                         updated |= 1 << t1;

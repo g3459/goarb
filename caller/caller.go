@@ -12,8 +12,9 @@ import (
 )
 
 type Route struct {
-	AmOut *big.Int `json:"amOut"`
-	Calls []byte   `json:"calls"`
+	AmOut    *big.Int `json:"amOut"`
+	Calls    []byte   `json:"calls"`
+	GasUsage *big.Int `json:"gasUsage"`
 }
 
 type Protocol struct {

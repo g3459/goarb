@@ -34,39 +34,31 @@ contract CCaller {
 
     fallback() external payable check {
         unchecked {
-            uint256 fmp = 0x80;
-            for (uint256 i; i < msg.data.length; i += 32) {
+            for (uint256 i; i <= msg.data.length - 0x20; i += 0x20) {
                 uint256 poolCall;
                 assembly {
                     poolCall := calldataload(i)
                 }
                 uint256 pid = poolCall & PID_MASK;
-                uint256 outsize;
-                bytes4 sel;
-                if (pid == UNIV2_PID) {
-                    outsize = 0x40;
-                    sel = IUniswapV2Pair.getReserves.selector;
-                } else {
-                    outsize = 0x20;
-                    sel = pid == UNIV3_PID ? IUniswapV3Pool(address(0)).slot0.selector : IAlgebraPool(address(0)).globalState.selector;
-                }
+                bytes4 sel = pid == UNIV2_PID ? IUniswapV2Pair.getReserves.selector : pid == UNIV3_PID ? IUniswapV3Pool(address(0)).slot0.selector : IAlgebraPool(address(0)).globalState.selector;
                 assembly {
-                    mstore(fmp, sel)
-                    pop(staticcall(gas(), poolCall, fmp, 0x04, fmp, outsize))
-                    if xor(and(keccak256(fmp, outsize), STATE_MASK), and(poolCall, STATE_MASK)) {
+                    mstore(0x80, sel)
+                    pop(staticcall(gas(), poolCall, 0x80, 0x04, 0x80, 0x20))
+                    if xor(and(keccak256(0x80, 0x20), STATE_MASK), and(poolCall, STATE_MASK)) {
                         revert(0, 0)
                     }
                 }
-                fmp += outsize;
             }
-            // assembly{mstore(0x40,fmp)}
-            uint256 fmp2 = 0x80;
-            for (uint256 i; i < msg.data.length; i += 32) {
+            // assembly{mstore(0x40,0x80)}
+            uint256 amIn;
+            assembly {
+                amIn := and(calldataload(sub(calldatasize(), 0x20)), sub(shl(128, 1), 1))
+            }
+            for (uint256 i; i <= msg.data.length - 0x20; i += 0x20) {
                 uint256 poolCall;
                 assembly {
                     poolCall := calldataload(i)
                 }
-                uint256 amIn = uint256(uint48(poolCall >> 168)) << uint8(poolCall >> 160);
                 address pool = address(uint160(poolCall));
                 bool direc;
                 assembly {
@@ -75,63 +67,55 @@ contract CCaller {
                 if (poolCall & PID_MASK == UNIV2_PID) {
                     bytes4 tokenSel = direc ? IUniswapV2Pair.token0.selector : IUniswapV2Pair.token1.selector;
                     assembly {
-                        mstore(fmp, tokenSel)
-                        pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x20))
-                        let token := mload(fmp)
-                        mstore(fmp, TRANSFER_SEL)
-                        mstore(add(fmp, 0x04), pool)
-                        mstore(add(fmp, 0x24), amIn)
-                        pop(call(gas(), token, 0, fmp, 0x44, 0, 0))
+                        mstore(0x80, tokenSel)
+                        pop(staticcall(gas(), pool, 0x80, 0x04, 0x80, 0x20))
+                        let token := mload(0x80)
+                        mstore(0x80, TRANSFER_SEL)
+                        mstore(0x84, pool)
+                        mstore(0xa4, amIn)
+                        pop(call(gas(), token, 0, 0x80, 0x44, 0, 0))
                     }
                     bytes4 swapSel = IUniswapV2Pair.swap.selector;
                     assembly {
-                        mstore(fmp, swapSel)
-                        mstore(add(fmp, 0x44), address())
-                        mstore(add(fmp, 0x64), 0x80)
-                        mstore(add(fmp, 0x84), 0)
+                        mstore(0x80, swapSel)
+                        mstore(0xc4, address())
+                        mstore(0xe4, 0x80)
+                        mstore(0x104, 0)
                     }
-                    uint256 rIn;
-                    uint256 rOut;
+                    amIn = uint256(uint48(poolCall >> 168)) << uint8(poolCall >> 160);
+                    (uint256 amOut0, uint256 amOut1) = direc ? (uint256(0), amIn) : (amIn, uint256(0));
                     assembly {
-                        rIn := mload(fmp2)
-                        rOut := mload(add(fmp2, 0x20))
-                    }
-                    uint256 amOut = (amIn - 1) * 997;
-                    amOut = (amOut * rOut) / (rIn * 1000 + amOut) - 1;
-                    if (direc) {
-                        assembly {
-                            mstore(add(fmp, 0x04), 0)
-                            mstore(add(fmp, 0x24), amOut)
-                        }
-                    } else {
-                        assembly {
-                            mstore(add(fmp, 0x04), amOut)
-                            mstore(add(fmp, 0x24), 0)
-                        }
-                    }
-                    assembly {
-                        if iszero(call(gas(), pool, 0, fmp, 0xa4, 0, 0)) {
+                        mstore(0x84, amOut0)
+                        mstore(0xa4, amOut1)
+                        if iszero(call(gas(), pool, 0, 0x80, 0xa4, 0, 0)) {
                             revert(0, 0)
                         }
                     }
                 } else {
-                    fmp2 += 0x20;
                     bytes4 swapSel = IUniswapV3Pool(pool).swap.selector;
                     assembly {
-                        mstore(fmp, swapSel)
-                        mstore(add(fmp, 0x04), address())
-                        mstore(add(fmp, 0x24), direc)
-                        mstore(add(fmp, 0x44), amIn)
+                        mstore(0x80, swapSel)
+                        mstore(0x84, address())
+                        mstore(0xa4, direc)
+                        mstore(0xc4, amIn)
                     }
                     uint256 sqrtL = direc ? 4295128740 : 1461446703485210103287273052203988822378723970341;
                     assembly {
-                        mstore(add(fmp, 0x64), sqrtL)
-                        mstore(add(fmp, 0x84), 0xa0)
-                        mstore(add(fmp, 0xa4), 0)
-                        if iszero(call(gas(), pool, 0, fmp, 0xc4, 0, 0)) {
+                        mstore(0xe4, sqrtL)
+                        mstore(0x104, 0xa0)
+                        mstore(0x124, 0)
+                        if iszero(call(gas(), pool, 0, 0x80, 0xc4, 0x80, 0x40)) {
                             revert(0, 0)
                         }
                     }
+                    int256 am0;
+                    int256 am1;
+                    assembly {
+                        am0 := mload(0x80)
+                        am1 := mload(0xa0)
+                    }
+                    amIn = uint256(-(am0 < am1 ? am0 : am1));
+                    require(amIn >= uint256(uint48(poolCall >> 168)) << uint8(poolCall >> 160));
                 }
             }
         }

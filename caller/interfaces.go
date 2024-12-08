@@ -806,6 +806,11 @@ var RouterABI, _ = abi.JSON(strings.NewReader(`[
 				"internalType": "bytes[]",
 				"name": "calls",
 				"type": "bytes[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "gasUsage",
+				"type": "uint256[]"
 			}
 		],
 		"stateMutability": "view",

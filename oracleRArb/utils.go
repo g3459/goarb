@@ -10,25 +10,25 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-func ExecuteCallsGas(calls []byte) uint64 {
-	return CallsGas(calls) + 60000
-}
+// func ExecuteCallsGas(calls []byte) uint64 {
+// 	return CallsGas(calls) + 60000
+// }
 
-func CallsGas(calls []byte) uint64 {
-	gas := uint64(0)
-	for i := 0; i < len(calls); i += 32 {
-		if calls[i+4] == 2 {
-			gas += 300000
-		} else {
-			gas += 100000
-		}
-	}
-	return gas
-}
+// func CallsGas(calls []byte) uint64 {
+// 	gas := uint64(0)
+// 	for i := 0; i < len(calls); i += 32 {
+// 		if calls[i+4] == 2 {
+// 			gas += 300000
+// 		} else {
+// 			gas += 100000
+// 		}
+// 	}
+// 	return gas
+// }
 
 func AccessListForCalls(calls []byte) types.AccessList {
 	al := []types.AccessTuple{}
-	for i := 0; i < len(calls); i += 0x20 {
+	for i := 0; i <= len(calls)-0x20; i += 0x20 {
 		addr := common.Address(calls[i+12 : i+32])
 		cont := false
 		for _, v := range al {
@@ -40,13 +40,18 @@ func AccessListForCalls(calls []byte) types.AccessList {
 		if cont {
 			continue
 		}
-		var slot int64
-		if calls[i+4] == 1 {
+		var slot uint8
+		pId := calls[i+4]
+		if pId == 0 {
+			slot = 0
+		} else if pId == 1 {
 			slot = 8
-		} else if calls[i+4] == 2 {
+		} else if pId == 2 {
 			slot = 3
 		}
-		al = append(al, types.AccessTuple{Address: addr, StorageKeys: []common.Hash{common.BigToHash(big.NewInt(slot))}})
+		h := common.Hash{}
+		h[31] = slot
+		al = append(al, types.AccessTuple{Address: addr, StorageKeys: []common.Hash{h}})
 	}
 	return al
 }

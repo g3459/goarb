@@ -46,7 +46,7 @@ contract CPoolFinder {
                     }
                 }
             }
-            (uint256[] memory amounts, ) = CRouter.findRoutesInt(2, 0, minLiqEth, pools);
+            (uint256[] memory amounts, ,) = CRouter.findRoutesInt(2, 0, minLiqEth, pools);
             filterPools(amounts, pools);
         }
     }
@@ -197,7 +197,7 @@ contract CPoolFinder {
             if (reserve0 == 0 || reserve1 == 0) return;
             uint8 id = 1;
             assembly {
-                stateHash := keccak256(fmp, 0x40)
+                stateHash := keccak256(fmp, 0x20)
                 mstore(fmp, or(shl(128, reserve0), reserve1))
                 mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, id), or(shl(160, 3000), pool))))
                 mstore(0x40, add(fmp, 0x40))

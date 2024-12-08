@@ -21,10 +21,12 @@ func routesDecoder(result interface{}) interface{} {
 	}
 	amounts := res[0].([]*big.Int)
 	calls := res[1].([][]byte)
+	gasUsage := res[2].([]*big.Int)
 	routes := make([]Route, len(amounts))
 	for i := range routes {
 		routes[i].AmOut = amounts[i]
 		routes[i].Calls = calls[i]
+		routes[i].GasUsage = gasUsage[i]
 	}
 	return routes
 }

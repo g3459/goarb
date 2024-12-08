@@ -22,7 +22,7 @@
         "evmVersion": "cancun",
         "viaIR": true,
         "debug": {
-            "revertStrings": "default"
+            "revertStrings": "strip"
         },
         "metadata": {
             "appendCBOR": false,
