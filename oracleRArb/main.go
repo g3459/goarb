@@ -103,7 +103,7 @@ func main() {
 			if !v.Oracle.Active {
 				continue
 			}
-			batch = batch.BalanceOf(v.Token, conf.Caller, "pending", func(res interface{}) {
+			batch = batch.BalanceOf(v.Token, conf.Caller, "latest", func(res interface{}) {
 				am, b := res.(*big.Int)
 				if !b {
 					err = errors.New("BalanceOf " + v.Token.Hex() + " Err: " + res.(error).Error())
@@ -127,7 +127,7 @@ func main() {
 	var number uint64
 	var baseFee *big.Int
 	blockInfo := map[string]interface{}{}
-	batch = batch.BlockByNumber("pending", func(res interface{}) {
+	batch = batch.BlockByNumber("latest", func(res interface{}) {
 		var b bool
 		_blockInfo, b := res.(*map[string]interface{})
 		if !b {
@@ -143,7 +143,7 @@ func main() {
 	for i, v := range conf.TokenConfs {
 		tokens[i] = *v.Token
 	}
-	batch = batch.FindPools(conf.MinLiqEth, tokens, conf.Protocols, conf.PoolFinder, "pending", func(res interface{}) {
+	batch = batch.FindPools(conf.MinLiqEth, tokens, conf.Protocols, conf.PoolFinder, "latest", func(res interface{}) {
 		var b bool
 		pools, b = res.([][][]byte)
 		if !b {
@@ -152,7 +152,7 @@ func main() {
 		}
 	})
 	nonce := uint64(0)
-	batch = batch.Nonce(sender, "pending", func(res interface{}) {
+	batch = batch.Nonce(sender, "latest", func(res interface{}) {
 		var b bool
 		nonce, b = res.(uint64)
 		if !b {
@@ -167,35 +167,39 @@ func main() {
 			if clientBanned(rpcclient) {
 				continue
 			}
-			err = nil
 			deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(conf.Polling*time.Millisecond))
-			sts := time.Now()
-			_, err2 := batch.Submit(deadline, rpcclient)
-			if err2 != nil {
-				banClient(rpcclient, conf.Polling*time.Millisecond*40)
-				Log(2, "BatchRPC Err: ", err2)
-				continue
-			}
-			if err != nil {
-				banClient(rpcclient, conf.Polling*time.Millisecond*40)
-				Log(2, "BatchExec Err: ", err)
-				continue
-			}
-			sts2 := time.Now()
-			if number < hNumber {
-				continue
-			}
-			if number > hNumber {
-				hNumber = number
-			}
-			// token := common.HexToAddress("0x2791bca1f2de4661ed88a30c99a7a9449aa84174")
-			// token := common.HexToAddress("0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619")
-			// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
-			// res, errr := caller.Batch{}.ExecuteApprove(conf.Caller, &token, sender, common.MaxHash.Big(), conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
-			// Log(0, res, errr)
-			// continue
-			Log(4, "START", number, sts2.Sub(sts))
+			deadline, cancel = context.WithCancel(deadline)
 			go func() {
+				sts := time.Now()
+				err = nil
+				_, err2 := batch.Submit(deadline, rpcclient)
+				if err2 != nil {
+					banClient(rpcclient, conf.Polling*time.Millisecond*30)
+					Log(2, "BatchRPC Err: ", err2)
+					cancel()
+					return
+				}
+				if err != nil {
+					banClient(rpcclient, conf.Polling*time.Millisecond*30)
+					Log(2, "BatchExec Err: ", err)
+					cancel()
+					return
+				}
+				sts2 := time.Now()
+				if number <= hNumber {
+					cancel()
+					return
+				}
+				if number > hNumber {
+					hNumber = number
+				}
+				// token := common.HexToAddress("0x2791bca1f2de4661ed88a30c99a7a9449aa84174")
+				// token := common.HexToAddress("0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619")
+				// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
+				// res, errr := caller.Batch{}.ExecuteApprove(conf.Caller, &token, sender, common.MaxHash.Big(), conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
+				// Log(0, res, errr)
+				// continue
+				Log(4, "START", number, sts2.Sub(sts))
 				minGasPrice := new(big.Int).Add(baseFee, conf.MinMinerTip)
 				var txCalls []byte
 				var txGasLimit uint64
@@ -244,7 +248,7 @@ func main() {
 									// if len(pools[tOutx]) > 0 {
 									// 	ll += len(pools[tOutx][tInx]) / 0x40
 									// }
-									// fmt.Println(tInx, tOutx, conf.TokenConfs[tOutx].Token, route.AmOut, len(route.Calls)/0x20, ll)
+									// fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll, route.GasUsage)
 									// continue
 									if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 || bytes.Equal(route.Calls, lastCalls) {
 										continue
@@ -261,7 +265,7 @@ func main() {
 									if ratio < conf.MinRatio {
 										continue
 									}
-									txGas := route.GasUsage
+									txGas := new(big.Int).Set(route.GasUsage)
 									if new(big.Int).Sub(ben, new(big.Int).Mul(txGas, gasPrice)).Sign() > 0 {
 										continue
 									}
@@ -354,7 +358,7 @@ func startRpcClients(rpcUrls []string) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(3000*time.Millisecond))
+			deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(5000*time.Millisecond))
 			defer cancel()
 			client, err := rpc.DialContext(deadline, url)
 			if err != nil {
@@ -362,19 +366,19 @@ func startRpcClients(rpcUrls []string) {
 				return
 			}
 			batch := caller.Batch{}
-			res, err := batch.BlockByNumber("pending", nil).Submit(deadline, client)
+			res, err := batch.BlockByNumber("latest", nil).Submit(deadline, client)
 			if err != nil {
-				Log(1, "rpcDial Err: ", err, url)
+				Log(1, "rpcBlockByNumber Err: ", err, url)
 				return
 			}
 			_blockInfo, b := res[0].(*map[string]interface{})
 			if !b {
-				Log(1, "rpcDial Err: ", err, url)
+				Log(1, "rpcBlockByNumber Err: ", err, url)
 				return
 			}
 			number, _ := hexutil.DecodeUint64((*_blockInfo)["number"].(string))
 			mu.Lock()
-			Log(1, "rpcDial: ", url, number)
+			Log(1, "rpcBlockByNumber: ", url, number)
 			rpcClients[url] = client
 			mu.Unlock()
 		}()
