@@ -103,7 +103,7 @@ func main() {
 			if !v.Oracle.Active {
 				continue
 			}
-			batch = batch.BalanceOf(v.Token, conf.Caller, "latest", func(res interface{}) {
+			batch = batch.BalanceOf(v.Token, conf.Caller, "pending", func(res interface{}) {
 				am, b := res.(*big.Int)
 				if !b {
 					err = errors.New("BalanceOf " + v.Token.Hex() + " Err: " + res.(error).Error())
@@ -127,7 +127,7 @@ func main() {
 	var number uint64
 	var baseFee *big.Int
 	blockInfo := map[string]interface{}{}
-	batch = batch.BlockByNumber("latest", func(res interface{}) {
+	batch = batch.BlockByNumber("pending", func(res interface{}) {
 		var b bool
 		_blockInfo, b := res.(*map[string]interface{})
 		if !b {
@@ -143,7 +143,7 @@ func main() {
 	for i, v := range conf.TokenConfs {
 		tokens[i] = *v.Token
 	}
-	batch = batch.FindPools(conf.MinLiqEth, tokens, conf.Protocols, conf.PoolFinder, "latest", func(res interface{}) {
+	batch = batch.FindPools(conf.MinLiqEth, tokens, conf.Protocols, conf.PoolFinder, "pending", func(res interface{}) {
 		var b bool
 		pools, b = res.([][][]byte)
 		if !b {
@@ -152,7 +152,7 @@ func main() {
 		}
 	})
 	nonce := uint64(0)
-	batch = batch.Nonce(sender, "latest", func(res interface{}) {
+	batch = batch.Nonce(sender, "pending", func(res interface{}) {
 		var b bool
 		nonce, b = res.(uint64)
 		if !b {
@@ -186,7 +186,7 @@ func main() {
 					return
 				}
 				sts2 := time.Now()
-				if number <= hNumber {
+				if number < hNumber {
 					cancel()
 					return
 				}
