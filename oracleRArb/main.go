@@ -167,7 +167,8 @@ func main() {
 			if clientBanned(rpcclient) {
 				continue
 			}
-			deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(conf.Polling*time.Millisecond))
+			dlt := time.Now().Add(conf.Polling * time.Millisecond)
+			deadline, cancel := context.WithDeadline(context.Background(), dlt)
 			deadline, cancel = context.WithCancel(deadline)
 			go func() {
 				sts := time.Now()
@@ -196,13 +197,16 @@ func main() {
 				// token := common.HexToAddress("0x2791bca1f2de4661ed88a30c99a7a9449aa84174")
 				// token := common.HexToAddress("0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619")
 				// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
+				// token := common.HexToAddress("0x4200000000000000000000000000000000000006")
+				// token := common.HexToAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
 				// res, errr := caller.Batch{}.ExecuteApprove(conf.Caller, &token, sender, common.MaxHash.Big(), conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
 				// Log(0, res, errr)
-				// continue
+				// return
 				Log(4, "START", number, sts2.Sub(sts))
 				minGasPrice := new(big.Int).Add(baseFee, conf.MinMinerTip)
 				var txCalls []byte
 				var txGasLimit uint64
+				var checkFuncs []func() = make([]func(), 0)
 				callsGasPriceLimit := minGasPrice
 				gasPrice := new(big.Int).Lsh(conf.MaxGasPrice, 2)
 				for i := range conf.TokenConfs {
@@ -239,51 +243,55 @@ func main() {
 								}
 								ethIn := new(big.Int).Mul(amIn, ethPriceX64Oracle[tInx])
 								ethIn.Rsh(ethIn, 64)
-								mu.Lock()
-								for tOutx, route := range routes {
-									// ll := 0
-									// if len(pools[tInx]) > 0 {
-									// 	ll += len(pools[tInx][tOutx]) / 0x40
-									// }
-									// if len(pools[tOutx]) > 0 {
-									// 	ll += len(pools[tOutx][tInx]) / 0x40
-									// }
-									// fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll, route.GasUsage)
-									// continue
-									if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 || bytes.Equal(route.Calls, lastCalls) {
-										continue
+								f := func() {
+									for tOutx, route := range routes {
+										// ll := 0
+										// if len(pools[tInx]) > 0 {
+										// 	ll += len(pools[tInx][tOutx]) / 0x40
+										// }
+										// if len(pools[tOutx]) > 0 {
+										// 	ll += len(pools[tOutx][tInx]) / 0x40
+										// }
+										// fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll, route.GasUsage)
+										// continue
+										if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 || bytes.Equal(route.Calls, lastCalls) {
+											continue
+										}
+										ethOut := new(big.Int).Mul(route.AmOut, ethPriceX64Oracle[tOutx])
+										ethOut.Rsh(ethOut, 64)
+										ben := new(big.Int).Sub(ethOut, ethIn)
+										if ben.Sign() < 0 {
+											continue
+										}
+										ratiotemp := new(big.Float).SetInt(ethOut)
+										ratiotemp.Quo(ratiotemp, new(big.Float).SetInt(ethIn))
+										ratio, _ := ratiotemp.Float64()
+										if ratio < conf.MinRatio {
+											continue
+										}
+										txGas := new(big.Int).Set(route.GasUsage)
+										if new(big.Int).Sub(ben, new(big.Int).Mul(txGas, gasPrice)).Sign() > 0 {
+											continue
+										}
+										txGas.Add(txGas, conf.MinGasBen)
+										gasPriceLimit := new(big.Int).Div(ben, txGas)
+										if gasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
+											continue
+										}
+										if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 {
+											continue
+										}
+										callsGasPriceLimit = gasPriceLimit
+										padded := make([]byte, 16)
+										copy(padded[16-len(amIn.Bytes()):], amIn.Bytes())
+										txCalls = append(route.Calls, padded...)
+										txGasLimit = route.GasUsage.Uint64() + 100000
 									}
-									ethOut := new(big.Int).Mul(route.AmOut, ethPriceX64Oracle[tOutx])
-									ethOut.Rsh(ethOut, 64)
-									ben := new(big.Int).Sub(ethOut, ethIn)
-									if ben.Sign() < 0 {
-										continue
-									}
-									ratiotemp := new(big.Float).SetInt(ethOut)
-									ratiotemp.Quo(ratiotemp, new(big.Float).SetInt(ethIn))
-									ratio, _ := ratiotemp.Float64()
-									if ratio < conf.MinRatio {
-										continue
-									}
-									txGas := new(big.Int).Set(route.GasUsage)
-									if new(big.Int).Sub(ben, new(big.Int).Mul(txGas, gasPrice)).Sign() > 0 {
-										continue
-									}
-									txGas.Add(txGas, conf.MinGasBen)
-									gasPriceLimit := new(big.Int).Div(ben, txGas)
-									if gasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
-										continue
-									}
-									if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 {
-										continue
-									}
-									callsGasPriceLimit = gasPriceLimit
-									padded := make([]byte, 16)
-									copy(padded[16-len(amIn.Bytes()):], amIn.Bytes())
-									txCalls = append(route.Calls, padded...)
-									txGasLimit = route.GasUsage.Uint64() + 60000
 								}
+								mu.Lock()
+								f()
 								mu.Unlock()
+								checkFuncs = append(checkFuncs, f)
 							}(amIn, uint8(i), gasPrice)
 							Log(5, "START", i, amIn, gasPrice)
 							amIn = new(big.Int).Rsh(amIn, 1)
@@ -294,6 +302,12 @@ func main() {
 				}
 				ets := time.Now()
 				Log(4, "END", number, ets.Sub(sts))
+				for txCalls == nil && time.Now().Compare(dlt) < 0 {
+					for _, f := range checkFuncs {
+						f()
+					}
+					<-time.After(time.Millisecond * 100)
+				}
 				if txCalls != nil {
 					Log(1, txCalls, callsGasPriceLimit, number)
 					if !conf.FakeBalance {
