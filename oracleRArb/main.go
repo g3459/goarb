@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"os"
@@ -252,35 +253,50 @@ func main() {
 										// if len(pools[tOutx]) > 0 {
 										// 	ll += len(pools[tOutx][tInx]) / 0x40
 										// }
-										// fmt.Println(tInx, tOutx, route.AmOut, len(route.Calls)/0x20, ll, route.GasUsage)
+										// fmt.Println(tInx, tOutx, amIn, route.AmOut, len(route.Calls)/0x20, ll, route.GasUsage)
 										// continue
-										if ethPriceX64Oracle[tOutx] == nil || len(route.Calls) == 0 || bytes.Equal(route.Calls, lastCalls) {
+										if ethPriceX64Oracle[tOutx] == nil {
+											continue
+										}
+										if len(route.Calls) == 0 {
+											Log(5, tInx, tOutx, amIn, gasPrice, "noCalls")
+											continue
+										}
+										if bytes.Equal(route.Calls, lastCalls) {
+											Log(5, tInx, tOutx, amIn, gasPrice, "calls==lastCalls", lastCalls)
 											continue
 										}
 										ethOut := new(big.Int).Mul(route.AmOut, ethPriceX64Oracle[tOutx])
 										ethOut.Rsh(ethOut, 64)
 										ben := new(big.Int).Sub(ethOut, ethIn)
 										if ben.Sign() < 0 {
+											Log(5, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ethIn(%vwei)-ethOut(%vwei)<0", ethIn, ethOut))
 											continue
 										}
 										ratiotemp := new(big.Float).SetInt(ethOut)
 										ratiotemp.Quo(ratiotemp, new(big.Float).SetInt(ethIn))
 										ratio, _ := ratiotemp.Float64()
 										if ratio < conf.MinRatio {
+											Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ratio(%v)<MinRatio(%v)", ratio, conf.MinRatio))
 											continue
 										}
 										txGas := new(big.Int).Set(route.GasUsage)
-										if new(big.Int).Sub(ben, new(big.Int).Mul(txGas, gasPrice)).Sign() > 0 {
+										gasFees := new(big.Int).Mul(txGas, gasPrice)
+										if new(big.Int).Sub(ben, gasFees).Sign() > 0 {
+											Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ben(%vwei)-gasFees(%vwei)>0", ben, gasFees))
 											continue
 										}
 										txGas.Add(txGas, conf.MinGasBen)
 										gasPriceLimit := new(big.Int).Div(ben, txGas)
-										if gasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
-											continue
-										}
 										if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 {
+											Log(5, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)>callsGasPriceLimit(%v)", gasPriceLimit, callsGasPriceLimit))
 											continue
 										}
+										if gasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
+											Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)>MaxGasPrice(%v)", gasPriceLimit, conf.MaxGasPrice))
+											continue
+										}
+										Log(4, tInx, tOutx, amIn, gasPrice, route.Calls, gasPriceLimit)
 										callsGasPriceLimit = gasPriceLimit
 										padded := make([]byte, 16)
 										copy(padded[16-len(amIn.Bytes()):], amIn.Bytes())
@@ -293,7 +309,7 @@ func main() {
 								mu.Unlock()
 								checkFuncs = append(checkFuncs, f)
 							}(amIn, uint8(i), gasPrice)
-							Log(5, "START", i, amIn, gasPrice)
+							//Log(5, "START", i, amIn, gasPrice)
 							amIn = new(big.Int).Rsh(amIn, 1)
 						}
 					}
@@ -403,12 +419,19 @@ func startRpcClients(rpcUrls []string) {
 	}
 }
 
+var banmu sync.Mutex
+
 func banClient(client *rpc.Client, d time.Duration) {
+	banmu.Lock()
 	rpcClientsBanMap[client] = time.Now().Add(d)
+	banmu.Unlock()
 }
 
 func clientBanned(client *rpc.Client) bool {
-	return time.Now().Compare(rpcClientsBanMap[client]) < 0
+	banmu.Lock()
+	b := time.Now().Compare(rpcClientsBanMap[client]) < 0
+	banmu.Unlock()
+	return b
 }
 
 func startUsdOracles() {

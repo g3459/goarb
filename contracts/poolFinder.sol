@@ -97,7 +97,6 @@ contract CPoolFinder {
                 len := sub(mload(0x40), add(pools, 0x20))
                 mstore(pools, len)
             }
-            
         }
     }
 
@@ -267,7 +266,7 @@ contract CPoolFinder {
             bytes4 selpool = IVeloV2Factory(address(0)).getPool.selector;
             bytes4 selfee = IVeloV2Factory(address(0)).getFee.selector;
             bytes4 selstate = IVeloV2Pool(address(0)).getReserves.selector;
-            assembly ("memory-safe"){
+            assembly ("memory-safe") {
                 let fmp := mload(0x40)
                 mstore(fmp, selpool)
                 mstore(add(0x04, fmp), t0)
@@ -276,17 +275,17 @@ contract CPoolFinder {
                 pop(staticcall(gas(), factory, fmp, 0x64, fmp, 0x20))
                 let pool := mload(fmp)
                 if pool {
-                    mstore(fmp, selfee)
-                    mstore(add(0x04, fmp), pool)
-                    mstore(add(0x24, fmp), stable)
-                    pop(staticcall(gas(), factory, fmp, 0x44, fmp, 0x20))
-                    let fee := mload(fmp)
                     mstore(fmp, selstate)
                     pop(staticcall(gas(), pool, fmp, 0x04, fmp, 0x40))
                     let reserve0 := mload(fmp)
                     let reserve1 := mload(add(fmp, 0x20))
                     if or(reserve0, reserve1) {
                         let stateHash := keccak256(fmp, 0x40)
+                        mstore(fmp, selfee)
+                        mstore(add(0x04, fmp), pool)
+                        mstore(add(0x24, fmp), stable)
+                        pop(staticcall(gas(), factory, fmp, 0x44, fmp, 0x20))
+                        let fee := mul(mload(fmp),100)
                         mstore(fmp, or(shl(128, reserve0), reserve1))
                         mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, 1), or(shl(160, fee), pool))))
                         mstore(0x40, add(fmp, 0x40))

@@ -4,6 +4,7 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -89,7 +90,10 @@ func ExecTimeout(d time.Duration) {
 
 type any = interface{}
 
+var mu sync.Mutex
+
 func Log(level int, params ...any) {
+	mu.Lock()
 	if conf.LogLevel >= level || conf.LogLevel == 0 {
 		if level < 0 {
 			log.Panicln(params...)
@@ -97,4 +101,5 @@ func Log(level int, params ...any) {
 			log.Println(params...)
 		}
 	}
+	mu.Unlock()
 }
