@@ -131,24 +131,21 @@ func main() {
 		tokens[i] = *v.Token
 	}
 	number := uint64(0)
-	batch = batch.FindPoolsCheckBlockNumber(conf.MinLiqEth, tokens, conf.Protocols, hBlockn, conf.PoolFinder, "latest", func(res interface{}) {
-		_res, b := res.([]interface{})
-		if !b {
-			err = errors.New("FindPools Err: " + res.(error).Error())
-			return
-		}
-		_pools, b := _res[0].([][][]byte)
-		if !b {
-			err = errors.New("FindPools Err: " + res.(error).Error())
-			return
-		}
-		pools = _pools
-		_number, b := _res[1].(uint64)
+	batch = batch.BlockNumber(func(res interface{}) {
+		_number, b := res.(uint64)
 		if !b {
 			err = errors.New("FindPools Err: " + res.(error).Error())
 			return
 		}
 		number = _number
+	})
+	batch = batch.FindPools(conf.MinLiqEth, tokens, conf.Protocols, conf.PoolFinder, "latest", func(res interface{}) {
+		_pools, b := res.([][][]byte)
+		if !b {
+			err = errors.New("FindPools Err: " + res.(error).Error())
+			return
+		}
+		pools = _pools
 	})
 	minGasPrice := new(big.Int)
 	batch = batch.GasPrice(func(res interface{}) {
@@ -197,7 +194,7 @@ func main() {
 				Log(3, fmt.Sprintf("\nNEW_BATCH {GasPrice:%v, Block:%v, Nonce:%v, ResTime:%v}", minGasPrice, number, nonce, time.Since(sts)))
 				defer func(t time.Time) { Log(3, fmt.Sprintf("END_BATCH %v\n", time.Since(t))) }(time.Now())
 				if nonce < hNonce {
-					Log(3, fmt.Sprintf("nonce(%v)<hNonce(%v)", nonce, hNonce))
+					Log(3, fmt.Sprintf("nonce(%v) < hNonce(%v)", nonce, hNonce))
 					cancel()
 					return
 				}
@@ -207,7 +204,7 @@ func main() {
 					return
 				}
 				if number < hBlockn {
-					Log(3, fmt.Sprintf("number(%v) < hBlockn(%v)", number, hBlockn), len(pools))
+					Log(3, fmt.Sprintf("number(%v) < hBlockn(%v)", number, hBlockn))
 					cancel()
 					return
 				}

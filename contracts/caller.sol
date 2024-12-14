@@ -117,6 +117,7 @@ contract CCaller {
                     require(amIn >= uint256(uint48(poolCall >> 168)) << uint8(poolCall >> 160));
                 }
             }
+            counter++;
         }
     }
 

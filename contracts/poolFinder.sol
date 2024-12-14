@@ -34,12 +34,10 @@ contract CPoolFinder {
         address[] calldata tokens,
         uint256[] calldata protocols,
         uint64 minBlockNumber
-    ) public view returns (bytes[][] memory pools,uint64 blockNumber) {
-        unchecked {
-            require(block.number >= minBlockNumber);
-            pools=findPools(minLiqEth, tokens, protocols);
-            blockNumber=uint64(block.number);
-        }
+    ) public view returns (bytes[][] memory pools, uint64 blockNumber) {
+        require(block.number >= minBlockNumber);
+        pools = findPools(minLiqEth, tokens, protocols);
+        blockNumber = uint64(block.number);
     }
 
     function findPools(
