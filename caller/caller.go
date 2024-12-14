@@ -46,16 +46,28 @@ func (batch Batch) BalanceOf(token *common.Address, account *common.Address, blo
 	return batch.Call(map[string]interface{}{"to": token, "input": hexutil.Encode(data)}, block, bigIntDecoder, callback)
 }
 
-func (batch Batch) FindPools(minLiqEth *big.Int, tokens []common.Address, protocols []Protocol, poolFinder *common.Address, block string, callback func(interface{})) Batch {
+func encodeProtocols(protocols []Protocol) []*big.Int {
 	parsed := make([]*big.Int, len(protocols))
 	for i, v := range protocols {
 		parsed[i] = new(big.Int).SetBytes(append([]byte{v.Id}, v.Factory.Bytes()...))
 	}
-	data, err := PoolFinderABI.Pack("findPools", minLiqEth, tokens, parsed)
+	return parsed
+}
+
+func (batch Batch) FindPools(minLiqEth *big.Int, tokens []common.Address, protocols []Protocol, poolFinder *common.Address, block string, callback func(interface{})) Batch {
+	data, err := PoolFinderABI.Pack("findPools", minLiqEth, tokens, encodeProtocols(protocols))
 	if err != nil {
 		panic(err)
 	}
-	return batch.Call(map[string]interface{}{"to": poolFinder, "input": hexutil.Encode(data)}, block, poolsDecoder, callback)
+	return batch.Call(map[string]interface{}{"to": poolFinder, "input": hexutil.Encode(data)}, block, findPoolsDecoder, callback)
+}
+
+func (batch Batch) FindPoolsCheckBlockNumber(minLiqEth *big.Int, tokens []common.Address, protocols []Protocol, minBlockNumber uint64, poolFinder *common.Address, block string, callback func(interface{})) Batch {
+	data, err := PoolFinderABI.Pack("findPoolsCheckBlockNumber", minLiqEth, tokens, encodeProtocols(protocols), minBlockNumber)
+	if err != nil {
+		panic(err)
+	}
+	return batch.Call(map[string]interface{}{"to": poolFinder, "input": hexutil.Encode(data)}, block, findPoolsCheckBlockNumberDecoder, callback)
 }
 
 func (batch Batch) FindRoutes(maxLen uint8, tIn uint8, amIn *big.Int, pools [][][]byte, gasPrice *big.Int, router *common.Address, block string, callback func(interface{})) Batch {
@@ -63,7 +75,7 @@ func (batch Batch) FindRoutes(maxLen uint8, tIn uint8, amIn *big.Int, pools [][]
 	if err != nil {
 		panic(err)
 	}
-	return batch.Call(map[string]interface{}{"to": router, "gasPrice": hexutil.EncodeBig(gasPrice), "input": hexutil.Encode(data)}, block, routesDecoder, callback)
+	return batch.Call(map[string]interface{}{"to": router, "gasPrice": hexutil.EncodeBig(gasPrice), "input": hexutil.Encode(data)}, block, findRoutesDecoder, callback)
 }
 
 func (batch Batch) EthBalance(account *common.Address, block string, callback func(interface{})) Batch {

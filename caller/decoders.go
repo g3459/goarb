@@ -6,7 +6,7 @@ import (
 	"github.com/g3459/goarb/utils"
 )
 
-func poolsDecoder(result interface{}) interface{} {
+func findPoolsDecoder(result interface{}) interface{} {
 	res, err := PoolFinderABI.Unpack("findPools", utils.DecodeHex(*result.(*string)))
 	if err != nil {
 		return err
@@ -14,7 +14,15 @@ func poolsDecoder(result interface{}) interface{} {
 	return res[0]
 }
 
-func routesDecoder(result interface{}) interface{} {
+func findPoolsCheckBlockNumberDecoder(result interface{}) interface{} {
+	res, err := PoolFinderABI.Unpack("findPoolsCheckBlockNumber", utils.DecodeHex(*result.(*string)))
+	if err != nil {
+		return err
+	}
+	return res
+}
+
+func findRoutesDecoder(result interface{}) interface{} {
 	res, err := RouterABI.Unpack("findRoutes", utils.DecodeHex(*result.(*string)))
 	if err != nil {
 		return err

@@ -16,15 +16,30 @@ contract CPoolFinder {
     uint256 internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
     uint256 internal constant PID_MASK = 0x0000000000000000000000ff0000000000000000000000000000000000000000;
     uint256 internal constant UNIV2_PID = 0x010000000000000000000000000000000000000000;
+    uint256 internal constant UNIV2AL_PID = 0x070000000000000000000000000000000000000000;
+    uint256 internal constant UNIV2PK_PID = 0x080000000000000000000000000000000000000000;
     uint256 internal constant UNIV3_PID = 0;
-    uint256 internal constant UNIV3_PK_PID = 0x050000000000000000000000000000000000000000;
-    uint256 internal constant UNIV3_AL_PID = 0x060000000000000000000000000000000000000000;
+    uint256 internal constant UNIV3PK_PID = 0x050000000000000000000000000000000000000000;
+    uint256 internal constant UNIV3AL_PID = 0x060000000000000000000000000000000000000000;
     uint256 internal constant ALGB_PID = 0x020000000000000000000000000000000000000000;
     uint256 internal constant VELOV2_PID = 0x030000000000000000000000000000000000000000;
     uint256 internal constant VELOV3_PID = 0x040000000000000000000000000000000000000000;
 
     constructor() {
         require(CRouter.FRP == false && CRouter.GPE == false);
+    }
+
+    function findPoolsCheckBlockNumber(
+        uint256 minLiqEth,
+        address[] calldata tokens,
+        uint256[] calldata protocols,
+        uint64 minBlockNumber
+    ) public view returns (bytes[][] memory pools,uint64 blockNumber) {
+        unchecked {
+            require(block.number >= minBlockNumber);
+            pools=findPools(minLiqEth, tokens, protocols);
+            blockNumber=uint64(block.number);
+        }
     }
 
     function findPools(
@@ -66,11 +81,11 @@ contract CPoolFinder {
                     mstoreUniV3Pool(factory, t0, t1, 3000, 60);
                     mstoreUniV3Pool(factory, t0, t1, 10000, 200);
                 } else if (pid == UNIV2_PID) {
-                    mstoreUniV2Pool(factory, t0, t1);
+                    mstoreUniV2Pool(factory, t0, t1, 3000);
                 } else if (pid == ALGB_PID) {
                     mstoreAlgbPool(factory, t0, t1);
                 } else if (pid == VELOV2_PID) {
-                    mstoreVeloV2Pool(factory, t0, t1, true);
+                    //mstoreVeloV2Pool(factory, t0, t1, true);
                     mstoreVeloV2Pool(factory, t0, t1, false);
                 } else if (pid == VELOV3_PID) {
                     mstoreVeloV3Pool(factory, t0, t1, 1);
@@ -78,16 +93,21 @@ contract CPoolFinder {
                     mstoreVeloV3Pool(factory, t0, t1, 100);
                     mstoreVeloV3Pool(factory, t0, t1, 200);
                     mstoreVeloV3Pool(factory, t0, t1, 2000);
-                } else if (pid == UNIV3_PK_PID) {
+                } else if (pid == UNIV2PK_PID) {
+                    mstoreUniV2Pool(factory, t0, t1, 2500);
+                } else if (pid == UNIV3PK_PID) {
                     mstoreUniV3Pool(factory, t0, t1, 100, 1);
                     mstoreUniV3Pool(factory, t0, t1, 500, 10);
                     mstoreUniV3Pool(factory, t0, t1, 2500, 50);
                     mstoreUniV3Pool(factory, t0, t1, 10000, 200);
-                } else if (pid == UNIV3_AL_PID) {
+                } else if (pid == UNIV2AL_PID) {
+                    mstoreUniV2Pool(factory, t0, t1, 1600);
+                } else if (pid == UNIV3AL_PID) {
                     mstoreUniV3Pool(factory, t0, t1, 100, 2);
                     mstoreUniV3Pool(factory, t0, t1, 200, 4);
                     mstoreUniV3Pool(factory, t0, t1, 300, 6);
                     mstoreUniV3Pool(factory, t0, t1, 400, 8);
+                    mstoreUniV3Pool(factory, t0, t1, 750, 15);
                     mstoreUniV3Pool(factory, t0, t1, 3000, 60);
                     mstoreUniV3Pool(factory, t0, t1, 10000, 200);
                 }
@@ -146,7 +166,8 @@ contract CPoolFinder {
     function mstoreUniV2Pool(
         address factory,
         address t0,
-        address t1
+        address t1,
+        uint16 fee
     ) internal view {
         unchecked {
             bytes4 selpool = IUniswapV2Factory(address(0)).getPair.selector;
@@ -166,7 +187,7 @@ contract CPoolFinder {
                     if or(reserve0, reserve1) {
                         let stateHash := keccak256(fmp, 0x20)
                         mstore(fmp, or(shl(128, reserve0), reserve1))
-                        mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, 1), or(shl(160, 3000), pool))))
+                        mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, 1), or(shl(160, fee), pool))))
                         mstore(0x40, add(fmp, 0x40))
                     }
                 }
@@ -280,12 +301,12 @@ contract CPoolFinder {
                     let reserve0 := mload(fmp)
                     let reserve1 := mload(add(fmp, 0x20))
                     if or(reserve0, reserve1) {
-                        let stateHash := keccak256(fmp, 0x40)
+                        let stateHash := keccak256(fmp, 0x20)
                         mstore(fmp, selfee)
                         mstore(add(0x04, fmp), pool)
                         mstore(add(0x24, fmp), stable)
                         pop(staticcall(gas(), factory, fmp, 0x44, fmp, 0x20))
-                        let fee := mul(mload(fmp),100)
+                        let fee := mul(mload(fmp), 100)
                         mstore(fmp, or(shl(128, reserve0), reserve1))
                         mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, 1), or(shl(160, fee), pool))))
                         mstore(0x40, add(fmp, 0x40))

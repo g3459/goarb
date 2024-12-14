@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"math/big"
 	"os"
 	"sync"
@@ -81,7 +81,7 @@ func PoolDif(calls1 []byte, calls2 []byte) bool {
 	return true
 }
 
-func ExecTimeout(d time.Duration) {
+func ExecTime(d time.Duration) {
 	go func() {
 		<-time.After(d)
 		os.Exit(0)
@@ -90,16 +90,19 @@ func ExecTimeout(d time.Duration) {
 
 type any = interface{}
 
-var mu sync.Mutex
+var logLevel int
+
+var logmu sync.Mutex
 
 func Log(level int, params ...any) {
-	mu.Lock()
-	if conf.LogLevel >= level || conf.LogLevel == 0 {
+	logmu.Lock()
+	if logLevel >= level || logLevel == 0 {
 		if level < 0 {
-			log.Panicln(params...)
+			s := fmt.Sprintln(params...)
+			panic(s)
 		} else {
-			log.Println(params...)
+			fmt.Println(params...)
 		}
 	}
-	mu.Unlock()
+	logmu.Unlock()
 }

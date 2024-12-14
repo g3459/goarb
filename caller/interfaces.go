@@ -916,10 +916,15 @@ var CallerABI, _ = abi.JSON(strings.NewReader(`[
 
 var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 	{
+		"inputs": [],
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
 		"inputs": [
 			{
 				"internalType": "uint256",
-				"name": "minEth",
+				"name": "minLiqEth",
 				"type": "uint256"
 			},
 			{
@@ -947,13 +952,52 @@ var PoolFinderABI, _ = abi.JSON(strings.NewReader(`[
 	{
 		"inputs": [
 			{
+				"internalType": "uint256",
+				"name": "minLiqEth",
+				"type": "uint256"
+			},
+			{
+				"internalType": "address[]",
+				"name": "tokens",
+				"type": "address[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "protocols",
+				"type": "uint256[]"
+			},
+			{
+				"internalType": "uint64",
+				"name": "minBlockNumber",
+				"type": "uint64"
+			}
+		],
+		"name": "findPoolsCheckBlockNumber",
+		"outputs": [
+			{
+				"internalType": "bytes[][]",
+				"name": "pools",
+				"type": "bytes[][]"
+			},
+			{
+				"internalType": "uint64",
+				"name": "blockNumber",
+				"type": "uint64"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "address",
-				"name": "token0",
+				"name": "t0",
 				"type": "address"
 			},
 			{
 				"internalType": "address",
-				"name": "token1",
+				"name": "t1",
 				"type": "address"
 			},
 			{
