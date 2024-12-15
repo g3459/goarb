@@ -39,11 +39,11 @@ contract CCaller {
                     poolCall := calldataload(i)
                 }
                 uint256 pid = poolCall & PID_MASK;
-                bytes4 sel = pid == UNIV2_PID ? IUniswapV2Pair.getReserves.selector : pid == UNIV3_PID ? IUniswapV3Pool(address(0)).slot0.selector : IAlgebraPool(address(0)).globalState.selector;
+                bytes4 sel = pid == UNIV2_PID ? IUniswapV2Pair.getReserves.selector : (pid == UNIV3_PID ? IUniswapV3Pool(address(0)).slot0.selector : IAlgebraPool(address(0)).globalState.selector);
                 assembly {
-                    mstore(0x80, sel)
-                    pop(staticcall(gas(), poolCall, 0x80, 0x04, 0x80, 0x20))
-                    if xor(and(keccak256(0x80, 0x20), STATE_MASK), and(poolCall, STATE_MASK)) {
+                    mstore(0, sel)
+                    pop(staticcall(gas(), poolCall, 0, 0x04, 0, 0x20))
+                    if xor(and(keccak256(0, 0x20), STATE_MASK), and(poolCall, STATE_MASK)) {
                         revert(0, 0)
                     }
                 }
@@ -117,7 +117,6 @@ contract CCaller {
                     require(amIn >= uint256(uint48(poolCall >> 168)) << uint8(poolCall >> 160));
                 }
             }
-            counter++;
         }
     }
 

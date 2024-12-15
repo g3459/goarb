@@ -104,7 +104,7 @@ func main() {
 			if !v.Oracle.Active {
 				continue
 			}
-			batch = batch.BalanceOf(v.Token, conf.Caller, "pending", func(res interface{}) {
+			batch = batch.BalanceOf(v.Token, conf.Caller, "latest", func(res interface{}) {
 				am, b := res.(*big.Int)
 				if !b {
 					err = errors.New("BalanceOf " + v.Token.Hex() + " Err: " + res.(error).Error())
@@ -134,7 +134,7 @@ func main() {
 	batch = batch.BlockNumber(func(res interface{}) {
 		_number, b := res.(uint64)
 		if !b {
-			err = errors.New("FindPools Err: " + res.(error).Error())
+			err = errors.New("BlockNumber Err: " + res.(error).Error())
 			return
 		}
 		number = _number
@@ -157,7 +157,7 @@ func main() {
 		minGasPrice = _gasPrice
 	})
 	nonce := uint64(0)
-	batch = batch.Nonce(sender, "pending", func(res interface{}) {
+	batch = batch.Nonce(sender, "latest", func(res interface{}) {
 		var b bool
 		nonce, b = res.(uint64)
 		if !b {
