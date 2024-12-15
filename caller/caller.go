@@ -62,7 +62,7 @@ func (batch Batch) FindPools(minLiqEth *big.Int, tokens []common.Address, protoc
 	return batch.Call(map[string]interface{}{"to": poolFinder, "input": hexutil.Encode(data)}, block, findPoolsDecoder, callback)
 }
 
-func (batch Batch) FindPoolsCheckBlockNumber(minLiqEth *big.Int, tokens []common.Address, protocols []Protocol, minBlockNumber *uint64, poolFinder *common.Address, block string, callback func(interface{})) Batch {
+func (batch Batch) FindPoolsCheckBlockNumber(minLiqEth *big.Int, tokens []common.Address, protocols []Protocol, minBlockNumber uint64, poolFinder *common.Address, block string, callback func(interface{})) Batch {
 	data, err := PoolFinderABI.Pack("findPoolsCheckBlockNumber", minLiqEth, tokens, encodeProtocols(protocols), minBlockNumber)
 	if err != nil {
 		panic(err)

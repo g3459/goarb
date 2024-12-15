@@ -50,9 +50,7 @@ library CRouter {
             amounts = new uint256[](pools.length);
             amounts[t] = amIn;
             calls = new bytes[](pools.length);
-            if (GPE) {
-                gasUsage = new uint256[](pools.length);
-            }
+            if (GPE) gasUsage = new uint256[](pools.length);
             findRoutes(maxLen * 0x20, pools, amounts, calls, gasUsage);
         }
     }
@@ -68,17 +66,11 @@ library CRouter {
             uint256 updated = type(uint256).max >> (256 - pools.length);
             while (updated != 0) {
                 for (uint256 t0; t0 < pools.length; t0++) {
-                    if (updated & (1 << t0) == 0) {
-                        continue;
-                    }
+                    if (updated & (1 << t0) == 0) continue;
                     updated ^= 1 << t0;
-                    if (amounts[t0] == 0 || calls[t0].length == maxLen) {
-                        continue;
-                    }
+                    if (amounts[t0] == 0 || calls[t0].length == maxLen) continue;
                     for (uint256 t1; t1 < pools.length; t1++) {
-                        if (t0 == t1) {
-                            continue;
-                        }
+                        if (t0 == t1) continue;
                         bytes memory _pools;
                         bool direc;
                         if (pools[t0].length > 0 && pools[t0][t1].length > 0) {
@@ -91,9 +83,7 @@ library CRouter {
                         }
                         uint256 eth = t1 == 0 ? 0 : amounts[0];
                         (uint256 hAmOut, uint256 poolCall) = quotePools(amounts[t0] - 1, eth, direc, _pools, calls[t0]);
-                        if (hAmOut <= amounts[t1]) {
-                            continue;
-                        }
+                        if (hAmOut <= amounts[t1]) continue;
                         if (GPE) {
                             uint256 gasNew = gasUsage[t0] + protGas(poolCall & PID_MASK);
                             {
@@ -103,9 +93,7 @@ library CRouter {
                                     gasFeeNew = (hAmOut * gasFeeNew) / eth;
                                     gasFeeCurrent = (hAmOut * gasFeeCurrent) / eth;
                                 }
-                                if (int256(hAmOut - gasFeeNew) <= int256(amounts[t1] - gasFeeCurrent)) {
-                                    continue;
-                                }
+                                if (int256(hAmOut - gasFeeNew) <= int256(amounts[t1] - gasFeeCurrent)) continue;
                             }
                             gasUsage[t1] = gasNew;
                         }
@@ -141,9 +129,7 @@ library CRouter {
                 assembly {
                     slot1 := mload(add(add(_pools, p), 0x40))
                 }
-                if (poolInCalls(calls, uint160(slot1))) {
-                    continue;
-                }
+                if (poolInCalls(calls, uint160(slot1))) continue;
                 uint256 rIn;
                 uint256 rOut;
                 {
@@ -154,37 +140,28 @@ library CRouter {
                     rIn = slot0 >> 128;
                     rOut = uint128(slot0);
                 }
-                if (!direc) {
-                    (rIn, rOut) = (rOut, rIn);
-                }
+                if (!direc) (rIn, rOut) = (rOut, rIn);
                 uint256 fee = uint16(slot1 >> 160);
                 uint256 amOut = amIn * (1e6 - fee);
                 amOut = (amOut * rOut) / (rIn * 1e6 + amOut); ///
-                if (amOut <= hAmOut) {
-                    continue;
-                }
+                if (amOut <= hAmOut) continue;
+
                 uint256 pid = slot1 & PID_MASK;
                 if (pid == UNIV3_PID || pid == ALGB_PID) {
                     int24 s = int24(uint24(uint16(slot1 >> 200)));
                     (int24 tl, int24 tu) = tickBounds(int24(uint24(slot1 >> 176)), s);
-                    if (direc ? ((rOut - amOut) << 128) / (rIn + amIn) < tickSqrtPX64(tl)**2 : ((rIn + amIn) << 128) / (rOut - amOut) > tickSqrtPX64(tu)**2) {
-                        continue;
-                    }
+                    if (direc ? ((rOut - amOut) << 128) / (rIn + amIn) < tickSqrtPX64(tl)**2 : ((rIn + amIn) << 128) / (rOut - amOut) > tickSqrtPX64(tu)**2) continue;
                 }
                 if (GPE) {
                     uint256 gasFee = protGas(pid) * tx.gasprice;
                     if (eth != 0) {
                         gasFee = (amOut * gasFee) / eth;
                     }
-                    if (int256(amOut - gasFee) <= int256(hAmOut - hGasFee)) {
-                        continue;
-                    }
+                    if (int256(amOut - gasFee) <= int256(hAmOut - hGasFee)) continue;
                     if (FRP) {
                         uint256 amOutX2 = (amIn << 1) * (1e6 - fee);
                         amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2);
-                        if (int256(amOutX2 - gasFee) > int256((amOut - gasFee) << 1)) {
-                            continue;
-                        }
+                        if (int256(amOutX2 - gasFee) > int256((amOut - gasFee) << 1)) continue;
                     }
                     hGasFee = gasFee;
                 }
@@ -267,11 +244,8 @@ library CRouter {
                 tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)
             }
             tu = tl + int24(s);
-            if (tl < MIN_TICK) {
-                tl = MIN_TICK;
-            } else if (tu > MAX_TICK) {
-                tu = MAX_TICK;
-            }
+            if (tl < MIN_TICK) tl = MIN_TICK;
+            else if (tu > MAX_TICK) tu = MAX_TICK;
         }
     }
 

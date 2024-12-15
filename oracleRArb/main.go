@@ -77,7 +77,6 @@ var (
 
 func main() {
 	startConf()
-
 	ExecTime(conf.ExecTime * time.Second)
 	///
 	// if len(conf.LogFile) > 0 {
@@ -98,13 +97,19 @@ func main() {
 	//batch declaration
 	var err error
 	batch := caller.Batch{}
+	number := uint64(0)
+	pools := make([][][]byte, len(conf.TokenConfs))
+	tokens := make([]common.Address, len(conf.TokenConfs))
+	for i, v := range conf.TokenConfs {
+		tokens[i] = *v.Token
+	}
 	amounts := make([]*big.Int, len(conf.TokenConfs))
 	if !conf.FakeBalance {
 		for i, v := range conf.TokenConfs {
 			if !v.Oracle.Active {
 				continue
 			}
-			batch = batch.BalanceOf(v.Token, conf.Caller, "latest", func(res interface{}) {
+			batch = batch.BalanceOf(v.Token, conf.Caller, "pending", func(res interface{}) {
 				am, b := res.(*big.Int)
 				if !b {
 					err = errors.New("BalanceOf " + v.Token.Hex() + " Err: " + res.(error).Error())
@@ -125,28 +130,6 @@ func main() {
 			}
 		}
 	}
-	pools := make([][][]byte, len(conf.TokenConfs))
-	tokens := make([]common.Address, len(conf.TokenConfs))
-	for i, v := range conf.TokenConfs {
-		tokens[i] = *v.Token
-	}
-	number := uint64(0)
-	batch = batch.BlockNumber(func(res interface{}) {
-		_number, b := res.(uint64)
-		if !b {
-			err = errors.New("BlockNumber Err: " + res.(error).Error())
-			return
-		}
-		number = _number
-	})
-	batch = batch.FindPools(conf.MinLiqEth, tokens, conf.Protocols, conf.PoolFinder, "latest", func(res interface{}) {
-		_pools, b := res.([][][]byte)
-		if !b {
-			err = errors.New("FindPools Err: " + res.(error).Error())
-			return
-		}
-		pools = _pools
-	})
 	minGasPrice := new(big.Int)
 	batch = batch.GasPrice(func(res interface{}) {
 		_gasPrice, b := res.(*big.Int)
@@ -157,7 +140,7 @@ func main() {
 		minGasPrice = _gasPrice
 	})
 	nonce := uint64(0)
-	batch = batch.Nonce(sender, "latest", func(res interface{}) {
+	batch = batch.Nonce(sender, "pending", func(res interface{}) {
 		var b bool
 		nonce, b = res.(uint64)
 		if !b {
@@ -178,7 +161,15 @@ func main() {
 			go func() {
 				sts := time.Now()
 				err = nil
-				_, err2 := batch.Submit(deadline, rpcclient)
+				_, err2 := batch.FindPoolsCheckBlockNumber(conf.MinLiqEth, tokens, conf.Protocols, hBlockn+1, conf.PoolFinder, "pending", func(res interface{}) {
+					_res, b := res.([]interface{})
+					if !b {
+						err = errors.New("FindPools Err: " + res.(error).Error())
+						return
+					}
+					pools = _res[0].([][][]byte)
+					number = _res[1].(uint64)
+				}).Submit(deadline, rpcclient)
 				if err2 != nil {
 					banClient(rpcclient, conf.Polling*time.Millisecond*30)
 					Log(2, "BatchRPC Err: ", err2)
@@ -191,8 +182,6 @@ func main() {
 					cancel()
 					return
 				}
-				Log(3, fmt.Sprintf("\nNEW_BATCH {GasPrice:%v, Block:%v, Nonce:%v, ResTime:%v}", minGasPrice, number, nonce, time.Since(sts)))
-				defer func(t time.Time) { Log(3, fmt.Sprintf("END_BATCH %v\n", time.Since(t))) }(time.Now())
 				if nonce < hNonce {
 					Log(3, fmt.Sprintf("nonce(%v) < hNonce(%v)", nonce, hNonce))
 					cancel()
@@ -203,8 +192,8 @@ func main() {
 					cancel()
 					return
 				}
-				if number < hBlockn {
-					Log(3, fmt.Sprintf("number(%v) < hBlockn(%v)", number, hBlockn))
+				if number < hBlockn || len(pools) == 0 {
+					Log(3, fmt.Sprintf("number(%v) < hBlockn(%v)", number, hBlockn), len(pools))
 					cancel()
 					return
 				}
@@ -213,6 +202,8 @@ func main() {
 					cancel()
 					return
 				}
+				Log(3, fmt.Sprintf("\nNEW_BATCH {GasPrice:%v, Block:%v, Nonce:%v, ResTime:%v}", minGasPrice, number, nonce, time.Since(sts)))
+				defer func(t time.Time) { Log(3, fmt.Sprintf("END_BATCH %v\n", time.Since(t))) }(time.Now())
 				if number > hBlockn {
 					hBlockn = number
 				}
@@ -329,7 +320,7 @@ func main() {
 								}
 								checkFuncs = append(checkFuncs, f)
 							}(amIn, uint8(i), gasPrice)
-							//Log(5, "START", i, amIn, gasPrice)
+							// Log(5, "START", i, amIn, gasPrice)
 							amIn = new(big.Int).Rsh(amIn, 1)
 						}
 					}
