@@ -314,7 +314,7 @@ func main() {
 										padded := make([]byte, 16)
 										copy(padded[16-len(amIn.Bytes()):], amIn.Bytes())
 										txCalls = append(route.Calls, padded...)
-										txGasLimit = route.GasUsage.Uint64() + 100000
+										txGasLimit = route.GasUsage.Uint64() + 150000
 									}
 								}
 								checkFuncs = append(checkFuncs, f)
