@@ -94,7 +94,7 @@ func main() {
 	// }
 	startUsdOracles()
 	startRpcClients(conf.RpcUrls)
-	//batch declaration
+
 	var err error
 	batch := caller.Batch{}
 	number := uint64(0)
@@ -148,8 +148,7 @@ func main() {
 			return
 		}
 	})
-	///
-	//logic execution
+
 	for {
 		for _, rpcclient := range rpcClients {
 			if clientBanned(rpcclient) {
@@ -324,9 +323,9 @@ func main() {
 							amIn = new(big.Int).Rsh(amIn, 1)
 						}
 					}
-					wg.Wait()
 					gasPrice = new(big.Int).Rsh(gasPrice, 1)
 				}
+				wg.Wait()
 				Log(4, "END_COMP", time.Since(sts2))
 				for time.Now().Compare(dlt) < 0 {
 					for _, f := range checkFuncs {
@@ -425,7 +424,7 @@ func startRpcClients(rpcUrls []string) {
 	}
 	wg.Wait()
 	if len(rpcClients) == 0 {
-		Log(-1, errors.New("Unable to connect any rpc"))
+		Log(-1, "Unable to connect any rpc")
 	}
 }
 
