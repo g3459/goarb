@@ -140,7 +140,7 @@ func main() {
 		minGasPrice = _gasPrice
 	})
 	nonce := uint64(0)
-	batch = batch.Nonce(sender, "pending", func(res interface{}) {
+	batch = batch.Nonce(sender, "latest", func(res interface{}) {
 		var b bool
 		nonce, b = res.(uint64)
 		if !b {
@@ -186,21 +186,21 @@ func main() {
 					cancel()
 					return
 				}
-				if nonce <= lastTxNonce {
-					Log(3, fmt.Sprintf("nonce(%v) <= lastTxNonce(%v)", nonce, lastTxNonce))
-					cancel()
-					return
-				}
+				// if nonce <= lastTxNonce {
+				// 	Log(3, fmt.Sprintf("nonce(%v) <= lastTxNonce(%v)", nonce, lastTxNonce))
+				// 	cancel()
+				// 	return
+				// }
 				if number < hBlockn || len(pools) == 0 {
 					Log(3, fmt.Sprintf("number(%v) < hBlockn(%v)", number, hBlockn), len(pools))
 					cancel()
 					return
 				}
-				if number == hBlockn && nonce == hNonce {
-					Log(3, "number == hBlockn && nonce == hNonce")
-					cancel()
-					return
-				}
+				// if number == hBlockn && nonce == hNonce {
+				// 	Log(3, "number == hBlockn && nonce == hNonce")
+				// 	cancel()
+				// 	return
+				// }
 				Log(3, fmt.Sprintf("\nNEW_BATCH {GasPrice:%v, Block:%v, Nonce:%v, ResTime:%v}", minGasPrice, number, nonce, time.Since(sts)))
 				defer func(t time.Time) { Log(3, fmt.Sprintf("END_BATCH %v\n", time.Since(t))) }(time.Now())
 				if number > hBlockn {
