@@ -51,7 +51,8 @@ contract CCaller {
             // assembly{mstore(0x40,0x80)}
             uint256 amIn;
             assembly {
-                amIn := and(calldataload(sub(calldatasize(), 0x20)), sub(shl(128, 1), 1))
+                let len:=calldatasize()
+                amIn := and(calldataload(sub(len, 0x20)), sub(shl(mulmod(len, 8, 256),1),1))
             }
             for (uint256 i; i <= msg.data.length - 0x20; i += 0x20) {
                 uint256 poolCall;

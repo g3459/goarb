@@ -208,6 +208,10 @@ func main() {
 					cancel()
 					return
 				}
+				if minGasPrice.Cmp(conf.MaxGasPrice) > 0 {
+					Log(3, fmt.Sprintf("blockMinGasPrice(%v) > confMaxGasPrice(%v)", minGasPrice, conf.MaxGasPrice))
+					return
+				}
 				// if number == hBlockn && nonce == hNonce {
 				// 	Log(3, "number == hBlockn && nonce == hNonce")
 				// 	cancel()
@@ -226,7 +230,7 @@ func main() {
 				// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
 				// token := common.HexToAddress("0x4200000000000000000000000000000000000006")
 				// token := common.HexToAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
-				// res, errr := caller.Batch{}.ExecuteApprove(conf.Caller, &token, sender, common.MaxHash.Big(), conf.MinMinerTip, conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
+				// res, errr := caller.Batch{}.ExecuteApprove(conf.Caller, &token, sender, common.MaxHash.Big(), big.NewInt(30000000000), conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
 				// Log(0, res, errr)
 				// return
 				var txCalls []byte
@@ -294,6 +298,11 @@ func main() {
 										ethOut := new(big.Int).Mul(route.AmOut, ethPriceX64Oracle[tOutx])
 										ethOut.Rsh(ethOut, 64)
 										ben := new(big.Int).Sub(ethOut, ethIn)
+										if conf.IsOpRollup {
+											l1Fees := big.NewInt(int64(16*(len(route.Calls)+((amIn.BitLen()+7)/8)) + 1088))
+											l1Fees.Mul(l1Fees, l1GasPrice)
+											ben.Sub(ben, l1Fees)
+										}
 										if ben.Sign() < 0 {
 											Log(5, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ethIn(%vwei)-ethOut(%vwei)<0", ethIn, ethOut))
 											continue
@@ -312,11 +321,6 @@ func main() {
 											continue
 										}
 										txGas.Add(txGas, conf.MinGasBen)
-										if conf.IsOpRollup {
-											l1Fees := big.NewInt(int64(16*len(route.Calls) + 1088))
-											l1Fees.Mul(l1Fees, l1GasPrice)
-											ben.Sub(ben, l1Fees)
-										}
 										gasPriceLimit := new(big.Int).Div(ben, txGas)
 										if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 {
 											Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)<callsGasPriceLimit(%v)", gasPriceLimit, callsGasPriceLimit))
@@ -328,9 +332,7 @@ func main() {
 										}
 										Log(4, tInx, tOutx, amIn, gasPrice, route.Calls, gasPriceLimit)
 										callsGasPriceLimit = gasPriceLimit
-										padded := make([]byte, 16)
-										copy(padded[16-len(amIn.Bytes()):], amIn.Bytes())
-										txCalls = append(route.Calls, padded...)
+										txCalls = append(route.Calls, amIn.Bytes()...)
 										txGasLimit = route.GasUsage.Uint64() + 150000
 									}
 								}

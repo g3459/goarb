@@ -34,12 +34,12 @@ var (
 	opGPOAddr = common.HexToAddress("0x420000000000000000000000000000000000000F")
 )
 
-func S(res interface{}, decoder func(interface{}) interface{}, callback func(interface{}), method string, args ...interface{}) step {
-	return step{&rpc.BatchElem{Method: method, Args: args, Result: res}, decoder, callback}
+func S(decoder func(interface{}) interface{}, callback func(interface{}), method string, args ...interface{}) step {
+	return step{&rpc.BatchElem{Method: method, Args: args, Result: new(interface{})}, decoder, callback}
 }
 
 func (batch Batch) Call(txParams map[string]interface{}, block string, decoder func(interface{}) interface{}, callback func(interface{})) Batch {
-	return append(batch, S(new(string), decoder, callback, "eth_call", txParams, block))
+	return append(batch, S(decoder, callback, "eth_call", txParams, block))
 }
 
 func (batch Batch) BalanceOf(token *common.Address, account *common.Address, block string, callback func(interface{})) Batch {
@@ -91,23 +91,23 @@ func (batch Batch) L1GasPrice(callback func(interface{})) Batch {
 }
 
 func (batch Batch) EthBalance(account *common.Address, block string, callback func(interface{})) Batch {
-	return append(batch, S(new(string), bigIntDecoder, callback, "eth_getBalance", account, block))
+	return append(batch, S(bigIntDecoder, callback, "eth_getBalance", account, block))
 }
 
 func (batch Batch) GasPrice(callback func(interface{})) Batch {
-	return append(batch, S(new(string), bigIntDecoder, callback, "eth_gasPrice"))
+	return append(batch, S(bigIntDecoder, callback, "eth_gasPrice"))
 }
 
 func (batch Batch) ChainId(callback func(interface{})) Batch {
-	return append(batch, S(new(string), uint64Decoder, callback, "eth_chainID"))
+	return append(batch, S(uint64Decoder, callback, "eth_chainID"))
 }
 
 func (batch Batch) BlockNumber(callback func(interface{})) Batch {
-	return append(batch, S(new(string), uint64Decoder, callback, "eth_blockNumber"))
+	return append(batch, S(uint64Decoder, callback, "eth_blockNumber"))
 }
 
 func (batch Batch) Nonce(account *common.Address, block string, callback func(interface{})) Batch {
-	return append(batch, S(new(string), uint64Decoder, callback, "eth_getTransactionCount", account, block))
+	return append(batch, S(uint64Decoder, callback, "eth_getTransactionCount", account, block))
 }
 
 func (batch Batch) SendTx(tx *types.DynamicFeeTx, privateKey *common.Hash, callback func(interface{})) Batch {
@@ -139,15 +139,15 @@ func (batch Batch) ExecuteApprove(caller *common.Address, token *common.Address,
 }
 
 func (batch Batch) SendRawTx(rawTx string, callback func(interface{})) Batch {
-	return append(batch, S(new(string), nil, callback, "eth_sendRawTransaction", rawTx))
+	return append(batch, S(nil, callback, "eth_sendRawTransaction", rawTx))
 }
 
 func (batch Batch) LogsByTopic(topics [][]string, fromBlock string, toBlock string, callback func(interface{})) Batch {
-	return append(batch, S(new([]interface{}), nil, callback, "eth_getLogs", map[string]interface{}{"fromBlock": fromBlock, "toBlock": toBlock, "topics": topics}))
+	return append(batch, S(nil, callback, "eth_getLogs", map[string]interface{}{"fromBlock": fromBlock, "toBlock": toBlock, "topics": topics}))
 }
 
 func (batch Batch) BlockByNumber(block string, callback func(interface{})) Batch {
-	return append(batch, S(new(map[string]interface{}), nil, callback, "eth_getBlockByNumber", block, false))
+	return append(batch, S(nil, callback, "eth_getBlockByNumber", block, false))
 }
 
 func (batch Batch) Submit(ctx context.Context, rpcclient *rpc.Client) ([]interface{}, error) {

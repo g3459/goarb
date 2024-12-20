@@ -7,7 +7,7 @@ import (
 )
 
 func findPoolsDecoder(result interface{}) interface{} {
-	res, err := PoolFinderABI.Unpack("findPools", utils.DecodeHex(*result.(*string)))
+	res, err := PoolFinderABI.Unpack("findPools", (utils.DecodeHex((*result.(*interface{})).(string))))
 	if err != nil {
 		return err
 	}
@@ -15,7 +15,7 @@ func findPoolsDecoder(result interface{}) interface{} {
 }
 
 func findPoolsCheckBlockNumberDecoder(result interface{}) interface{} {
-	res, err := PoolFinderABI.Unpack("findPoolsCheckBlockNumber", utils.DecodeHex(*result.(*string)))
+	res, err := PoolFinderABI.Unpack("findPoolsCheckBlockNumber", (utils.DecodeHex((*result.(*interface{})).(string))))
 	if err != nil {
 		return err
 	}
@@ -23,7 +23,7 @@ func findPoolsCheckBlockNumberDecoder(result interface{}) interface{} {
 }
 
 func findRoutesDecoder(result interface{}) interface{} {
-	res, err := RouterABI.Unpack("findRoutes", utils.DecodeHex(*result.(*string)))
+	res, err := RouterABI.Unpack("findRoutes", (utils.DecodeHex((*result.(*interface{})).(string))))
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func findRoutesDecoder(result interface{}) interface{} {
 }
 
 func bigIntDecoder(result interface{}) interface{} {
-	b := new(big.Int).SetBytes(utils.DecodeHex(*result.(*string)))
+	b := new(big.Int).SetBytes((utils.DecodeHex((*result.(*interface{})).(string))))
 	return b
 }
 
