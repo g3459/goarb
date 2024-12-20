@@ -55,8 +55,9 @@ type Configuration struct {
 	RouteMaxLen uint8 `json:"routeMaxLen"`
 	//LogFile     string            `json:"logFile"`
 	//Timeout     time.Duration     `json:"timeout"`
-	Polling  time.Duration `json:"polling"`
-	ExecTime time.Duration `json:"execTime"`
+	Polling    time.Duration `json:"polling"`
+	ExecTime   time.Duration `json:"execTime"`
+	IsOpRollup bool          `json:"isOpRollup"`
 }
 
 var (
@@ -130,7 +131,18 @@ func main() {
 			}
 		}
 	}
-	minGasPrice := new(big.Int)
+	var l1GasPrice *big.Int
+	if conf.IsOpRollup {
+		batch = batch.L1GasPrice(func(res interface{}) {
+			_l1GasPrice, b := res.(*big.Int)
+			if !b {
+				err = errors.New("L1GasPrice Err: " + res.(error).Error())
+				return
+			}
+			l1GasPrice = _l1GasPrice
+		})
+	}
+	var minGasPrice *big.Int
 	batch = batch.GasPrice(func(res interface{}) {
 		_gasPrice, b := res.(*big.Int)
 		if !b {
@@ -300,6 +312,11 @@ func main() {
 											continue
 										}
 										txGas.Add(txGas, conf.MinGasBen)
+										if conf.IsOpRollup {
+											l1Fees := big.NewInt(int64(16*len(route.Calls) + 1088))
+											l1Fees.Mul(l1Fees, l1GasPrice)
+											ben.Sub(ben, l1Fees)
+										}
 										gasPriceLimit := new(big.Int).Div(ben, txGas)
 										if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 {
 											Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)<callsGasPriceLimit(%v)", gasPriceLimit, callsGasPriceLimit))

@@ -30,6 +30,10 @@ type step struct {
 
 type Batch []step
 
+var (
+	opGPOAddr = common.HexToAddress("0x420000000000000000000000000000000000000F")
+)
+
 func S(res interface{}, decoder func(interface{}) interface{}, callback func(interface{}), method string, args ...interface{}) step {
 	return step{&rpc.BatchElem{Method: method, Args: args, Result: res}, decoder, callback}
 }
@@ -76,6 +80,14 @@ func (batch Batch) FindRoutes(maxLen uint8, tIn uint8, amIn *big.Int, pools [][]
 		panic(err)
 	}
 	return batch.Call(map[string]interface{}{"to": router, "gasPrice": hexutil.EncodeBig(gasPrice), "input": hexutil.Encode(data)}, block, findRoutesDecoder, callback)
+}
+
+func (batch Batch) L1GasPrice(callback func(interface{})) Batch {
+	data, err := OpGPOABI.Pack("l1BaseFee")
+	if err != nil {
+		panic(err)
+	}
+	return batch.Call(map[string]interface{}{"to": opGPOAddr, "input": hexutil.Encode(data)}, "pending", bigIntDecoder, callback)
 }
 
 func (batch Batch) EthBalance(account *common.Address, block string, callback func(interface{})) Batch {
