@@ -230,7 +230,7 @@ func main() {
 				// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
 				// token := common.HexToAddress("0x4200000000000000000000000000000000000006")
 				// token := common.HexToAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
-				// res, errr := caller.Batch{}.ExecuteApprove(conf.Caller, &token, sender, common.MaxHash.Big(), big.NewInt(30000000000), conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
+				// res, errr := caller.Batch{}.ExecuteApprove(conf.Caller, &token, sender, common.MaxHash.Big(), big.NewInt(100), conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
 				// Log(0, res, errr)
 				// return
 				var txCalls []byte
@@ -299,7 +299,7 @@ func main() {
 										ethOut.Rsh(ethOut, 64)
 										ben := new(big.Int).Sub(ethOut, ethIn)
 										if conf.IsOpRollup {
-											l1Fees := big.NewInt(int64(16*(len(route.Calls)+((amIn.BitLen()+7)/8)) + 1088))
+											l1Fees := big.NewInt(int64(16*(len(route.Calls)+int((amIn.BitLen()+7)/8)) + 1088))
 											l1Fees.Mul(l1Fees, l1GasPrice)
 											ben.Sub(ben, l1Fees)
 										}
