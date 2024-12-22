@@ -55,9 +55,10 @@ type Configuration struct {
 	RouteMaxLen uint8 `json:"routeMaxLen"`
 	//LogFile     string            `json:"logFile"`
 	//Timeout     time.Duration     `json:"timeout"`
-	Polling    time.Duration `json:"polling"`
-	ExecTime   time.Duration `json:"execTime"`
-	IsOpRollup bool          `json:"isOpRollup"`
+	Polling       time.Duration `json:"polling"`
+	ExecTime      time.Duration `json:"execTime"`
+	IsOpRollup    bool          `json:"isOpRollup"`
+	MaxL1GasPrice *big.Int      `json:"maxL1GasPrice"`
 }
 
 var (
@@ -212,6 +213,10 @@ func main() {
 					Log(3, fmt.Sprintf("blockMinGasPrice(%v) > confMaxGasPrice(%v)", minGasPrice, conf.MaxGasPrice))
 					return
 				}
+				if conf.IsOpRollup && l1GasPrice.Cmp(conf.MaxL1GasPrice) > 0 {
+					Log(3, fmt.Sprintf("l1GasPrice(%v) > confMaxL1GasPrice(%v)", l1GasPrice, conf.MaxL1GasPrice))
+					return
+				}
 				// if number == hBlockn && nonce == hNonce {
 				// 	Log(3, "number == hBlockn && nonce == hNonce")
 				// 	cancel()
@@ -228,8 +233,12 @@ func main() {
 				// token := common.HexToAddress("0x2791bca1f2de4661ed88a30c99a7a9449aa84174")
 				// token := common.HexToAddress("0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619")
 				// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
-				// token := common.HexToAddress("0x4200000000000000000000000000000000000006")
+
 				// token := common.HexToAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
+				// token := common.HexToAddress("0x4200000000000000000000000000000000000006")
+				// token := common.HexToAddress("0x0b2c639c533813f4aa9d7837caf62653d097ff85")
+				// token := common.HexToAddress("0x7f5c764cbc14f9669b88837ca1490cca17c31607")
+				// token := common.HexToAddress("0x4200000000000000000000000000000000000042")
 				// res, errr := caller.Batch{}.ExecuteApprove(conf.Caller, &token, sender, common.MaxHash.Big(), big.NewInt(100), conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
 				// Log(0, res, errr)
 				// return
