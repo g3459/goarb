@@ -82,7 +82,7 @@ library CRouter {
                             continue;
                         }
                         uint256 eth = t1 == 0 ? 0 : amounts[0];
-                        (uint256 hAmOut, uint256 poolCall) = quotePools(amounts[t0] - 1, eth, direc, _pools, calls[t0]);
+                        (uint256 hAmOut, uint256 poolCall) = quotePools(amounts[t0] - 2, eth, direc, _pools, calls[t0]);
                         if (hAmOut <= amounts[t1]) continue;
                         if (GPE) {
                             uint256 gasNew = gasUsage[t0] + protGas(poolCall & PID_MASK);
@@ -97,8 +97,8 @@ library CRouter {
                             }
                             gasUsage[t1] = gasNew;
                         }
-                        amounts[t1] = hAmOut - 1;
-                        uint256 amOut56bit = compress56bit(hAmOut - 1);
+                        amounts[t1] = hAmOut - 2;
+                        uint256 amOut56bit = compress56bit(hAmOut - 2);
                         poolCall = (poolCall & (STATE_MASK | PID_MASK | ADDRESS_MASK)) | (amOut56bit << 160);
                         if (direc) poolCall |= DIREC_MASK;
                         calls[t1] = bytes.concat(calls[t0], abi.encode(poolCall));
