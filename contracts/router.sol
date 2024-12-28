@@ -1,6 +1,6 @@
-library CRouter {
-    bool internal constant FRP = false;
-    bool internal constant GPE = false;
+contract CRouter {
+    bool internal immutable FRP;
+    bool internal immutable GPE;
 
     uint256 internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
     uint256 internal constant ADDRESS_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
@@ -10,8 +10,17 @@ library CRouter {
     uint256 internal constant UNIV3_PID = 0;
     uint256 internal constant ALGB_PID = 0x02000000000000000000000000000000000000000000000000000000;
     uint256 internal constant VELOV2_PID = 0x03000000000000000000000000000000000000000000000000000000;
+    uint256 internal constant UNIV2AL_PID = 0x07000000000000000000000000000000000000000000000000000000;
+    uint256 internal constant UNIV2PK_PID = 0x08000000000000000000000000000000000000000000000000000000;
+    uint256 internal constant UNIV3PK_PID = 0x05000000000000000000000000000000000000000000000000000000;
+    uint256 internal constant UNIV3AL_PID = 0x06000000000000000000000000000000000000000000000000000000;
+    uint256 internal constant VELOV3_PID = 0x04000000000000000000000000000000000000000000000000000000;
     int24 internal constant MIN_TICK = -887272;
     int24 internal constant MAX_TICK = 887272;
+
+    constructor(bool _FRP, bool _GPE) {
+        (FRP, GPE) = (_FRP, _GPE);
+    }
 
     function findRoutes(
         uint8 maxLen,
@@ -20,25 +29,6 @@ library CRouter {
         bytes[][] memory pools
     )
         public
-        view
-        returns (
-            uint256[] memory amounts,
-            bytes[] memory calls,
-            uint256[] memory gasUsage
-        )
-    {
-        unchecked {
-            return findRoutesInt(maxLen, t, amIn, pools);
-        }
-    }
-
-    function findRoutesInt(
-        uint8 maxLen,
-        uint8 t,
-        uint256 amIn,
-        bytes[][] memory pools
-    )
-        internal
         view
         returns (
             uint256[] memory amounts,
@@ -193,8 +183,6 @@ library CRouter {
 
     function poolInCalls(bytes memory calls, uint160 pool) internal pure returns (bool) {
         unchecked {
-            // uint fees=uint24(slot1>>160);
-            // uint160 pool=uint160(slot1);
             for (uint256 i = 0x20; i <= calls.length; i += 0x20) {
                 uint256 _poolCall;
                 assembly {
@@ -202,19 +190,9 @@ library CRouter {
                 }
                 if (pool == uint160(_poolCall)) {
                     return true;
-                    // uint amounts[t0]=decompress56bit(_poolCall>>160);
-                    // uint amounts[t0]XFee=amounts[t0]*fees;
-                    // bool v2fee = uint8(slot1>>216)==1;
-                    // if(_poolCall&0x8000000000000000000000000000000000000000000000000000000000000000==0){
-                    //     r0-=(amounts[t0]XFee*r0)/(r1*1e6+amounts[t0]XFee);
-                    //     r1+=v2fee?amounts[t0]:(amounts[t0]XFee/1e6);
-                    // }else{
-                    //     r1-=(amounts[t0]XFee*r1)/(r0*1e6+amounts[t0]XFee);
-                    //     r0+=v2fee?amounts[t0]:(amounts[t0]XFee/1e6);
-                    // }
                 }
             }
-            return false; //(r0,r1);
+            return false;
         }
     }
 

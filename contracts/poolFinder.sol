@@ -12,32 +12,7 @@ import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebr
 import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebraPool.sol";
 import "./interfaces/openzeppelin/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-contract CPoolFinder {
-    uint256 internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
-    uint256 internal constant PID_MASK = 0x0000000000000000000000ff0000000000000000000000000000000000000000;
-    uint256 internal constant UNIV2_PID = 0x010000000000000000000000000000000000000000;
-    uint256 internal constant UNIV2AL_PID = 0x070000000000000000000000000000000000000000;
-    uint256 internal constant UNIV2PK_PID = 0x080000000000000000000000000000000000000000;
-    uint256 internal constant UNIV3_PID = 0;
-    uint256 internal constant UNIV3PK_PID = 0x050000000000000000000000000000000000000000;
-    uint256 internal constant UNIV3AL_PID = 0x060000000000000000000000000000000000000000;
-    uint256 internal constant ALGB_PID = 0x020000000000000000000000000000000000000000;
-    uint256 internal constant VELOV2_PID = 0x030000000000000000000000000000000000000000;
-    uint256 internal constant VELOV3_PID = 0x040000000000000000000000000000000000000000;
-
-    constructor() {
-        require(CRouter.FRP == false && CRouter.GPE == false);
-    }
-
-    modifier emptyMem() {
-        assembly {
-            if xor(mload(0x40), 0x80) {
-                revert(0, 0)
-            }
-        }
-        _;
-    }
-
+contract CPoolFinder is CRouter(false, false) {
     function findPoolsCheckBlockNumber(
         uint256 minLiqEth,
         address[] calldata tokens,
@@ -54,7 +29,7 @@ contract CPoolFinder {
         uint256 minLiqEth,
         address[] calldata tokens,
         uint256[] calldata protocols
-    ) public view emptyMem returns (bytes[][] memory pools) {
+    ) public view returns (bytes[][] memory pools) {
         unchecked {
             assembly {
                 mstore(0x40, 0xe4)
@@ -68,7 +43,7 @@ contract CPoolFinder {
                     pools[t0][t1] = _pools;
                 }
             }
-            (uint256[] memory amounts, , ) = CRouter.findRoutesInt(2, 0, minLiqEth, pools);
+            (uint256[] memory amounts, , ) = findRoutes(2, 0, minLiqEth, pools);
             filterPools(amounts, pools);
         }
     }
@@ -196,7 +171,7 @@ contract CPoolFinder {
                         let stateHash := keccak256(0x80, 0x20)
                         let fmp := mload(0x40)
                         mstore(fmp, or(shl(128, reserve0), reserve1))
-                        mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, 1), or(shl(160, fee), pool))))
+                        mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(UNIV2_PID, or(shl(160, fee), pool))))
                         mstore(0x40, add(fmp, 0x40))
                     }
                 }
@@ -237,7 +212,7 @@ contract CPoolFinder {
                             let stateHash := keccak256(0x80, 0x20)
                             let fmp := mload(0x40)
                             mstore(fmp, or(shl(128, reserve0), reserve1))
-                            mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, 0), or(shl(200, s), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
+                            mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(UNIV3_PID, or(shl(200, s), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
                             mstore(0x40, add(fmp, 0x40))
                         }
                     }
@@ -277,7 +252,7 @@ contract CPoolFinder {
                             let fee := mload(0xc0)
                             let fmp := mload(0x40)
                             mstore(fmp, or(shl(128, reserve0), reserve1))
-                            mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, 2), or(shl(200, 60), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
+                            mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(ALGB_PID, or(shl(200, 60), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
                             mstore(0x40, add(fmp, 0x40))
                         }
                     }
@@ -317,7 +292,7 @@ contract CPoolFinder {
                         let fee := mul(mload(0x80), 100)
                         let fmp := mload(0x40)
                         mstore(fmp, or(shl(128, reserve0), reserve1))
-                        mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, 1), or(shl(160, fee), pool))))
+                        mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(UNIV2_PID, or(shl(160, fee), pool))))
                         mstore(0x40, add(fmp, 0x40))
                     }
                 }
@@ -362,7 +337,7 @@ contract CPoolFinder {
                             let stateHash := keccak256(0x80, 0x20)
                             let fmp := mload(0x40)
                             mstore(fmp, or(shl(128, reserve0), reserve1))
-                            mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(shl(216, 0), or(shl(200, s), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
+                            mstore(add(fmp, 0x20), or(and(stateHash, STATE_MASK), or(UNIV3_PID, or(shl(200, s), or(shl(176, and(t, 0xffffff)), or(shl(160, fee), pool))))))
                             mstore(0x40, add(fmp, 0x40))
                         }
                     }

@@ -34,6 +34,16 @@ var (
 	opGPOAddr = common.HexToAddress("0x420000000000000000000000000000000000000F")
 )
 
+func encodeProtocols(protocols []Protocol) []*big.Int {
+	parsed := make([]*big.Int, len(protocols))
+	for i, v := range protocols {
+		t := [12]byte{}
+		t[4] = v.Id
+		parsed[i] = new(big.Int).SetBytes(append(t[:], v.Factory.Bytes()...))
+	}
+	return parsed
+}
+
 func S(decoder func(interface{}) interface{}, callback func(interface{}), method string, args ...interface{}) step {
 	return step{&rpc.BatchElem{Method: method, Args: args, Result: new(interface{})}, decoder, callback}
 }
@@ -48,14 +58,6 @@ func (batch Batch) BalanceOf(token *common.Address, account *common.Address, blo
 		panic(err)
 	}
 	return batch.Call(map[string]interface{}{"to": token, "input": hexutil.Encode(data)}, block, bigIntDecoder, callback)
-}
-
-func encodeProtocols(protocols []Protocol) []*big.Int {
-	parsed := make([]*big.Int, len(protocols))
-	for i, v := range protocols {
-		parsed[i] = new(big.Int).SetBytes(append([]byte{v.Id}, v.Factory.Bytes()...))
-	}
-	return parsed
 }
 
 func (batch Batch) FindPools(minLiqEth *big.Int, tokens []common.Address, protocols []Protocol, poolFinder *common.Address, block string, callback func(interface{})) Batch {
