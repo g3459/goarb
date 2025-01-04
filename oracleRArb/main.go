@@ -378,13 +378,12 @@ func main() {
 										Log(3, "ExecutePoolCallsRPC Err: ", err)
 										return
 									}
-									r := *res[0].(*interface{})
-									hash, b := r.(string)
+									r, b := res[0].(*interface{})
 									if !b {
-										Log(3, "ExecutePoolCallsSend Err: ", r.(error))
+										Log(3, "ExecutePoolCallsSend Err: ", res[0].(error))
 										return
 									}
-									Log(3, hash, number)
+									Log(3, (*r).(string), number)
 								}(rpcclient)
 							}
 						}
