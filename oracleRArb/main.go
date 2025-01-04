@@ -245,7 +245,7 @@ func main() {
 				var txCalls []byte
 				var txGasLimit uint64
 				var checkFuncs []func() = make([]func(), 0)
-				callsGasPriceLimit := new(big.Int).Set(minGasPrice)
+				callsGasPriceLimit := new(big.Int)
 				gasPrice := new(big.Int).Lsh(conf.MaxGasPrice, 2)
 				for i := range conf.TokenConfs {
 					if amounts[i] == nil {
@@ -330,18 +330,22 @@ func main() {
 											continue
 										}
 										gasPriceLimit := new(big.Int).Div(ben, txGas)
-										if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 {
-											Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)<callsGasPriceLimit(%v)", gasPriceLimit, callsGasPriceLimit))
+										if gasPriceLimit.Cmp(minGasPrice) < 0 {
+											Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)<minGasPrice(%v)", gasPriceLimit, minGasPrice))
 											continue
 										}
 										if gasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
 											Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)>MaxGasPrice(%v)", gasPriceLimit, conf.MaxGasPrice))
 											continue
 										}
+										if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 && len(txCalls) <= len(route.Calls) {
+											Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)<callsGasPriceLimit(%v)&&len(txCalls)(%v)<=len(route.Calls)(%v)", gasPriceLimit, callsGasPriceLimit, len(txCalls), len(route.Calls)))
+											continue
+										}
 										Log(4, tInx, tOutx, amIn, gasPrice, route.Calls, gasPriceLimit)
 										callsGasPriceLimit = gasPriceLimit
 										txCalls = append(route.Calls, amIn.Bytes()...)
-										txGasLimit = route.GasUsage + 150000
+										txGasLimit = route.GasUsage + conf.MinGasBen
 									}
 								}
 								checkFuncs = append(checkFuncs, f)
