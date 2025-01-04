@@ -775,6 +775,22 @@ var RouterABI, _ = abi.JSON(strings.NewReader(`[
 	{
 		"inputs": [
 			{
+				"internalType": "bool",
+				"name": "_FRP",
+				"type": "bool"
+			},
+			{
+				"internalType": "bool",
+				"name": "_GPE",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "uint8",
 				"name": "maxLen",
 				"type": "uint8"
@@ -808,9 +824,9 @@ var RouterABI, _ = abi.JSON(strings.NewReader(`[
 				"type": "bytes[]"
 			},
 			{
-				"internalType": "uint256[]",
+				"internalType": "uint64[]",
 				"name": "gasUsage",
-				"type": "uint256[]"
+				"type": "uint64[]"
 			}
 		],
 		"stateMutability": "view",

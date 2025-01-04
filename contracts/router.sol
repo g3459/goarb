@@ -33,14 +33,14 @@ contract CRouter {
         returns (
             uint256[] memory amounts,
             bytes[] memory calls,
-            uint256[] memory gasUsage
+            uint64[] memory gasUsage
         )
     {
         unchecked {
             amounts = new uint256[](pools.length);
             amounts[t] = amIn;
             calls = new bytes[](pools.length);
-            if (GPE) gasUsage = new uint256[](pools.length);
+            if (GPE) gasUsage = new uint64[](pools.length);
             findRoutes(maxLen * 0x20, pools, amounts, calls, gasUsage);
         }
     }
@@ -50,7 +50,7 @@ contract CRouter {
         bytes[][] memory pools,
         uint256[] memory amounts,
         bytes[] memory calls,
-        uint256[] memory gasUsage
+        uint64[] memory gasUsage
     ) internal view {
         unchecked {
             uint256 updated = type(uint256).max >> (256 - pools.length);
@@ -85,7 +85,7 @@ contract CRouter {
                                 }
                                 if (int256(hAmOut - gasFeeNew) <= int256(amounts[t1] - gasFeeCurrent)) continue;
                             }
-                            gasUsage[t1] = gasNew;
+                            gasUsage[t1] = uint64(gasNew);
                         }
                         amounts[t1] = hAmOut - 2;
                         uint256 amOut56bit = compress56bit(hAmOut - 2);

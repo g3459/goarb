@@ -29,7 +29,7 @@ func findRoutesDecoder(result interface{}) interface{} {
 	}
 	amounts := res[0].([]*big.Int)
 	calls := res[1].([][]byte)
-	gasUsage := res[2].([]*big.Int)
+	gasUsage := res[2].([]uint64)
 	routes := make([]Route, len(amounts))
 	for i := range routes {
 		routes[i].AmOut = amounts[i]
