@@ -173,7 +173,7 @@ func main() {
 			go func() {
 				sts := time.Now()
 				err = nil
-				_, err2 := batch.FindPoolsCheckBlockNumber(conf.MinLiqEth, tokens, conf.Protocols, hBlockn+1, conf.PoolFinder, "pending", func(res interface{}) {
+				_, err2 := batch.FindPoolsCheckBlockNumber(conf.MinLiqEth, tokens, conf.Protocols, hBlockn+1, conf.PoolFinder, "latest", func(res interface{}) {
 					_res, b := res.([]interface{})
 					if !b {
 						err = errors.New("FindPools Err: " + res.(error).Error())
@@ -270,7 +270,7 @@ func main() {
 							wg.Add(1)
 							go func(amIn *big.Int, tInx uint8, gasPrice *big.Int) {
 								defer wg.Done()
-								res, err := new(caller.Batch).FindRoutes(conf.RouteMaxLen, tInx, amIn, pools, gasPrice, router, "pending", nil).Submit(context.Background(), simClient)
+								res, err := new(caller.Batch).FindRoutes(conf.RouteMaxLen, tInx, amIn, pools, gasPrice, router, "pending", nil).Submit(deadline, simClient)
 								if err != nil {
 									Log(2, "FindRoutesRPC Err: ", err)
 									return
@@ -375,7 +375,7 @@ func main() {
 										Log(3, "ExecutePoolCallsRPC Err: ", err)
 										return
 									}
-									hash, b := res[0].(*string)
+									hash, b := (*res[0].(*interface{})).(*string)
 									if !b {
 										Log(3, "ExecutePoolCallsSend Err: ", res[0].(error))
 										return
