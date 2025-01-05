@@ -256,7 +256,7 @@ func main() {
 				var wg sync.WaitGroup
 				Log(4, "START_COMP")
 				sts2 := time.Now()
-				for gasPrice.Cmp(minGasPrice) >= 0 {
+				for gasPrice.Cmp(minGasPrice) >= 0 && txCalls == nil {
 					for i := range conf.TokenConfs {
 						if amounts[i] == nil {
 							continue
@@ -348,19 +348,22 @@ func main() {
 										txGasLimit = route.GasUsage + conf.MinGasBen
 									}
 								}
+								f()
 								checkFuncs = append(checkFuncs, f)
 							}(amIn, uint8(i), gasPrice)
 							// Log(5, "START", i, amIn, gasPrice)
 							amIn = new(big.Int).Rsh(amIn, 1)
 						}
 					}
+					wg.Wait()
 					gasPrice = new(big.Int).Rsh(gasPrice, 1)
 				}
-				wg.Wait()
 				Log(4, "END_COMP", time.Since(sts2))
-				for time.Now().Compare(dlt) < 0 {
-					for _, f := range checkFuncs {
-						f()
+				for time.Now().Compare(dlt) <= 0 {
+					if txCalls == nil {
+						for _, f := range checkFuncs {
+							f()
+						}
 					}
 					if txCalls != nil {
 						Log(1, txCalls, callsGasPriceLimit, number)
@@ -387,7 +390,7 @@ func main() {
 								}(rpcclient)
 							}
 						}
-						return
+						break
 					}
 					<-time.After(time.Millisecond * 100)
 				}
