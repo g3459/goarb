@@ -37,29 +37,30 @@ type TokenConf struct {
 }
 
 type Configuration struct {
-	PrivateKey  *common.Hash      `json:"privateKey"`
-	PoolFinder  *common.Address   `json:"poolFinder"`
-	Caller      *common.Address   `json:"caller"`
-	TokenConfs  []TokenConf       `json:"tokens"`
-	RpcUrls     []string          `json:"rpcUrls"`
-	ChainId     *big.Int          `json:"chainId"`
-	MinEth      *big.Int          `json:"minEth"`
-	MinLiqEth   *big.Int          `json:"minLiqEth"`
-	MaxGasPrice *big.Int          `json:"maxGasPrice"`
-	MinGasBen   uint64            `json:"minGasBen"`
-	MinRatio    float64           `json:"minRatio"`
-	Protocols   []caller.Protocol `json:"protocols"`
-	FakeBalance bool              `json:"fakeBalance"`
-	LogLevel    int               `json:"logLevel"`
+	PrivateKey    *common.Hash      `json:"privateKey"`
+	PoolFinder    *common.Address   `json:"poolFinder"`
+	Caller        *common.Address   `json:"caller"`
+	TokenConfs    []TokenConf       `json:"tokens"`
+	RpcUrls       []string          `json:"rpcUrls"`
+	ChainId       *big.Int          `json:"chainId"`
+	MinEth        *big.Int          `json:"minEth"`
+	MinLiqEth     *big.Int          `json:"minLiqEth"`
+	MaxGasPrice   *big.Int          `json:"maxGasPrice"`
+	MinGasBen     uint64            `json:"minGasBen"`
+	MinRatio      float64           `json:"minRatio"`
+	Protocols     []caller.Protocol `json:"protocols"`
+	FakeBalance   bool              `json:"fakeBalance"`
+	LogLevel      int               `json:"logLevel"`
+	RouteMaxLen   uint8             `json:"routeMaxLen"`
+	Polling       time.Duration     `json:"polling"`
+	ExecTime      time.Duration     `json:"execTime"`
+	IsOpRollup    bool              `json:"isOpRollup"`
+	MaxL1GasPrice *big.Int          `json:"maxL1GasPrice"`
+	MinL1GasBen   uint64            `json:"minL1GasBen"`
+	L1GasMult     float64           `json:"L1GasMult"`
 	//RouteDepth  uint8             `json:"routeDepth"`
-	RouteMaxLen uint8 `json:"routeMaxLen"`
 	//LogFile     string            `json:"logFile"`
 	//Timeout     time.Duration     `json:"timeout"`
-	Polling       time.Duration `json:"polling"`
-	ExecTime      time.Duration `json:"execTime"`
-	IsOpRollup    bool          `json:"isOpRollup"`
-	MaxL1GasPrice *big.Int      `json:"maxL1GasPrice"`
-	MinL1GasBen   uint64        `json:"minL1GasBen"`
 }
 
 var (
@@ -308,7 +309,7 @@ func main() {
 										ethOut.Rsh(ethOut, 64)
 										ben := new(big.Int).Sub(ethOut, ethIn)
 										if conf.IsOpRollup {
-											l1Fees := big.NewInt(int64(16*(len(route.Calls)+int((amIn.BitLen()+7)/8)) + 1088 + int(conf.MinL1GasBen)))
+											l1Fees := big.NewInt(int64(float64(16*(len(route.Calls)+int((amIn.BitLen()+7)/8))+1088)*conf.L1GasMult + float64(conf.MinL1GasBen)))
 											l1Fees.Mul(l1Fees, l1GasPrice)
 											ben.Sub(ben, l1Fees)
 										}
