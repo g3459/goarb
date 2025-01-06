@@ -81,6 +81,7 @@ var (
 
 func main() {
 	startConf()
+	Log(3, conf)
 	ExecTime(conf.ExecTime * time.Second)
 	///
 	// if len(conf.LogFile) > 0 {
