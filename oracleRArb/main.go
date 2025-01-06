@@ -43,9 +43,9 @@ type Configuration struct {
 	TokenConfs  []TokenConf       `json:"tokens"`
 	RpcUrls     []string          `json:"rpcUrls"`
 	ChainId     *big.Int          `json:"chainId"`
-	MaxGasPrice *big.Int          `json:"maxGasPrice"`
 	MinEth      *big.Int          `json:"minEth"`
 	MinLiqEth   *big.Int          `json:"minLiqEth"`
+	MaxGasPrice *big.Int          `json:"maxGasPrice"`
 	MinGasBen   uint64            `json:"minGasBen"`
 	MinRatio    float64           `json:"minRatio"`
 	Protocols   []caller.Protocol `json:"protocols"`
@@ -59,6 +59,7 @@ type Configuration struct {
 	ExecTime      time.Duration `json:"execTime"`
 	IsOpRollup    bool          `json:"isOpRollup"`
 	MaxL1GasPrice *big.Int      `json:"maxL1GasPrice"`
+	MinL1GasBen   uint64        `json:"minL1GasBen"`
 }
 
 var (
@@ -233,7 +234,6 @@ func main() {
 				// token := common.HexToAddress("0x2791bca1f2de4661ed88a30c99a7a9449aa84174")
 				// token := common.HexToAddress("0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619")
 				// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
-
 				// token := common.HexToAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
 				// token := common.HexToAddress("0x4200000000000000000000000000000000000006")
 				// token := common.HexToAddress("0x0b2c639c533813f4aa9d7837caf62653d097ff85")
@@ -308,7 +308,7 @@ func main() {
 										ethOut.Rsh(ethOut, 64)
 										ben := new(big.Int).Sub(ethOut, ethIn)
 										if conf.IsOpRollup {
-											l1Fees := big.NewInt(int64(16*(len(route.Calls)+int((amIn.BitLen()+7)/8)) + 1088))
+											l1Fees := big.NewInt(int64(16*(len(route.Calls)+int((amIn.BitLen()+7)/8)) + 1088 + int(conf.MinL1GasBen)))
 											l1Fees.Mul(l1Fees, l1GasPrice)
 											ben.Sub(ben, l1Fees)
 										}
