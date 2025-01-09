@@ -316,7 +316,13 @@ func main() {
 										ethOut.Rsh(ethOut, 64)
 										ben := new(big.Int).Sub(ethOut, ethIn)
 										if conf.IsOpRollup {
-											l1Fees := big.NewInt(int64(float64(16*(len(route.Calls)+int((amIn.BitLen()+7)/8))+1088)*conf.L1GasMult + float64(conf.MinL1GasBen)))
+											l1Base := float64(16*(len(route.Calls)+int((amIn.BitLen()+7)/8)) + 1088)
+											if l1Base*conf.L1GasMult > l1Base+float64(conf.MinL1GasBen) {
+												l1Base *= conf.L1GasMult
+											} else {
+												l1Base += float64(conf.MinL1GasBen)
+											}
+											l1Fees := big.NewInt(int64(l1Base))
 											l1Fees.Mul(l1Fees, l1GasPrice)
 											ben.Sub(ben, l1Fees)
 										}
