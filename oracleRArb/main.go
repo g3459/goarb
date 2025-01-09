@@ -58,6 +58,7 @@ type Configuration struct {
 	MaxL1GasPrice *big.Int          `json:"maxL1GasPrice"`
 	MinL1GasBen   uint64            `json:"minL1GasBen"`
 	L1GasMult     float64           `json:"L1GasMult"`
+	PendingBlock  bool              `json:"pendingBlock"`
 	//RouteDepth  uint8             `json:"routeDepth"`
 	//LogFile     string            `json:"logFile"`
 	//Timeout     time.Duration     `json:"timeout"`
@@ -164,7 +165,12 @@ func main() {
 			return
 		}
 	})
-
+	var rqBlock string
+	if conf.PendingBlock {
+		rqBlock = "pending"
+	} else {
+		rqBlock = "latest"
+	}
 	for {
 		for _, rpcclient := range rpcClients {
 			if clientBanned(rpcclient) {
@@ -176,7 +182,7 @@ func main() {
 			go func() {
 				sts := time.Now()
 				err = nil
-				_, err2 := batch.FindPoolsCheckBlockNumber(conf.MinLiqEth, tokens, conf.Protocols, hBlockn+1, conf.PoolFinder, "latest", func(res interface{}) {
+				_, err2 := batch.FindPoolsCheckBlockNumber(conf.MinLiqEth, tokens, conf.Protocols, hBlockn+1, conf.PoolFinder, rqBlock, func(res interface{}) {
 					_res, b := res.([]interface{})
 					if !b {
 						err = errors.New("FindPools Err: " + res.(error).Error())
