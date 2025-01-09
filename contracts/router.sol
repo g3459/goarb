@@ -132,8 +132,8 @@ contract CRouter {
                 }
                 if (!direc) (rIn, rOut) = (rOut, rIn);
                 uint256 fee = uint16(slot1 >> 160);
-                uint256 amOut = amIn * (1e6 - fee);
-                amOut = (amOut * rOut) / (rIn * 1e6 + amOut); ///
+                uint256 amInXFee = amIn * (1e6 - fee);
+                uint256 amOut = (amInXFee * rOut) / (rIn * 1e6 + amInXFee); ///
                 if (amOut <= hAmOut) continue;
 
                 uint256 pid = slot1 & PID_MASK;
@@ -149,9 +149,16 @@ contract CRouter {
                     }
                     if (int256(amOut - gasFee) <= int256(hAmOut - hGasFee)) continue;
                     if (FRP) {
-                        uint256 amOutX2 = (amIn << 1) * (1e6 - fee);
-                        amOutX2 = (amOutX2 * rOut) / (rIn * 1e6 + amOutX2);
-                        if (int256(amOutX2 - gasFee) > int256((amOut - gasFee) << 1)) continue;
+                        {
+                            uint256 amOutLsh1 = (amInXFee << 1);
+                            amOutLsh1 = (amOutLsh1 * rOut) / (rIn * 1e6 + amOutLsh1);
+                            if (int256(amOutLsh1 - gasFee) > int256((amOut - gasFee) << 1)) continue;
+                        }
+                        {
+                            uint256 amOutRsh1 = (amInXFee >> 1);
+                            amOutRsh1 = (amOutRsh1 * rOut) / (rIn * 1e6 + amOutRsh1);
+                            if (int256(amOutRsh1 - gasFee) > int256((amOut - gasFee) >> 1)) continue;
+                        }
                     }
                     hGasFee = gasFee;
                 }
