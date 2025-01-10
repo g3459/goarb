@@ -288,9 +288,9 @@ func main() {
 									Log(2, amIn, tInx, "FindRoutesExec Err: ", res[0].(error))
 									return
 								}
-								ethIn := new(big.Int).Mul(amIn, ethPriceX64Oracle[tInx])
-								ethIn.Rsh(ethIn, 64)
 								f := func() {
+									ethIn := new(big.Int).Mul(amIn, ethPriceX64Oracle[tInx])
+									ethIn.Rsh(ethIn, 64)
 									for tOutx, route := range routes {
 										// ll := 0
 										// if len(pools[tInx]) > 0 {
