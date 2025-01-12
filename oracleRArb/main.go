@@ -312,6 +312,10 @@ func main() {
 											Log(5, tInx, tOutx, amIn, gasPrice, "calls==lastCalls", lastCalls)
 											continue
 										}
+										if txCalls != nil && int(len(route.Calls)/32) > int(len(txCalls)/32) {
+											Log(5, tInx, tOutx, amIn, gasPrice, "len(calls)>len(txCalls)", lastCalls)
+											continue
+										}
 										ethOut := new(big.Int).Mul(route.AmOut, ethPriceX64Oracle[tOutx])
 										ethOut.Rsh(ethOut, 64)
 										ben := new(big.Int).Sub(ethOut, ethIn)
