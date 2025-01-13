@@ -170,7 +170,7 @@ contract CRouter {
 
     function protGas(uint256 pid) internal pure returns (uint256) {
         unchecked {
-            return pid == ALGB_PID ? 300000 : 100000;
+            return pid == ALGB_PID ? 300000 : 120000;
         }
     }
 
