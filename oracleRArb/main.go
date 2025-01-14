@@ -412,7 +412,8 @@ func main() {
 								}
 								for i := 0; i < len(txCalls)-32; i += 32 {
 									poolState := [4]byte(txCalls[i : i+4])
-									poolStatesBanMap[[4]byte(txCalls[i:i+4])] = true
+									poolState[0] |= 0x7f
+									poolStatesBanMap[poolState] = true
 									Log(3, "Banned:", poolState)
 								}
 								lastTxNonce = nonce
