@@ -154,7 +154,7 @@ func main() {
 		minGasPrice = _gasPrice
 	})
 	nonce := uint64(0)
-	batch = batch.Nonce(sender, "pending", func(res interface{}) {
+	batch = batch.Nonce(sender, "latest", func(res interface{}) {
 		var b bool
 		nonce, b = res.(uint64)
 		if !b {
