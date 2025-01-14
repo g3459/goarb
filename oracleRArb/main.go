@@ -72,7 +72,6 @@ var (
 	simClient         *rpc.Client
 	hBlockn           uint64
 	hNonce            uint64
-	lastTxNonce       uint64
 	poolStatesBanMap  = make(map[[4]byte]bool)
 	sender            *common.Address
 	//logFile           *os.File
@@ -208,11 +207,6 @@ func main() {
 					cancel()
 					return
 				}
-				if nonce <= lastTxNonce {
-					Log(3, fmt.Sprintf("nonce(%v) <= lastTxNonce(%v)", nonce, lastTxNonce))
-					cancel()
-					return
-				}
 				if number < hBlockn || pools == nil || len(pools) == 0 {
 					Log(3, fmt.Sprintf("number(%v) < hBlockn(%v)", number, hBlockn), len(pools))
 					cancel()
@@ -239,191 +233,190 @@ func main() {
 				if nonce > hNonce {
 					hNonce = nonce
 				}
-				for time.Now().Compare(dlt) <= 0 {
-					for t0 := range pools {
-						for t1 := range pools[t0] {
-							for i := len(pools[t0][t1]) - 64; i >= 0; i -= 64 {
-								poolState := [4]byte(pools[t0][t1][i : i+4])
-								if poolStatesBanMap[[4]byte(pools[t0][t1][i:i+4])] {
-									pools[t0][t1] = append(pools[t0][t1][:i], pools[t0][t1][i+64:]...)
-									Log(3, "poolState Discarted:", poolState)
-								}
+				//for time.Now().Compare(dlt) <= 0 {
+				for t0 := range pools {
+					for t1 := range pools[t0] {
+						for i := len(pools[t0][t1]) - 64; i >= 0; i -= 64 {
+							poolState := [4]byte(pools[t0][t1][i : i+4])
+							if poolStatesBanMap[poolState] {
+								pools[t0][t1] = append(pools[t0][t1][:i], pools[t0][t1][i+64:]...)
+								Log(3, "poolState Discarted:", poolState)
 							}
 						}
 					}
-					// token := common.HexToAddress("0x2791bca1f2de4661ed88a30c99a7a9449aa84174")
-					// token := common.HexToAddress("0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619")
-					// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
-					// token := common.HexToAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
-					// token := common.HexToAddress("0x4200000000000000000000000000000000000006")
-					// token := common.HexToAddress("0x0b2c639c533813f4aa9d7837caf62653d097ff85")
-					// token := common.HexToAddress("0x7f5c764cbc14f9669b88837ca1490cca17c31607")
-					// token := common.HexToAddress("0x4200000000000000000000000000000000000042")
-					// res, errr := caller.Batch{}.ExecuteApprove(conf.Caller, &token, sender, common.MaxHash.Big(), big.NewInt(100), conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
-					// Log(0, res, errr)
-					// return
-					var txCalls []byte
-					var txGasLimit uint64
-					var checkFuncs []func() = make([]func(), 0)
-					callsGasPriceLimit := new(big.Int)
-					gasPrice := new(big.Int).Lsh(conf.MaxGasPrice, 2)
+				}
+				// token := common.HexToAddress("0x2791bca1f2de4661ed88a30c99a7a9449aa84174")
+				// token := common.HexToAddress("0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619")
+				// token := common.HexToAddress("0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
+				// token := common.HexToAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
+				// token := common.HexToAddress("0x4200000000000000000000000000000000000006")
+				// token := common.HexToAddress("0x0b2c639c533813f4aa9d7837caf62653d097ff85")
+				// token := common.HexToAddress("0x7f5c764cbc14f9669b88837ca1490cca17c31607")
+				// token := common.HexToAddress("0x4200000000000000000000000000000000000042")
+				// res, errr := caller.Batch{}.ExecuteApprove(conf.Caller, &token, sender, common.MaxHash.Big(), big.NewInt(100), conf.MaxGasPrice, nonce, conf.ChainId, conf.PrivateKey, nil).Submit(context.Background(), rpcclient)
+				// Log(0, res, errr)
+				// return
+				var txCalls []byte
+				var txGasLimit uint64
+				var checkFuncs []func() = make([]func(), 0)
+				callsGasPriceLimit := new(big.Int)
+				gasPrice := new(big.Int).Lsh(conf.MaxGasPrice, 2)
+				for i := range conf.TokenConfs {
+					if amounts[i] == nil {
+						continue
+					}
+					Log(4, "Token:", conf.TokenConfs[i].Token, ", AmIn:", amounts[i], ", Price:", ethPriceX64Oracle[i])
+				}
+				var wg sync.WaitGroup
+				Log(4, "START_COMP")
+				sts2 := time.Now()
+				for gasPrice.Cmp(minGasPrice) >= 0 {
 					for i := range conf.TokenConfs {
 						if amounts[i] == nil {
 							continue
 						}
-						Log(4, "Token:", conf.TokenConfs[i].Token, ", AmIn:", amounts[i], ", Price:", ethPriceX64Oracle[i])
-					}
-					var wg sync.WaitGroup
-					Log(4, "START_COMP")
-					sts2 := time.Now()
-					for gasPrice.Cmp(minGasPrice) >= 0 {
-						for i := range conf.TokenConfs {
-							if amounts[i] == nil {
-								continue
-							}
-							if ethPriceX64Oracle[i] == nil {
-								continue
-							}
-							amInMin := new(big.Int).Div(new(big.Int).Lsh(conf.MinEth, 64), ethPriceX64Oracle[i])
-							amIn := new(big.Int).Set(amounts[i])
-							for amIn.Cmp(amInMin) > 0 {
-								wg.Add(1)
-								go func(amIn *big.Int, tInx uint8, gasPrice *big.Int) {
-									defer wg.Done()
-									res, err := new(caller.Batch).FindRoutes(conf.RouteMaxLen, tInx, amIn, pools, gasPrice, router, "pending", nil).Submit(deadline, simClient)
-									if err != nil {
-										Log(2, "FindRoutesRPC Err: ", err)
-										return
-									}
-									routes, b := res[0].([]caller.Route)
-									if !b {
-										Log(2, amIn, tInx, "FindRoutesExec Err: ", res[0].(error))
-										return
-									}
-									f := func() {
-										ethIn := new(big.Int).Mul(amIn, ethPriceX64Oracle[tInx])
-										ethIn.Rsh(ethIn, 64)
-										for tOutx, route := range routes {
-											// ll := 0
-											// if len(pools[tInx]) > 0 {
-											// 	ll += len(pools[tInx][tOutx]) / 0x40
-											// }
-											// if len(pools[tOutx]) > 0 {
-											// 	ll += len(pools[tOutx][tInx]) / 0x40
-											// }
-											// fmt.Println(tInx, tOutx, amIn, route.AmOut, len(route.Calls)/0x20, ll, route.GasUsage)
-											// continue
-											if ethPriceX64Oracle[tOutx] == nil {
-												continue
-											}
-											if len(route.Calls) == 0 {
-												Log(5, tInx, tOutx, amIn, gasPrice, "noCalls")
-												continue
-											}
-											if txCalls != nil && int(len(route.Calls)/32) > int(len(txCalls)/32) {
-												Log(5, tInx, tOutx, amIn, gasPrice, "len(calls)>len(txCalls)")
-												continue
-											}
-											ethOut := new(big.Int).Mul(route.AmOut, ethPriceX64Oracle[tOutx])
-											ethOut.Rsh(ethOut, 64)
-											ben := new(big.Int).Sub(ethOut, ethIn)
-											if conf.IsOpRollup {
-												l1BaseGas := float64(16*(len(route.Calls)+int((amIn.BitLen()+7)/8)) + 1088)
-												if l1BaseGas*conf.L1GasMult > l1BaseGas+float64(conf.MinL1GasBen) {
-													l1BaseGas *= conf.L1GasMult
-												} else {
-													l1BaseGas += float64(conf.MinL1GasBen)
-												}
-												l1Fees := big.NewInt(int64(l1BaseGas))
-												l1Fees.Mul(l1Fees, l1GasPrice)
-												ben.Sub(ben, l1Fees)
-											}
-											if ben.Sign() < 0 {
-												Log(5, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ethIn(%vwei)-ethOut(%vwei)<0", ethIn, ethOut))
-												continue
-											}
-											ratiotemp := new(big.Float).SetInt(ethOut)
-											ratiotemp.Quo(ratiotemp, new(big.Float).SetInt(ethIn))
-											ratio, _ := ratiotemp.Float64()
-											if ratio < conf.MinRatio {
-												Log(5, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ratio(%v)<MinRatio(%v)", ratio, conf.MinRatio))
-												continue
-											}
-											txGas := big.NewInt(int64(route.GasUsage + conf.MinGasBen))
-											gasFees := new(big.Int).Mul(txGas, gasPrice)
-											if new(big.Int).Sub(ben, gasFees).Sign() > 0 {
-												Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ben(%vwei)-gasFees(%vwei)>0", ben, gasFees))
-												continue
-											}
-											gasPriceLimit := new(big.Int).Div(ben, txGas)
-											if gasPriceLimit.Cmp(minGasPrice) < 0 {
-												Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)<minGasPrice(%v)", gasPriceLimit, minGasPrice))
-												continue
-											}
-											if gasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
-												Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)>MaxGasPrice(%v)", gasPriceLimit, conf.MaxGasPrice))
-												continue
-											}
-											if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 && len(txCalls) <= len(route.Calls) {
-												Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)<callsGasPriceLimit(%v)&&len(txCalls)(%v)<=len(route.Calls)(%v)", gasPriceLimit, callsGasPriceLimit, len(txCalls), len(route.Calls)))
-												continue
-											}
-											Log(4, tInx, tOutx, amIn, gasPrice, route.Calls, gasPriceLimit)
-											callsGasPriceLimit = gasPriceLimit
-											txCalls = append(route.Calls, amIn.Bytes()...)
-											txGasLimit = route.GasUsage + conf.MinGasBen
-										}
-									}
-									checkFuncs = append(checkFuncs, f)
-								}(amIn, uint8(i), gasPrice)
-								// Log(5, "START", i, amIn, gasPrice)
-								amIn = new(big.Int).Rsh(amIn, 1)
-							}
+						if ethPriceX64Oracle[i] == nil {
+							continue
 						}
-						gasPrice = new(big.Int).Rsh(gasPrice, 1)
-					}
-					wg.Wait()
-					Log(4, "END_COMP", time.Since(sts2))
-					for time.Now().Compare(dlt) <= 0 {
-						for _, f := range checkFuncs {
-							f()
-						}
-						if txCalls != nil {
-							Log(1, txCalls, callsGasPriceLimit, number)
-							if !conf.FakeBalance {
-								if callsGasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
-									callsGasPriceLimit.Set(conf.MaxGasPrice)
+						amInMin := new(big.Int).Div(new(big.Int).Lsh(conf.MinEth, 64), ethPriceX64Oracle[i])
+						amIn := new(big.Int).Set(amounts[i])
+						for amIn.Cmp(amInMin) > 0 {
+							wg.Add(1)
+							go func(amIn *big.Int, tInx uint8, gasPrice *big.Int) {
+								defer wg.Done()
+								res, err := new(caller.Batch).FindRoutes(conf.RouteMaxLen, tInx, amIn, pools, gasPrice, router, "pending", nil).Submit(deadline, simClient)
+								if err != nil {
+									Log(2, "FindRoutesRPC Err: ", err)
+									return
 								}
-								txb := new(caller.Batch).SendTx(&types.DynamicFeeTx{ChainID: conf.ChainId, Nonce: nonce, GasTipCap: callsGasPriceLimit, GasFeeCap: callsGasPriceLimit, Gas: txGasLimit, To: conf.Caller, Value: new(big.Int), Data: txCalls, AccessList: AccessListForCalls(txCalls)}, conf.PrivateKey, nil)
-								for _, rpcclient := range rpcClients {
-									go func(rpcclient *rpc.Client) {
-										res, err := txb.Submit(context.Background(), rpcclient)
-										if err != nil {
-											Log(3, "ExecutePoolCallsRPC Err: ", err)
-											return
+								routes, b := res[0].([]caller.Route)
+								if !b {
+									Log(2, amIn, tInx, "FindRoutesExec Err: ", res[0].(error))
+									return
+								}
+								f := func() {
+									ethIn := new(big.Int).Mul(amIn, ethPriceX64Oracle[tInx])
+									ethIn.Rsh(ethIn, 64)
+									for tOutx, route := range routes {
+										// ll := 0
+										// if len(pools[tInx]) > 0 {
+										// 	ll += len(pools[tInx][tOutx]) / 0x40
+										// }
+										// if len(pools[tOutx]) > 0 {
+										// 	ll += len(pools[tOutx][tInx]) / 0x40
+										// }
+										// fmt.Println(tInx, tOutx, amIn, route.AmOut, len(route.Calls)/0x20, ll, route.GasUsage)
+										// continue
+										if ethPriceX64Oracle[tOutx] == nil {
+											continue
 										}
-										r, b := res[0].(*interface{})
-										if !b {
-											Log(3, "ExecutePoolCallsSend Err: ", res[0].(error))
-											return
+										if len(route.Calls) == 0 {
+											Log(5, tInx, tOutx, amIn, gasPrice, "noCalls")
+											continue
 										}
-										Log(3, (*r).(string), number)
-									}(rpcclient)
+										if txCalls != nil && int(len(route.Calls)/32) > int(len(txCalls)/32) {
+											Log(5, tInx, tOutx, amIn, gasPrice, "len(calls)>len(txCalls)")
+											continue
+										}
+										ethOut := new(big.Int).Mul(route.AmOut, ethPriceX64Oracle[tOutx])
+										ethOut.Rsh(ethOut, 64)
+										ben := new(big.Int).Sub(ethOut, ethIn)
+										if conf.IsOpRollup {
+											l1BaseGas := float64(16*(len(route.Calls)+int((amIn.BitLen()+7)/8)) + 1088)
+											if l1BaseGas*conf.L1GasMult > l1BaseGas+float64(conf.MinL1GasBen) {
+												l1BaseGas *= conf.L1GasMult
+											} else {
+												l1BaseGas += float64(conf.MinL1GasBen)
+											}
+											l1Fees := big.NewInt(int64(l1BaseGas))
+											l1Fees.Mul(l1Fees, l1GasPrice)
+											ben.Sub(ben, l1Fees)
+										}
+										if ben.Sign() < 0 {
+											Log(5, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ethIn(%vwei)-ethOut(%vwei)<0", ethIn, ethOut))
+											continue
+										}
+										ratiotemp := new(big.Float).SetInt(ethOut)
+										ratiotemp.Quo(ratiotemp, new(big.Float).SetInt(ethIn))
+										ratio, _ := ratiotemp.Float64()
+										if ratio < conf.MinRatio {
+											Log(5, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ratio(%v)<MinRatio(%v)", ratio, conf.MinRatio))
+											continue
+										}
+										txGas := big.NewInt(int64(route.GasUsage + conf.MinGasBen))
+										gasFees := new(big.Int).Mul(txGas, gasPrice)
+										if new(big.Int).Sub(ben, gasFees).Sign() > 0 {
+											Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ben(%vwei)-gasFees(%vwei)>0", ben, gasFees))
+											continue
+										}
+										gasPriceLimit := new(big.Int).Div(ben, txGas)
+										if gasPriceLimit.Cmp(minGasPrice) < 0 {
+											Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)<minGasPrice(%v)", gasPriceLimit, minGasPrice))
+											continue
+										}
+										if gasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
+											Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)>MaxGasPrice(%v)", gasPriceLimit, conf.MaxGasPrice))
+											continue
+										}
+										if gasPriceLimit.Cmp(callsGasPriceLimit) < 0 && len(txCalls) <= len(route.Calls) {
+											Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)<callsGasPriceLimit(%v)&&len(txCalls)(%v)<=len(route.Calls)(%v)", gasPriceLimit, callsGasPriceLimit, len(txCalls), len(route.Calls)))
+											continue
+										}
+										Log(4, tInx, tOutx, amIn, gasPrice, route.Calls, gasPriceLimit)
+										callsGasPriceLimit = gasPriceLimit
+										txCalls = append(route.Calls, amIn.Bytes()...)
+										txGasLimit = route.GasUsage + conf.MinGasBen
+									}
 								}
-								for i := 0; i < len(txCalls)-32; i += 32 {
-									poolState := [4]byte(txCalls[i : i+4])
-									poolState[0] |= 0x7f
-									poolStatesBanMap[poolState] = true
-									Log(3, "Banned:", poolState)
-								}
-								lastTxNonce = nonce
-								nonce++
-							}
-							break
+								checkFuncs = append(checkFuncs, f)
+							}(amIn, uint8(i), gasPrice)
+							// Log(5, "START", i, amIn, gasPrice)
+							amIn = new(big.Int).Rsh(amIn, 1)
 						}
-						<-time.After(time.Millisecond * 100)
 					}
+					gasPrice = new(big.Int).Rsh(gasPrice, 1)
 				}
+				wg.Wait()
+				Log(4, "END_COMP", time.Since(sts2))
+				for time.Now().Compare(dlt) <= 0 {
+					for _, f := range checkFuncs {
+						f()
+					}
+					if txCalls != nil {
+						Log(1, txCalls, callsGasPriceLimit, number)
+						if !conf.FakeBalance {
+							if callsGasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
+								callsGasPriceLimit.Set(conf.MaxGasPrice)
+							}
+							txb := new(caller.Batch).SendTx(&types.DynamicFeeTx{ChainID: conf.ChainId, Nonce: hNonce, GasTipCap: callsGasPriceLimit, GasFeeCap: callsGasPriceLimit, Gas: txGasLimit, To: conf.Caller, Value: new(big.Int), Data: txCalls, AccessList: AccessListForCalls(txCalls)}, conf.PrivateKey, nil)
+							for _, rpcclient := range rpcClients {
+								go func(rpcclient *rpc.Client) {
+									res, err := txb.Submit(context.Background(), rpcclient)
+									if err != nil {
+										Log(3, "ExecutePoolCallsRPC Err: ", err)
+										return
+									}
+									r, b := res[0].(*interface{})
+									if !b {
+										Log(3, "ExecutePoolCallsSend Err: ", res[0].(error))
+										return
+									}
+									Log(3, (*r).(string), number)
+								}(rpcclient)
+							}
+							for i := 0; i < len(txCalls)-32; i += 32 {
+								poolState := [4]byte(txCalls[i : i+4])
+								poolState[0] |= 0x7f
+								poolStatesBanMap[poolState] = true
+								Log(3, "Banned:", poolState)
+							}
+							hNonce++
+						}
+						break
+					}
+					<-time.After(time.Millisecond * 100)
+				}
+				//}
 			}()
 			<-deadline.Done()
 			cancel()
