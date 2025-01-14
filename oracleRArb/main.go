@@ -198,7 +198,7 @@ func main() {
 					return
 				}
 				if err != nil {
-					banClient(rpcclient, conf.Polling*time.Millisecond*30)
+					//banClient(rpcclient, conf.Polling*time.Millisecond*30)
 					Log(2, "BatchExec Err: ", err)
 					cancel()
 					return
