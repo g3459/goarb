@@ -192,13 +192,13 @@ func main() {
 					number = _res[1].(uint64)
 				}).Submit(deadline, rpcclient)
 				if err2 != nil {
-					banClient(rpcclient, conf.Polling*time.Millisecond*30)
+					banClient(rpcclient, conf.Polling*time.Millisecond*10)
 					Log(2, "BatchRPC Err: ", err2)
 					cancel()
 					return
 				}
 				if err != nil {
-					banClient(rpcclient, conf.Polling*time.Millisecond*30)
+					banClient(rpcclient, conf.Polling*time.Millisecond*10)
 					Log(2, "BatchExec Err: ", err)
 					cancel()
 					return
