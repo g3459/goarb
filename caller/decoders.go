@@ -1,6 +1,7 @@
 package caller
 
 import (
+	"log"
 	"math/big"
 
 	"github.com/g3459/goarb/utils"
@@ -23,6 +24,8 @@ func findPoolsCheckBlockNumberDecoder(result interface{}) interface{} {
 }
 
 func findRoutesDecoder(result interface{}) interface{} {
+	log.Println((*result.(*interface{})).(string))
+
 	res, err := RouterABI.Unpack("findRoutes", (utils.DecodeHex((*result.(*interface{})).(string))))
 	if err != nil {
 		return err
