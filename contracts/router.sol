@@ -58,7 +58,7 @@ contract CRouter {
                 for (uint256 t0; t0 < pools.length; t0++) {
                     if (updated & (1 << t0) == 0) continue;
                     updated ^= 1 << t0;
-                    if (amounts[t0] == 0 || calls[t0].length == maxLen) continue;
+                    if (amounts[t0] ==0 || calls[t0].length == maxLen) continue;
                     for (uint256 t1; t1 < pools.length; t1++) {
                         if (t0 == t1) continue;
                         bytes memory _pools;
@@ -72,54 +72,15 @@ contract CRouter {
                             continue;
                         }
                         uint256 eth = t1 == 0 ? 0 : amounts[0];
-                        (uint256 hAmOut, uint256 poolCall) = quotePools(amounts[t0] - 2, eth, direc, _pools, calls[t0]);
-                        if (hAmOut <= amounts[t1]) continue;
-                        if (GPE) {
-                            uint256 gasNew = gasUsage[t0] + protGas(poolCall & PID_MASK);
-                            {
-                                uint256 gasFeeNew = gasNew * tx.gasprice;
-                                uint256 gasFeeCurrent = gasUsage[t1] * tx.gasprice;
-                                if (eth != 0) {
-                                    gasFeeNew = (hAmOut * gasFeeNew) / eth;
-                                    gasFeeCurrent = (hAmOut * gasFeeCurrent) / eth;
-                                }
-                                if (int256(hAmOut - gasFeeNew) <= int256(amounts[t1] - gasFeeCurrent)) continue;
-                            }
-                            gasUsage[t1] = uint64(gasNew);
-                        }
-                        amounts[t1] = hAmOut - 2;
-                        uint256 amOut56bit = compress56bit(hAmOut - 2);
-                        poolCall = (poolCall & (STATE_MASK | PID_MASK | ADDRESS_MASK)) | (amOut56bit << 160);
-                        if (direc) poolCall |= DIREC_MASK;
-                        calls[t1] = bytes.concat(calls[t0], abi.encode(poolCall));
-                        updated |= 1 << t1;
-                    }
-                }
-            }
-        }
-    }
-
-    // function decompress56bit(uint compressed)internal pure returns (uint){
-    //     unchecked{
-    //         return uint(uint48(compressed>>8))<<uint8(compressed);
-    //     }
-    // }
-
-    function quotePools(
-        uint256 amIn,
-        uint256 eth,
-        bool direc,
-        bytes memory _pools,
-        bytes memory calls
-    ) internal view returns (uint256 hAmOut, uint256 poolCall) {
-        unchecked {
-            uint256 hGasFee;
+                        // (uint256 hAmOut, uint256 poolCall) = quotePools(amounts[t0] - 2, eth, direc, _pools);
+            uint poolCall;
+            uint hAmOut;
+            //uint hGasFee;
             for (uint256 p; p < _pools.length; p += 0x40) {
                 uint256 slot1;
                 assembly {
                     slot1 := mload(add(add(_pools, p), 0x40))
                 }
-                if (poolInCalls(calls, uint160(slot1))) continue;
                 uint256 rIn;
                 uint256 rOut;
                 {
@@ -131,21 +92,26 @@ contract CRouter {
                     rOut = uint128(slot0);
                 }
                 if (!direc) (rIn, rOut) = (rOut, rIn);
-                uint256 fee = uint16(slot1 >> 160);
-                uint256 amInXFee = amIn * (1e6 - fee);
+                uint amIn = amounts[t0] - 2;
+                uint256 amInXFee = (amIn) * (1e6 - uint16(slot1 >> 160));
                 uint256 amOut = (amInXFee * rOut) / (rIn * 1e6 + amInXFee); ///
                 if (amOut <= hAmOut) continue;
-
                 uint256 pid = slot1 & PID_MASK;
                 if (pid == UNIV3_PID || pid == ALGB_PID) {
-                    int24 s = int24(uint24(uint16(slot1 >> 200)));
-                    (int24 tl, int24 tu) = tickBounds(int24(uint24(slot1 >> 176)), s);
+                    int24 tl;int24 tu;
+                    {
+                        int24 s = int24(uint24(uint16(slot1 >> 200)));
+                        tl = tickLower(int24(uint24(slot1 >> 176)), s);
+                        tu=tl+s;
+                    }
                     if (direc ? ((rOut - amOut) << 128) / (rIn + amIn) < tickSqrtPX64(tl)**2 : ((rIn + amIn) << 128) / (rOut - amOut) > tickSqrtPX64(tu)**2) continue;
                 }
                 if (GPE) {
                     uint256 gasFee = protGas(pid) * tx.gasprice;
+                    uint256 hGasFee = protGas(pid) * tx.gasprice;
                     if (eth != 0) {
                         gasFee = (amOut * gasFee) / eth;
+                        hGasFee = (amOut * hGasFee) / eth;
                     }
                     if (int256(amOut - gasFee) <= int256(hAmOut - hGasFee)) continue;
                     if (FRP) {
@@ -165,8 +131,35 @@ contract CRouter {
                 hAmOut = amOut;
                 poolCall = slot1;
             }
+
+                        amounts[t1] = hAmOut - 2;
+                        uint256 amOut56bit = compress56bit(hAmOut - 2);
+                        poolCall = (poolCall & (STATE_MASK | PID_MASK | ADDRESS_MASK)) | (amOut56bit << 160);
+                        if (direc) poolCall |= DIREC_MASK;
+                        calls[t1] = bytes.concat(calls[t0], abi.encode(poolCall));
+                        updated |= 1 << t1;
+                    }
+                }
+            }
         }
     }
+
+    // function decompress56bit(uint compressed)internal pure returns (uint){
+    //     unchecked{
+    //         return uint(uint48(compressed>>8))<<uint8(compressed);
+    //     }
+    // }
+
+    // function quotePools(
+    //     uint256 amIn,
+    //     uint256 eth,
+    //     bool direc,
+    //     bytes memory _pools
+    // ) internal view returns (uint256 hAmOut, uint256 poolCall) {
+    //     unchecked {
+            
+    //     }
+    // }
 
     function protGas(uint256 pid) internal pure returns (uint256) {
         unchecked {
@@ -185,21 +178,6 @@ contract CRouter {
             temp <<= 8;
             temp |= rsh;
             return temp;
-        }
-    }
-
-    function poolInCalls(bytes memory calls, uint160 pool) internal pure returns (bool) {
-        unchecked {
-            for (uint256 i = 0x20; i <= calls.length; i += 0x20) {
-                uint256 _poolCall;
-                assembly {
-                    _poolCall := mload(add(calls, i))
-                }
-                if (pool == uint160(_poolCall)) {
-                    return true;
-                }
-            }
-            return false;
         }
     }
 
@@ -223,19 +201,18 @@ contract CRouter {
     //     }
     // }
 
-    function tickBounds(int24 t, int24 s) internal pure returns (int24 tl, int24 tu) {
+    function tickLower(int24 t, int24 s) internal pure returns (int24 tl) {
         unchecked {
             assembly {
                 tl := mul(sub(sdiv(t, s), and(slt(t, 0), smod(t, s))), s)
             }
-            tu = tl + int24(s);
-            if (tl < MIN_TICK) tl = MIN_TICK;
-            else if (tu > MAX_TICK) tu = MAX_TICK;
         }
     }
 
     function tickSqrtPX64(int24 tick) internal pure returns (uint256 sqrtPX64) {
         unchecked {
+            if (tick < MIN_TICK) tick = MIN_TICK;
+            else if (tick > MAX_TICK) tick = MAX_TICK;
             uint256 absTick;
             assembly {
                 tick := signextend(2, tick)

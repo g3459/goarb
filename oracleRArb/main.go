@@ -79,7 +79,10 @@ var (
 func main() {
 	startConf()
 	Log(3, conf)
-	ExecTime(conf.ExecTime * time.Second)
+	go func() {
+		<-time.After(conf.ExecTime * time.Second)
+		os.Exit(0)
+	}()
 	///
 	// if len(conf.LogFile) > 0 {
 	// 	logFile, err = os.OpenFile(conf.LogFile, os.O_APPEND|os.O_WRONLY, 0600)
@@ -96,10 +99,8 @@ func main() {
 	// }
 	startUsdOracles()
 	startRpcClients(conf.RpcUrls)
-
 	var err error
 	batch := caller.Batch{}
-
 	tokens := make([]common.Address, len(conf.TokenConfs))
 	for i, v := range conf.TokenConfs {
 		tokens[i] = *v.Token
@@ -154,7 +155,7 @@ func main() {
 	nonces := make([]uint64, len(conf.PrivateKeys))
 	for i, v := range conf.PrivateKeys {
 		sender := crypto.PubkeyToAddress(crypto.ToECDSAUnsafe(v[:]).PublicKey)
-		batch = batch.Nonce(&sender, "pending", func(res interface{}) {
+		batch = batch.Nonce(&sender, "latest", func(res interface{}) {
 			var b bool
 			nonces[i], b = res.(uint64)
 			if !b {
@@ -216,16 +217,11 @@ func main() {
 					Log(3, fmt.Sprintf("l1GasPrice(%v) > confMaxL1GasPrice(%v)", l1GasPrice, conf.MaxL1GasPrice))
 					return
 				}
-				// if number == hBlockn && nonce == hNonce {
-				// 	Log(3, "number == hBlockn && nonce == hNonce")
-				// 	cancel()
-				// 	return
-				// }
-				Log(3, fmt.Sprintf("\nNEW_BATCH {GasPrice:%v, Block:%v, ResTime:%v}", minGasPrice, number, time.Since(sts)))
-				defer func(t time.Time) { Log(3, fmt.Sprintf("END_BATCH %v\n", time.Since(t))) }(time.Now())
 				if number > hBlockn {
 					hBlockn = number
 				}
+				Log(3, fmt.Sprintf("\nNEW_BATCH {GasPrice:%v, Block:%v, ResTime:%v}", minGasPrice, number, time.Since(sts)))
+				defer func(t time.Time) { Log(3, fmt.Sprintf("END_BATCH %v\n", time.Since(t))) }(time.Now())
 				for privIx, priv := range conf.PrivateKeys {
 					for t0 := range pools {
 						for t1 := range pools[t0] {

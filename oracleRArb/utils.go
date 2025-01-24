@@ -3,29 +3,11 @@ package main
 import (
 	"fmt"
 	"math/big"
-	"os"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
-
-// func ExecuteCallsGas(calls []byte) uint64 {
-// 	return CallsGas(calls) + 60000
-// }
-
-// func CallsGas(calls []byte) uint64 {
-// 	gas := uint64(0)
-// 	for i := 0; i < len(calls); i += 32 {
-// 		if calls[i+4] == 2 {
-// 			gas += 300000
-// 		} else {
-// 			gas += 100000
-// 		}
-// 	}
-// 	return gas
-// }
 
 func AccessListForCalls(calls []byte) types.AccessList {
 	al := []types.AccessTuple{}
@@ -79,13 +61,6 @@ func PoolDif(calls1 []byte, calls2 []byte) bool {
 		}
 	}
 	return true
-}
-
-func ExecTime(d time.Duration) {
-	go func() {
-		<-time.After(d)
-		os.Exit(0)
-	}()
 }
 
 type any = interface{}
