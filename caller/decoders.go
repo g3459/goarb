@@ -1,7 +1,6 @@
 package caller
 
 import (
-	"log"
 	"math/big"
 
 	"github.com/g3459/goarb/utils"
@@ -24,22 +23,12 @@ func findPoolsCheckBlockNumberDecoder(result interface{}) interface{} {
 }
 
 func findRoutesDecoder(result interface{}) interface{} {
-	log.Println((*result.(*interface{})).(string))
-
 	res, err := RouterABI.Unpack("findRoutes", (utils.DecodeHex((*result.(*interface{})).(string))))
 	if err != nil {
 		return err
 	}
-	amounts := res[0].([]*big.Int)
-	calls := res[1].([][]byte)
-	gasUsage := res[2].([]uint64)
-	routes := make([]Route, len(amounts))
-	for i := range routes {
-		routes[i].AmOut = amounts[i]
-		routes[i].Calls = calls[i]
-		routes[i].GasUsage = gasUsage[i]
-	}
-	return routes
+	calls := res[0].([][]byte)
+	return calls
 }
 
 func bigIntDecoder(result interface{}) interface{} {

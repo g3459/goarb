@@ -11,12 +11,6 @@ import (
 	"github.com/g3459/goarb/utils"
 )
 
-type Route struct {
-	AmOut    *big.Int `json:"amOut"`
-	Calls    []byte   `json:"calls"`
-	GasUsage uint64   `json:"gasUsage"`
-}
-
 type Protocol struct {
 	Factory *common.Address `json:"factory"`
 	Id      uint8           `json:"id"`
@@ -77,7 +71,7 @@ func (batch Batch) FindPoolsCheckBlockNumber(minLiqEth *big.Int, tokens []common
 }
 
 func (batch Batch) FindRoutes(maxLen uint8, tIn uint8, amIn *big.Int, pools [][][]byte, gasPrice *big.Int, router *common.Address, block string, callback func(interface{})) Batch {
-	data, err := RouterABI.Pack("findRoutes", maxLen, tIn, amIn, pools)
+	data, err := RouterABI.Pack("findRoutes", maxLen, pools, amIn, tIn)
 	if err != nil {
 		panic(err)
 	}

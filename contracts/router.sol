@@ -1,6 +1,6 @@
 contract CRouter {
-    bool internal immutable FRP;
-    bool internal immutable GPE;
+    bool internal constant FRP = false;
+    bool internal constant GPE = false;
 
     uint256 internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
     uint256 internal constant ADDRESS_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
@@ -18,47 +18,34 @@ contract CRouter {
     int24 internal constant MIN_TICK = -887272;
     int24 internal constant MAX_TICK = 887272;
 
-    constructor(bool _FRP, bool _GPE) {
-        (FRP, GPE) = (_FRP, _GPE);
-    }
-
-    function findRoutes(
-        uint8 maxLen,
-        uint8 t,
-        uint256 amIn,
-        bytes[][] memory pools
-    )
-        public
-        view
-        returns (
-            uint256[] memory amounts,
-            bytes[] memory calls,
-            uint64[] memory gasUsage
-        )
-    {
-        unchecked {
-            amounts = new uint256[](pools.length);
-            amounts[t] = amIn;
-            calls = new bytes[](pools.length);
-            if (GPE) gasUsage = new uint64[](pools.length);
-            findRoutes(maxLen * 0x20, pools, amounts, calls, gasUsage);
-        }
-    }
 
     function findRoutes(
         uint8 maxLen,
         bytes[][] memory pools,
-        uint256[] memory amounts,
-        bytes[] memory calls,
-        uint64[] memory gasUsage
-    ) internal view {
+        uint amIn,
+        uint8 tIn
+    ) public view returns (bytes[] memory calls) {
+        unchecked{
+            uint256[] memory amounts=new uint[](pools.length);
+            amounts[tIn]=amIn;
+            return findRoutes(maxLen*0x20,pools,amounts);
+        }
+    }
+
+    function findRoutes(
+        uint maxLen,
+        bytes[][] memory pools,
+        uint256[] memory amounts
+    ) internal view returns (bytes[] memory calls) {
         unchecked {
+            calls = new bytes[](pools.length);
             uint256 updated = type(uint256).max >> (256 - pools.length);
             while (updated != 0) {
                 for (uint256 t0; t0 < pools.length; t0++) {
                     if (updated & (1 << t0) == 0) continue;
                     updated ^= 1 << t0;
-                    if (amounts[t0] == 0 || calls[t0].length == maxLen) continue;
+                    uint256 amIn = amounts[t0];
+                    if (amIn == 0 || calls[t0].length == maxLen) continue;
                     for (uint256 t1; t1 < pools.length; t1++) {
                         if (t0 == t1) continue;
                         bytes memory _pools;
@@ -71,87 +58,81 @@ contract CRouter {
                         } else {
                             continue;
                         }
-                        for (uint256 p; p < _pools.length; p += 0x40) {
-                            uint256 slot1;
-                            assembly {
-                                slot1 := mload(add(add(_pools, p), 0x40))
-                            }
-                            uint256 rIn;
-                            uint256 rOut;
-                            {
-                                uint256 slot0;
-                                assembly {
-                                    slot0 := mload(add(add(_pools, p), 0x20))
-                                }
-                                rIn = slot0 >> 128;
-                                rOut = uint128(slot0);
-                            }
-                            if (!direc) (rIn, rOut) = (rOut, rIn);
-                            uint256 amInXFee = ((amounts[t0]) * (1e6 - uint16(slot1 >> 160))) / 1e6;
-                            uint256 amOut = (amInXFee * rOut) / (rIn + amInXFee); ///
-                            if (amOut <= amounts[t1] + 2) continue;
-                            uint256 pid = slot1 & PID_MASK;
-                            if (pid == UNIV3_PID || pid == ALGB_PID) {
-                                int24 tl;
-                                int24 tu;
-                                {
-                                    int24 s = int24(uint24(uint16(slot1 >> 200)));
-                                    tl = tickLower(int24(uint24(slot1 >> 176)), s);
-                                    tu = tl + s;
-                                }
-                                if (direc ? ((rOut - amOut) << 128) / (rIn + amInXFee) < tickSqrtPX64(tl)**2 : ((rIn + amInXFee) << 128) / (rOut - amOut) > tickSqrtPX64(tu)**2) continue;
-                            }
-                            if (GPE) {
-                                uint256 gasFee = protGas(pid) * tx.gasprice;
-                                uint256 hGasFee = protGas(pid) * tx.gasprice;
-                                if (t1 != 0) {
-                                    uint256 eth = amounts[0];
-                                    gasFee = (amOut * gasFee) / eth;
-                                    hGasFee = (amOut * hGasFee) / eth;
-                                }
-                                if (int256(amOut - gasFee) <= int256((amounts[t1] + 2) - hGasFee)) continue;
-                                if (FRP) {
-                                    {
-                                        uint256 amOutLsh1 = (amInXFee << 1);
-                                        amOutLsh1 = (amOutLsh1 * rOut) / (rIn + amOutLsh1);
-                                        if (int256(amOutLsh1 - gasFee) > int256((amOut - gasFee) << 1)) continue;
-                                    }
-                                    {
-                                        uint256 amOutRsh1 = (amInXFee >> 1);
-                                        amOutRsh1 = (amOutRsh1 * rOut) / (rIn + amOutRsh1);
-                                        if (int256(amOutRsh1 - gasFee) > int256((amOut - gasFee) >> 1)) continue;
-                                    }
-                                }
-                            }
-                            amounts[t1] = amOut - 2;
-                            uint256 amOut56bit = compress56bit(amOut - 2);
-                            slot1 = (slot1 & (STATE_MASK | PID_MASK | ADDRESS_MASK)) | (amOut56bit << 160);
-                            if (direc) slot1 |= DIREC_MASK;
-                            calls[t1] = bytes.concat(calls[t0], abi.encode(slot1));
-                            updated |= 1 << t1;
-                        }
+                        (uint256 amOut, uint256 poolCall) = quotePools(amIn, t1 == 0 ? 0 : amounts[0], direc, _pools);
+                        if (amOut <= amounts[t1]) continue;
+                        amounts[t1] = amOut;
+                        calls[t1] = bytes.concat(calls[t0], abi.encode(poolCall));
+                        updated |= 1 << t1;
                     }
                 }
             }
         }
     }
 
-    // function decompress56bit(uint compressed)internal pure returns (uint){
-    //     unchecked{
-    //         return uint(uint48(compressed>>8))<<uint8(compressed);
-    //     }
-    // }
-
-    // function quotePools(
-    //     uint256 amIn,
-    //     uint256 eth,
-    //     bool direc,
-    //     bytes memory _pools
-    // ) internal view returns (uint256 hAmOut, uint256 poolCall) {
-    //     unchecked {
-
-    //     }
-    // }
+    function quotePools(
+        uint256 amIn,
+        uint256 eth,
+        bool direc,
+        bytes memory _pools
+    ) internal view returns (uint256 hAmOut, uint256 poolCall) {
+        unchecked {
+            for (uint256 p; p < _pools.length; p += 0x40) {
+                uint256 slot1;
+                assembly {
+                    slot1 := mload(add(add(_pools, p), 0x40))
+                }
+                uint256 rIn;
+                uint256 rOut;
+                {
+                    uint256 slot0;
+                    assembly {
+                        slot0 := mload(add(add(_pools, p), 0x20))
+                    }
+                    rIn = slot0 >> 128;
+                    rOut = uint128(slot0);
+                }
+                if (!direc) (rIn, rOut) = (rOut, rIn);
+                uint256 amInXFee = ((amIn - 2) * (1e6 - uint16(slot1 >> 160))) / 1e6;
+                uint256 amOut = (amInXFee * rOut) / (rIn + amInXFee) - 2; ///
+                if (amOut <= hAmOut) continue;
+                uint256 pid = slot1 & PID_MASK;
+                if (pid == UNIV3_PID || pid == ALGB_PID) {
+                    int24 tl;
+                    int24 tu;
+                    {
+                        int24 s = int24(uint24(uint16(slot1 >> 200)));
+                        tl = tickLower(int24(uint24(slot1 >> 176)), s);
+                        tu = tl + s;
+                    }
+                    if (direc ? ((rOut - amOut) << 128) / (rIn + amInXFee) < tickSqrtPX64(tl)**2 : ((rIn + amInXFee) << 128) / (rOut - amOut) > tickSqrtPX64(tu)**2) continue;
+                }
+                uint256 gasFee;
+                if (GPE) {
+                    gasFee = protGas(pid) * tx.gasprice;
+                    if (eth != 0) {
+                        gasFee = (amOut * gasFee) / eth;
+                    }
+                    if (amOut - gasFee <= hAmOut) continue;
+                    if (FRP) {
+                        {
+                            uint256 amOutL1 = (amInXFee << 1);
+                            amOutL1 = (amOutL1 * rOut) / (rIn + amOutL1);
+                            if (int256(amOutL1 - gasFee) > int256((amOut - gasFee) << 1)) continue;
+                        }
+                        {
+                            uint256 amOutR1 = (amInXFee >> 1);
+                            amOutR1 = (amOutR1 * rOut) / (rIn + amOutR1);
+                            if (int256(amOutR1 - gasFee) > int256((amOut - gasFee) >> 1)) continue;
+                        }
+                    }
+                }
+                hAmOut = amOut - gasFee;
+                uint256 amOut56bit = compress56bit(amOut);
+                poolCall = (slot1 & (STATE_MASK | PID_MASK | ADDRESS_MASK)) | (amOut56bit << 160);
+            }
+            if (direc) poolCall |= DIREC_MASK;
+        }
+    }
 
     function protGas(uint256 pid) internal pure returns (uint256) {
         unchecked {
@@ -172,26 +153,6 @@ contract CRouter {
             return temp;
         }
     }
-
-    // function feeAmountTickSpacing(uint fee)internal pure returns(int24 s){
-    //     unchecked{
-    //         if(fee==100){
-    //             return 1;
-    //         }
-    //         if(fee==500){
-    //             return 10;
-    //         }
-    //         if(fee==2500){
-    //             return 50;
-    //         }
-    //         if(fee==3000){
-    //             return 60;
-    //         }
-    //         if(fee==10000){
-    //             return 200;
-    //         }
-    //     }
-    // }
 
     function tickLower(int24 t, int24 s) internal pure returns (int24 tl) {
         unchecked {

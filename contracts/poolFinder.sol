@@ -12,7 +12,7 @@ import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebr
 import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebraPool.sol";
 import "./interfaces/openzeppelin/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-contract CPoolFinder is CRouter(false, false) {
+contract CPoolFinder is CRouter{
     function findPoolsCheckBlockNumber(
         uint256 minLiqEth,
         address[] calldata tokens,
@@ -43,7 +43,9 @@ contract CPoolFinder is CRouter(false, false) {
                     pools[t0][t1] = _pools;
                 }
             }
-            (uint256[] memory amounts, , ) = findRoutes(2, 0, minLiqEth, pools);
+            uint256[] memory amounts = new uint256[](pools.length);
+            amounts[0] = minLiqEth;
+            CRouter.findRoutes(0x40, pools, amounts);
             filterPools(amounts, pools);
         }
     }
@@ -109,6 +111,7 @@ contract CPoolFinder is CRouter(false, false) {
     function filterPools(uint256[] memory fAmounts, bytes[][] memory pools) internal pure {
         unchecked {
             for (uint256 t0; t0 < pools.length; t0++) {
+                bool b;
                 for (uint256 t1; t1 < pools[t0].length; t1++) {
                     if (t0 == t1) continue;
                     bytes memory _pools = pools[t0][t1];
@@ -133,12 +136,7 @@ contract CPoolFinder is CRouter(false, false) {
                     assembly {
                         mstore(_pools, _len)
                     }
-                }
-            }
-            for (uint256 t0; t0 < pools.length; t0++) {
-                bool b;
-                for (uint256 t1; t1 < pools[t0].length; t1++) {
-                    if (pools[t0][t1].length > 0) {
+                    if (_len > 0) {
                         b = true;
                     }
                 }
