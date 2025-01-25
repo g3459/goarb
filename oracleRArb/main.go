@@ -220,7 +220,7 @@ func main() {
 				if number > hBlockn {
 					hBlockn = number
 				}
-				Log(3, fmt.Sprintf("\nNEW_BATCH {GasPrice:%v, Block:%v, ResTime:%v}", minGasPrice, number, time.Since(sts)))
+				Log(3, fmt.Sprintf("\nNEW_BATCH {GasPrice: %v, Block: %v, ResTime: %v}", minGasPrice, number, time.Since(sts)))
 				defer func(t time.Time) { Log(3, fmt.Sprintf("END_BATCH %v\n", time.Since(t))) }(time.Now())
 				for privIx, priv := range conf.PrivateKeys {
 					for t0 := range pools {
@@ -252,12 +252,14 @@ func main() {
 					var checkFuncs []func() = make([]func(), 0)
 					callsGasPriceLimit := new(big.Int)
 					gasPrice := new(big.Int).Lsh(conf.MaxGasPrice, 2)
+					Log(4, "BALANCES {")
 					for i := range conf.TokenConfs {
 						if amounts[i] == nil {
 							continue
 						}
-						Log(4, "Token:", conf.TokenConfs[i].Token, ", AmIn:", amounts[i], ", Price:", ethPriceX64Oracle[i])
+						Log(4, fmt.Sprintf("    %v: %v", conf.TokenConfs[i].Token, amounts[i]))
 					}
+					Log(4, "}")
 					var wg sync.WaitGroup
 					Log(4, "START_COMP")
 					sts2 := time.Now()
