@@ -775,10 +775,16 @@ var RouterABI, _ = abi.JSON(strings.NewReader(`[
 	{
 		"inputs": [
 			{
-				"internalType": "uint8",
-				"name": "maxLen",
-				"type": "uint8"
-			},
+				"internalType": "uint256",
+				"name": "_maxLen",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
+		"inputs": [
 			{
 				"internalType": "bytes[][]",
 				"name": "pools",

@@ -1,6 +1,7 @@
 contract CRouter {
     bool internal constant FRP = true;
     bool internal constant GPE = true;
+    uint256 internal immutable maxLen;
 
     uint256 internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
     uint256 internal constant ADDRESS_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
@@ -18,25 +19,23 @@ contract CRouter {
     int24 internal constant MIN_TICK = -887272;
     int24 internal constant MAX_TICK = 887272;
 
-
-    function findRoutes(
-        uint8 maxLen,
-        bytes[][] memory pools,
-        uint amIn,
-        uint8 tIn
-    ) public view returns (bytes[] memory calls) {
-        unchecked{
-            uint256[] memory amounts=new uint[](pools.length);
-            amounts[tIn]=amIn;
-            return findRoutes(maxLen*0x20,pools,amounts);
-        }
+    constructor(uint256 _maxLen) {
+        maxLen = _maxLen * 0x20;
     }
 
     function findRoutes(
-        uint maxLen,
         bytes[][] memory pools,
-        uint256[] memory amounts
-    ) internal view returns (bytes[] memory calls) {
+        uint256 amIn,
+        uint8 tIn
+    ) public view returns (bytes[] memory calls) {
+        unchecked {
+            uint256[] memory amounts = new uint256[](pools.length);
+            amounts[tIn] = amIn;
+            return findRoutes(pools, amounts);
+        }
+    }
+
+    function findRoutes(bytes[][] memory pools, uint256[] memory amounts) internal view returns (bytes[] memory calls) {
         unchecked {
             calls = new bytes[](pools.length);
             uint256 updated = type(uint256).max >> (256 - pools.length);

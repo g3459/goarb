@@ -70,8 +70,8 @@ func (batch Batch) FindPoolsCheckBlockNumber(minLiqEth *big.Int, tokens []common
 	return batch.Call(map[string]interface{}{"to": poolFinder, "input": hexutil.Encode(data)}, block, findPoolsCheckBlockNumberDecoder, callback)
 }
 
-func (batch Batch) FindRoutes(maxLen uint8, tIn uint8, amIn *big.Int, pools [][][]byte, gasPrice *big.Int, router *common.Address, block string, callback func(interface{})) Batch {
-	data, err := RouterABI.Pack("findRoutes", maxLen, pools, amIn, tIn)
+func (batch Batch) FindRoutes(tIn uint8, amIn *big.Int, pools [][][]byte, gasPrice *big.Int, router *common.Address, block string, callback func(interface{})) Batch {
+	data, err := RouterABI.Pack("findRoutes", pools, amIn, tIn)
 	if err != nil {
 		panic(err)
 	}

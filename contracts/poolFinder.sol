@@ -12,7 +12,7 @@ import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebr
 import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebraPool.sol";
 import "./interfaces/openzeppelin/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-contract CPoolFinder is CRouter{
+contract CPoolFinder is CRouter(2){
     function findPoolsCheckBlockNumber(
         uint256 minLiqEth,
         address[] calldata tokens,
@@ -45,7 +45,7 @@ contract CPoolFinder is CRouter{
             }
             uint256[] memory amounts = new uint256[](pools.length);
             amounts[0] = minLiqEth;
-            CRouter.findRoutes(0x40, pools, amounts);
+            CRouter.findRoutes(pools, amounts);
             filterPools(amounts, pools);
         }
     }
