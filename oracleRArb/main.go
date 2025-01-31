@@ -47,7 +47,7 @@ type Configuration struct {
 	MaxGasPrice   *big.Int          `json:"maxGasPrice"`
 	GasFee        uint              `json:"gasFee"`
 	ExchangeFee   float64           `json:"exchangeFee"`
-	MinBen        *big.Int          `json:"minBen"`
+	TxFee         *big.Int          `json:"txFee"`
 	MinRatio      float64           `json:"minRatio"`
 	Protocols     []caller.Protocol `json:"protocols"`
 	FakeBalance   bool              `json:"fakeBalance"`
@@ -355,8 +355,8 @@ func main() {
 												l1Fees.Mul(l1Fees, l1GasPrice)
 												ben.Sub(ben, l1Fees)
 											}
-											if conf.MinBen != nil {
-												ben.Sub(ben, conf.MinBen)
+											if conf.TxFee != nil {
+												ben.Sub(ben, conf.TxFee)
 											}
 											txGas.Add(txGas, big.NewInt(int64(conf.GasFee)))
 											gasPriceLimit := new(big.Int).Div(ben, txGas)
