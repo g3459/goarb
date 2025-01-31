@@ -45,7 +45,7 @@ type Configuration struct {
 	MinEth        *big.Int          `json:"minEth"`
 	MinLiqEth     *big.Int          `json:"minLiqEth"`
 	MaxGasPrice   *big.Int          `json:"maxGasPrice"`
-	GasFee        uint64            `json:"gasFee"`
+	GasFee        uint              `json:"gasFee"`
 	ExchangeFee   float64           `json:"exchangeFee"`
 	MinBen        *big.Int          `json:"minBen"`
 	MinRatio      float64           `json:"minRatio"`
@@ -57,7 +57,7 @@ type Configuration struct {
 	ExecTime      time.Duration     `json:"execTime"`
 	IsOpRollup    bool              `json:"isOpRollup"`
 	MaxL1GasPrice *big.Int          `json:"maxL1GasPrice"`
-	MinL1GasBen   uint64            `json:"minL1GasBen"`
+	L1GasFee      uint              `json:"L1GasFee"`
 	L1GasMult     float64           `json:"L1GasMult"`
 	PendingBlock  bool              `json:"pendingBlock"`
 	//RouteDepth  uint8             `json:"routeDepth"`
@@ -250,7 +250,7 @@ func main() {
 					// Log(0, res, errr)
 					// return
 					var txCalls []byte
-					var txGasLimit uint64
+					var txGasLimit uint
 					var checkFuncs []func() = make([]func(), 0)
 					callsGasPriceLimit := new(big.Int)
 					gasPrice := new(big.Int).Lsh(conf.MaxGasPrice, 2)
@@ -327,7 +327,10 @@ func main() {
 												Log(5, tInx, tOutx, amIn, gasPrice, "ratio<MinRatio")
 												continue
 											}
-											gasUsage := uint64(0)
+											if conf.ExchangeFee != 0 {
+												ben.Mul(ben, big.NewInt(int64((1+conf.ExchangeFee)*(1<<32)))).Rsh(ben, 32)
+											}
+											gasUsage := uint(0)
 											for cIx := 0; cIx < len(calls); cIx += 0x20 {
 												if calls[cIx+4] == 2 {
 													gasUsage += 300000
@@ -335,18 +338,18 @@ func main() {
 													gasUsage += 150000
 												}
 											}
-											txGas := big.NewInt(int64(gasUsage + conf.GasFee))
+											txGas := big.NewInt(int64(gasUsage))
 											gasFees := new(big.Int).Mul(txGas, gasPrice)
 											if new(big.Int).Sub(ben, gasFees).Sign() > 0 {
 												Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ben(%vwei)-gasFees(%vwei)>0", ben, gasFees))
 												continue
 											}
 											if conf.IsOpRollup {
-												l1BaseGas := float64(16*(len(calls)+int((amIn.BitLen()+7)/8)) + 1088)
-												if l1BaseGas*conf.L1GasMult > l1BaseGas+float64(conf.MinL1GasBen) {
-													l1BaseGas *= conf.L1GasMult
+												l1BaseGas := uint(16*(len(calls)+int((amIn.BitLen()+7)/8)) + 1088)
+												if uint(float64(l1BaseGas)*conf.L1GasMult) > l1BaseGas+conf.L1GasFee {
+													l1BaseGas = uint(float64(l1BaseGas) * conf.L1GasMult)
 												} else {
-													l1BaseGas += float64(conf.MinL1GasBen)
+													l1BaseGas += conf.L1GasFee
 												}
 												l1Fees := big.NewInt(int64(l1BaseGas))
 												l1Fees.Mul(l1Fees, l1GasPrice)
@@ -355,9 +358,7 @@ func main() {
 											if conf.MinBen != nil {
 												ben.Sub(ben, conf.MinBen)
 											}
-											if conf.ExchangeFee != 0 {
-												ben.Mul(ben, big.NewInt(int64((1+conf.ExchangeFee)*(1<<32)))).Rsh(ben, 32)
-											}
+											txGas.Add(txGas, big.NewInt(int64(conf.GasFee)))
 											gasPriceLimit := new(big.Int).Div(ben, txGas)
 											if gasPriceLimit.Cmp(minGasPrice) < 0 {
 												Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("gasPriceLimit(%v)<minGasPrice(%v)", gasPriceLimit, minGasPrice))
@@ -397,7 +398,7 @@ func main() {
 								if callsGasPriceLimit.Cmp(conf.MaxGasPrice) > 0 {
 									callsGasPriceLimit.Set(conf.MaxGasPrice)
 								}
-								txb := new(caller.Batch).SendTx(&types.DynamicFeeTx{ChainID: conf.ChainId, Nonce: nonces[privIx], GasTipCap: callsGasPriceLimit, GasFeeCap: callsGasPriceLimit, Gas: txGasLimit, To: conf.Caller, Value: new(big.Int), Data: txCalls, AccessList: AccessListForCalls(txCalls)}, priv, nil)
+								txb := new(caller.Batch).SendTx(&types.DynamicFeeTx{ChainID: conf.ChainId, Nonce: nonces[privIx], GasTipCap: callsGasPriceLimit, GasFeeCap: callsGasPriceLimit, Gas: uint64(txGasLimit), To: conf.Caller, Value: new(big.Int), Data: txCalls, AccessList: AccessListForCalls(txCalls)}, priv, nil)
 								for _, rpcclient := range rpcClients {
 									go func(rpcclient *rpc.Client) {
 										res, err := txb.Submit(context.Background(), rpcclient)
