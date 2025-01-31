@@ -45,7 +45,9 @@ type Configuration struct {
 	MinEth        *big.Int          `json:"minEth"`
 	MinLiqEth     *big.Int          `json:"minLiqEth"`
 	MaxGasPrice   *big.Int          `json:"maxGasPrice"`
-	MinGasBen     uint64            `json:"minGasBen"`
+	GasFee        uint64            `json:"gasFee"`
+	ExchangeFee   float64           `json:"exchangeFee"`
+	MinBen        *big.Int          `json:"minBen"`
 	MinRatio      float64           `json:"minRatio"`
 	Protocols     []caller.Protocol `json:"protocols"`
 	FakeBalance   bool              `json:"fakeBalance"`
@@ -317,6 +319,28 @@ func main() {
 											ethOut := new(big.Int).Mul(amOut, ethPriceX64Oracle[tOutx])
 											ethOut.Rsh(ethOut, 64)
 											ben := new(big.Int).Sub(ethOut, ethIn)
+											if ben.Sign() < 0 {
+												Log(5, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ethIn(%vwei)-ethOut(%vwei)<0", ethIn, ethOut))
+												continue
+											}
+											if new(big.Int).Mul(ethIn, big.NewInt(int64(conf.MinRatio*(1<<32)))).Cmp(new(big.Int).Lsh(ethOut, 32)) < 0 {
+												Log(5, tInx, tOutx, amIn, gasPrice, "ratio<MinRatio")
+												continue
+											}
+											gasUsage := uint64(0)
+											for cIx := 0; cIx < len(calls); cIx += 0x20 {
+												if calls[cIx+4] == 2 {
+													gasUsage += 300000
+												} else {
+													gasUsage += 150000
+												}
+											}
+											txGas := big.NewInt(int64(gasUsage + conf.GasFee))
+											gasFees := new(big.Int).Mul(txGas, gasPrice)
+											if new(big.Int).Sub(ben, gasFees).Sign() > 0 {
+												Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ben(%vwei)-gasFees(%vwei)>0", ben, gasFees))
+												continue
+											}
 											if conf.IsOpRollup {
 												l1BaseGas := float64(16*(len(calls)+int((amIn.BitLen()+7)/8)) + 1088)
 												if l1BaseGas*conf.L1GasMult > l1BaseGas+float64(conf.MinL1GasBen) {
@@ -328,30 +352,11 @@ func main() {
 												l1Fees.Mul(l1Fees, l1GasPrice)
 												ben.Sub(ben, l1Fees)
 											}
-											if ben.Sign() < 0 {
-												Log(5, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ethIn(%vwei)-ethOut(%vwei)<0", ethIn, ethOut))
-												continue
+											if conf.MinBen != nil {
+												ben.Sub(ben, conf.MinBen)
 											}
-											ratiotemp := new(big.Float).SetInt(ethOut)
-											ratiotemp.Quo(ratiotemp, new(big.Float).SetInt(ethIn))
-											ratio, _ := ratiotemp.Float64()
-											if ratio < conf.MinRatio {
-												Log(5, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ratio(%v)<MinRatio(%v)", ratio, conf.MinRatio))
-												continue
-											}
-											gasUsage := uint64(0)
-											for cIx := 0; cIx < len(calls); cIx += 0x20 {
-												if calls[cIx+4] == 2 {
-													gasUsage += 300000
-												} else {
-													gasUsage += 150000
-												}
-											}
-											txGas := big.NewInt(int64(gasUsage + conf.MinGasBen))
-											gasFees := new(big.Int).Mul(txGas, gasPrice)
-											if new(big.Int).Sub(ben, gasFees).Sign() > 0 {
-												Log(4, tInx, tOutx, amIn, gasPrice, fmt.Sprintf("ben(%vwei)-gasFees(%vwei)>0", ben, gasFees))
-												continue
+											if conf.ExchangeFee != 0 {
+												ben.Mul(ben, big.NewInt(int64((1+conf.ExchangeFee)*(1<<32)))).Rsh(ben, 32)
 											}
 											gasPriceLimit := new(big.Int).Div(ben, txGas)
 											if gasPriceLimit.Cmp(minGasPrice) < 0 {
@@ -369,7 +374,7 @@ func main() {
 											Log(4, tInx, tOutx, amIn, gasPrice, calls, gasPriceLimit)
 											callsGasPriceLimit = gasPriceLimit
 											txCalls = append(calls, amIn.Bytes()...)
-											txGasLimit = gasUsage + conf.MinGasBen
+											txGasLimit = gasUsage + conf.GasFee
 										}
 									}
 									checkFuncs = append(checkFuncs, f)
