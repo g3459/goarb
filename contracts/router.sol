@@ -6,20 +6,20 @@ contract CRouter {
     bool internal constant GPE = true;
     uint256 internal immutable maxLen;
 
-    address internal constant UNIV3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
     uint256 internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
     uint256 internal constant ADDRESS_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;
     uint256 internal constant DIREC_MASK = 0x8000000000000000000000000000000000000000000000000000000000000000;
     uint256 internal constant PID_MASK = 0xff;
-    uint256 internal constant UNIV3_PID = 4;
-    uint256 internal constant VELOV3_PID = 9;
-    uint256 internal constant ALGB_PID = 10;
-    uint256 internal constant VELOV2_PID = 12;
-    uint256 internal constant UNIV2_PID = 13;
-    uint256 internal constant FEE_POS = 176;
-    uint256 internal constant SPACING_POS = 200;
-    uint256 internal constant PID_POS = 216;
-    uint256 internal constant CALLLEN = 16;
+
+    uint256 internal constant UNIV3_FID = 1;
+    uint256 internal constant VELOV3_FID = 2;
+    uint256 internal constant ALGB_FID = 3;
+    uint256 internal constant VELOV2_FID = 4;
+    uint256 internal constant UNIV2_FID = 5;
+
+    uint256 internal constant FEE_POS = 224;
+    uint256 internal constant FID_POS = 240;
+    uint256 internal constant PID_POS = 248;
 
     // int24 internal constant MIN_TICK = -887272;
     // int24 internal constant MAX_TICK = 887272;
@@ -33,11 +33,11 @@ contract CRouter {
         bytes[][] calldata pools,
         uint256 amIn,
         uint8 tIn
-    ) public view returns (uint256[] memory amounts, uint256[] memory calls) {
+    ) public view returns (uint256[] memory amounts, bytes[] memory calls) {
         unchecked {
             amounts = new uint256[](pools.length);
             amounts[tIn] = amIn;
-            calls = new uint256[](pools.length);
+            calls = new bytes[](pools.length);
             findRoutes(pools, amounts, calls);
         }
     }
@@ -45,7 +45,7 @@ contract CRouter {
     function findRoutes(
         bytes[][] calldata pools,
         uint256[] memory amounts,
-        uint256[] memory calls
+        bytes[] memory calls
     ) internal view {
         unchecked {
             uint256[] memory gas;
@@ -76,7 +76,7 @@ contract CRouter {
                         if (GPE) {
                             hGas = gas[t1];
                         }
-                        uint8 callPid;
+                        uint8 callPid = 0xff;
                         for (uint256 p; p < _pools.length; p += 0x20) {
                             uint256 slot;
                             assembly {
@@ -89,18 +89,22 @@ contract CRouter {
                             uint160 sqrtPriceCurrentX96 = uint160((r1 << 96) / r0);
                             uint256 amInLessFee = ((amIn - 2) * (1e6 - uint16(slot >> FEE_POS))) / 1e6;
                             uint160 sqrtPriceNextX96 = SqrtPriceMath.getNextSqrtPriceFromInput(sqrtPriceCurrentX96, liquidity, amInLessFee, direc);
-                            int24 s = int24(uint24(uint16(slot >> SPACING_POS)));
-                            if (s != 0) {
+                            uint8 pid = uint8(slot >> PID_POS);
+                            uint8 fid = uint8(slot >> FID_POS);
+                            int24 s = poolSpacing(pid, fid);
+                            if (s > 0) {
                                 int24 tick = TickMath.getTickAtSqrtPrice(sqrtPriceCurrentX96);
                                 int24 tl = tickLower(tick, s);
+
                                 if (direc ? (sqrtPriceNextX96 < TickMath.getSqrtPriceAtTick(tl)) : (sqrtPriceNextX96 >= TickMath.getSqrtPriceAtTick(tl + s))) continue;
                             }
                             uint256 amOut = direc
                                 ? SqrtPriceMath.getAmount1Delta(sqrtPriceCurrentX96, sqrtPriceNextX96, liquidity, false)
                                 : SqrtPriceMath.getAmount0Delta(sqrtPriceCurrentX96, sqrtPriceNextX96, liquidity, false);
-                            uint8 pid = uint8(slot >> PID_POS);
+                            if ((!GPE) && amOut <= hamOut) continue;
+
                             if (GPE) {
-                                uint256 _gas = protGas(pid) + gas[t0];
+                                uint256 _gas = protGas(fid) + gas[t0];
                                 uint256 gasFee = _gas * tx.gasprice;
                                 uint256 hgasFee = hGas * tx.gasprice;
                                 if (t1 != 0) {
@@ -129,33 +133,62 @@ contract CRouter {
                             callPid = pid;
                             hamOut = amOut;
                         }
-                        if (callPid == 0) continue;
+                        if (callPid == 0xff) continue;
                         amounts[t1] = hamOut;
                         gas[t1] = hGas;
-                        for (uint256 i; i < 256 / CALLLEN; i += 1) {
-                            if (getCall(calls[t0], i) != 0) continue;
-                            calls[t0] |= ((t0 << 12) | (t1 << 8) | callPid) << (i * CALLLEN);
-                            if(i<=maxLen){
-                                updated |= 1 << t1;
-                            }
-                            break;
-                        }
-                        
+                        calls[t1] = bytes.concat(bytes2(uint16((t0 << 12) | (t1 << 8) | callPid)), calls[t0]);
                     }
                 }
             } while (updated != 0);
         }
     }
 
-    function getCall(uint256 calls, uint256 ix) internal pure returns (uint256) {
+    function protGas(uint256 fid) internal pure returns (uint256) {
         unchecked {
-            return uint16((calls >> (ix * CALLLEN)));
+            return fid == ALGB_FID ? 300000 : 150000;
         }
     }
 
-    function protGas(uint256 pid) internal pure returns (uint256) {
+    function poolSpacing(uint8 pid, uint8 fid) internal pure returns (int24 s) {
         unchecked {
-            return (pid & 0x0f) == ALGB_PID ? 300000 : 150000;
+            if (fid == UNIV3_FID) {
+                assembly {
+                    switch and(pid, 0x0f)
+                    case 0 {
+                        s := 1
+                    }
+                    case 1 {
+                        s := 10
+                    }
+                    case 2 {
+                        s := 60
+                    }
+                    case 3 {
+                        s := 200
+                    }
+                }
+            } else if (fid == VELOV3_FID) {
+                assembly {
+                    switch and(pid, 0x0f)
+                    case 0 {
+                        s := 1
+                    }
+                    case 1 {
+                        s := 50
+                    }
+                    case 2 {
+                        s := 100
+                    }
+                    case 3 {
+                        s := 200
+                    }
+                    case 4 {
+                        s := 2000
+                    }
+                }
+            } else if (fid == ALGB_FID) {
+                s = 60;
+            }
         }
     }
 

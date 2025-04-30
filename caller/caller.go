@@ -12,8 +12,8 @@ import (
 )
 
 type Protocol struct {
-	Factory *common.Address `json:"factory"`
-	Id      uint8           `json:"id"`
+	Factory common.Address `json:"factory"`
+	Pid     uint8          `json:"pid"`
 }
 
 type step struct {
@@ -31,9 +31,7 @@ var (
 func encodeProtocols(protocols []Protocol) []*big.Int {
 	parsed := make([]*big.Int, len(protocols))
 	for i, v := range protocols {
-		t := [12]byte{}
-		t[4] = v.Id
-		parsed[i] = new(big.Int).SetBytes(append(t[:], v.Factory.Bytes()...))
+		parsed[i] = new(big.Int).SetBytes(append([]byte{v.Pid}, v.Factory.Bytes()...))
 	}
 	return parsed
 }
@@ -62,8 +60,8 @@ func (batch Batch) FindPools(minLiqEth *big.Int, tokens []common.Address, protoc
 	return batch.Call(map[string]interface{}{"to": poolFinder, "input": hexutil.Encode(data)}, block, findPoolsDecoder, callback)
 }
 
-func (batch Batch) FindPoolsCheckBlockNumber(minLiqEth *big.Int, tokens []common.Address, protocols []Protocol, minBlockNumber uint64, poolFinder *common.Address, block string, callback func(interface{})) Batch {
-	data, err := PoolFinderABI.Pack("findPoolsCheckBlockNumber", minLiqEth, tokens, encodeProtocols(protocols), minBlockNumber)
+func (batch Batch) FindPoolsCheckBlockNumber( /*minLiqEth *big.Int,*/ tokens []common.Address, protocols []Protocol, minBlockNumber uint64, poolFinder *common.Address, block string, callback func(interface{})) Batch {
+	data, err := PoolFinderABI.Pack("findPoolsCheckBlockNumber" /*minLiqEth,*/, tokens, encodeProtocols(protocols), minBlockNumber)
 	if err != nil {
 		panic(err)
 	}

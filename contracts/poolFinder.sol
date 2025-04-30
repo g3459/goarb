@@ -15,35 +15,32 @@ import "./interfaces/cryptoalgebra/Algebra/src/core/contracts/interfaces/IAlgebr
 import "./interfaces/openzeppelin/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 contract CPoolFinder {
-    address internal constant callercont = 0xd9145CCE52D386f254917e481eB44e9943F39138;
-    uint256 internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
-
+    // uint256 internal constant STATE_MASK = 0x7fffffff00000000000000000000000000000000000000000000000000000000;
+    uint256 internal constant UNIV3_FID = 1;
+    uint256 internal constant VELOV3_FID = 2;
+    uint256 internal constant ALGB_FID = 3;
+    uint256 internal constant VELOV2_FID = 4;
+    uint256 internal constant UNIV2_FID = 5;
     bytes4 internal constant UNIV3POOL_SEL = 0x1698ee82;
     bytes4 internal constant UNIV3LIQ_SEL = 0x1a686502;
     bytes4 internal constant UNIV3STATE_SEL = 0x3850c7bd;
     bytes4 internal constant VELOV3FEE_SEL = 0x35458dcc;
 
-    uint256 internal constant UNIV3_PID = 4;
-    uint256 internal constant VELOV3_PID = 9;
-    uint256 internal constant ALGB_PID = 10;
-    uint256 internal constant VELOV2_PID = 12;
-    uint256 internal constant UNIV2_PID = 13;
-    uint256 internal constant FEE_POS = 176;
-    uint256 internal constant SPACING_POS = 200;
-    uint256 internal constant PID_POS = 216;
-    uint256 internal constant CALLLEN = 16;
+    uint256 internal constant FEE_POS = 224;
+    uint256 internal constant FID_POS = 240;
+    uint256 internal constant PID_POS = 248;
 
     function findPoolsCheckBlockNumber(
         // uint256 minLiqEth,
         address[] calldata tokens,
-        bytes calldata protocols,
+        uint256[] calldata factories,
         uint64 minBlockNumber
     ) public view returns (bytes[][] memory pools, uint64 blockNumber) {
         if (block.number >= minBlockNumber) {
             pools = findPools(
                 /*minLiqEth,*/
                 tokens,
-                protocols
+                factories
             );
         }
         blockNumber = uint64(block.number);
@@ -52,12 +49,9 @@ contract CPoolFinder {
     function findPools(
         // uint256 minLiqEth,
         address[] calldata tokens,
-        bytes calldata protocols
+        uint256[] calldata factories
     ) public view returns (bytes[][] memory pools) {
         unchecked {
-            assembly {
-                mstore(0x40, 0x80)
-            }
             pools = new bytes[][](tokens.length);
             for (uint256 t0; t0 < tokens.length; t0++) {
                 pools[t0] = new bytes[](tokens.length);
@@ -73,12 +67,57 @@ contract CPoolFinder {
                     assembly {
                         _pools := fmp
                     }
-                    for (uint256 pix; t1 < protocols.length; pix++) {
-                        uint256 slot = findPool(tokens[t0], tokens[t1], uint8(protocols[pix]));
-                        if (slot == 0) continue;
+                    for (uint256 fix; fix < factories.length; fix++) {
+                        uint256 factory = factories[fix];
+                        uint256 fid;
                         assembly {
-                            fmp := add(fmp, 0x20)
-                            mstore(fmp, slot)
+                            fid := shr(0x14, factory) ////////
+                        }
+                        if (fid == UNIV3_FID) {
+                            for (uint256 pid; pid < 4; pid++) {
+                                uint256 slot = getUniV3Pool(tokens[t0], tokens[t1], uint8((fix << 4) | pid), address(uint160(factory)));
+                                if (slot == 0) continue;
+                                assembly {
+                                    fmp := add(fmp, 0x20)
+                                    mstore(fmp, slot)
+                                }
+                            }
+                        } else if (fid == VELOV3_FID) {
+                            for (uint256 pid; pid < 5; pid++) {
+                                uint256 slot = getVeloV3Pool(tokens[t0], tokens[t1], uint8((fix << 4) | pid), address(uint160(factory)));
+                                if (slot == 0) continue;
+                                assembly {
+                                    fmp := add(fmp, 0x20)
+                                    mstore(fmp, slot)
+                                }
+                            }
+                        } else if (fid == ALGB_FID) {
+                            for (uint256 pid; pid < 1; pid++) {
+                                uint256 slot = getAlgbPool(tokens[t0], tokens[t1], uint8((fix << 4) | pid), address(uint160(factory)));
+                                if (slot == 0) continue;
+                                assembly {
+                                    fmp := add(fmp, 0x20)
+                                    mstore(fmp, slot)
+                                }
+                            }
+                        } else if (fid == VELOV2_FID) {
+                            for (uint256 pid; pid < 1; pid++) {
+                                uint256 slot = getVeloV2Pool(tokens[t0], tokens[t1], uint8((fix << 4) | pid), address(uint160(factory)));
+                                if (slot == 0) continue;
+                                assembly {
+                                    fmp := add(fmp, 0x20)
+                                    mstore(fmp, slot)
+                                }
+                            }
+                        } else if (fid == UNIV2_FID) {
+                            for (uint256 pid; pid < 1; pid++) {
+                                uint256 slot = getUniV2Pool(tokens[t0], tokens[t1], uint8((fix << 4) | pid), address(uint160(factory)));
+                                if (slot == 0) continue;
+                                assembly {
+                                    fmp := add(fmp, 0x20)
+                                    mstore(fmp, slot)
+                                }
+                            }
                         }
                     }
                     uint256 len;
@@ -97,215 +136,253 @@ contract CPoolFinder {
             // uint256[] memory amounts= new uint256[](pools.length);
             // amounts[0] = minLiqEth;
             // filterPools(pools, amounts);
+            assembly {
+                mstore(0x40, fmp)
+            }
         }
     }
 
-    function getpool(
+    // function getpool(
+    //     address t0,
+    //     address t1,
+    //     uint256 f,
+    //     address factory
+    // ) public view returns (address poola) {
+    //     // if (t0 > t1) {
+    //     //     (t0, t1) = (t1, t0);
+    //     // }
+    //     poola = IUniswapV3Factory(factory).getPool(t0, t1, uint24(f));
+    //     // assembly {
+    //     //     mstore(0x00, UNIV3POOL_SEL)
+    //     //     mstore(0x04, t0)
+    //     //     mstore(0x24, t1)
+    //     //     mstore(0x44, f)
+    //     //     pop(staticcall(gas(), factory, 0x00, 0x64, 0x00, 0x20))
+    //     //     // poola := mload(0x00)
+    //     // }
+    // }
+
+    function getUniV3Pool(
         address t0,
         address t1,
-        uint256 f,
+        uint8 pid,
         address factory
-    ) public view returns (address poola) {
-        // if (t0 > t1) {
-        //     (t0, t1) = (t1, t0);
-        // }
-        poola=IUniswapV3Factory(factory).getPool(t0,t1,uint24(f));
-        // assembly {
-        //     mstore(0x00, UNIV3POOL_SEL)
-        //     mstore(0x04, t0)
-        //     mstore(0x24, t1)
-        //     mstore(0x44, f)
-        //     pop(staticcall(gas(), factory, 0x00, 0x64, 0x00, 0x20))
-        //     // poola := mload(0x00)
-        // }
+    ) public view returns (uint256 slot) {
+        uint256 reserve0;
+        uint256 reserve1;
+        assembly ("memory-safe") {
+            let f
+            let s
+            switch and(pid, 0x0f)
+            case 0 {
+                f := 100
+            }
+            case 1 {
+                f := 500
+            }
+            case 2 {
+                f := 3000
+            }
+            case 3 {
+                f := 10000
+            }
+            default {
+                revert(0, 0)
+            }
+            mstore(0x00, UNIV3POOL_SEL)
+            mstore(0x04, t0)
+            mstore(0x24, t1)
+            mstore(0x44, f)
+            pop(staticcall(gas(), factory, 0x00, 0x64, 0x00, 0x20))
+            let pool := mload(0x00)
+            if pool {
+                mstore(0x00, UNIV3LIQ_SEL)
+                pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x20))
+                let liquidity := mload(0x00)
+                if liquidity {
+                    mstore(0x00, UNIV3STATE_SEL)
+                    pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x40))
+                    let sqrtPX64 := shr(32, mload(0x00))
+                    reserve0 := div(shl(64, liquidity), add(sqrtPX64, 1))
+                    reserve1 := shr(64, mul(liquidity, sqrtPX64))
+                    // let stateHash := keccak256(0x00, 0x20)
+                    slot := or(shl(PID_POS, pid), or(shl(FID_POS, UNIV3_FID), shl(FEE_POS, f)))
+                }
+            }
+        }
+        if (slot == 0) {
+            return 0;
+        }
+        slot |= ((sqrt(reserve0) << 48) | sqrt(reserve1));
     }
 
-    function findPool(
+    function getVeloV3Pool(
         address t0,
         address t1,
-        uint8 pid
+        uint8 pid,
+        address factory
+    ) public view returns (uint256 slot) {
+        uint256 reserve0;
+        uint256 reserve1;
+        assembly ("memory-safe") {
+            let s
+            switch and(pid, 0x0f)
+            case 0 {
+                s := 1
+            }
+            case 1 {
+                s := 50
+            }
+            case 2 {
+                s := 100
+            }
+            case 3 {
+                s := 200
+            }
+            case 4 {
+                s := 2000
+            }
+            default {
+                revert(0, 0)
+            }
+            mstore(0x00, UNIV3POOL_SEL)
+            mstore(0x04, t0)
+            mstore(0x24, t1)
+            mstore(0x44, s)
+            pop(staticcall(gas(), factory, 0x00, 0x64, 0x00, 0x20))
+            let pool := mload(0x00)
+            if pool {
+                mstore(0x00, UNIV3LIQ_SEL) //selliq
+                pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x20))
+                let liquidity := mload(0x00)
+                if liquidity {
+                    mstore(0x00, VELOV3FEE_SEL) //selfee
+                    mstore(0x04, pool)
+                    pop(staticcall(gas(), factory, 0x00, 0x24, 0x00, 0x20))
+                    let f := mload(0x00)
+                    if lt(f, shl(16, 1)) {
+                        mstore(0x00, UNIV3STATE_SEL) //selstate
+                        pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x40))
+                        let sqrtPX64 := shr(32, mload(0x00))
+                        reserve0 := div(shl(64, liquidity), add(sqrtPX64, 1))
+                        reserve1 := shr(64, mul(liquidity, sqrtPX64))
+                        // let stateHash := keccak256(0x00, 0x20)
+                        slot := or(shl(PID_POS, pid), or(shl(FID_POS, VELOV3_FID), shl(FEE_POS, f)))
+                    }
+                }
+            }
+        }
+        if (slot == 0) {
+            return 0;
+        }
+        slot |= ((sqrt(reserve0) << 48) | sqrt(reserve1));
+    }
+
+    function getAlgbPool(
+        address t0,
+        address t1,
+        uint8 pid,
+        address factory
+    ) public view returns (uint256 slot) {
+        uint256 reserve0;
+        uint256 reserve1;
+        assembly ("memory-safe") {
+            mstore(0x00, 0x00000)
+            mstore(0x04, t0)
+            mstore(0x24, t1)
+            pop(staticcall(gas(), factory, 0x00, 0x44, 0x00, 0x20))
+            let pool := mload(0x00)
+            if pool {
+                mstore(0x00, 0x00000) //selliq
+                pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x20))
+                let liquidity := mload(0x00)
+                if liquidity {
+                    mstore(0x00, 0x00000) //selstate
+                    pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x60))
+                    let f := mload(0xc0)
+                    if lt(f, shl(16, 1)) {
+                        let sqrtPX64 := shr(32, mload(0x00))
+                        reserve0 := div(shl(64, liquidity), add(sqrtPX64, 1))
+                        reserve1 := shr(64, mul(liquidity, sqrtPX64))
+                        // let stateHash := keccak256(0x00, 0x20)
+                        slot := or(shl(PID_POS, pid), or(shl(FID_POS, ALGB_FID), shl(FEE_POS, f)))
+                    }
+                }
+            }
+        }
+        if (slot == 0) {
+            return 0;
+        }
+        slot |= ((sqrt(reserve0) << 48) | sqrt(reserve1));
+    }
+
+    function getVeloV2Pool(
+        address t0,
+        address t1,
+        uint8 pid,
+        address factory
+    ) public view returns (uint256 slot) {
+        uint256 reserve0;
+        uint256 reserve1;
+        assembly ("memory-safe") {
+            let stable := and(pid, 0x0f)
+            mstore(0x00, 0x00000)
+            mstore(0x04, t0)
+            mstore(0x24, t1)
+            mstore(0x44, stable)
+            pop(staticcall(gas(), factory, 0x00, 0x64, 0x00, 0x20))
+            let pool := mload(0x00)
+            if pool {
+                mstore(0x00, 0x00000) //selstate
+                pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x40))
+                reserve0 := mload(0x00)
+                reserve1 := mload(0xa0)
+                let stateHash := keccak256(0x00, 0x20)
+                mstore(0x00, 0x00000) //selfee
+                mstore(0x04, pool)
+                mstore(0x24, stable)
+                pop(staticcall(gas(), factory, 0x00, 0x44, 0x00, 0x20))
+                let f := mul(mload(0x00), 100)
+                if lt(f, shl(16, 1)) {
+                    slot := or(shl(PID_POS, pid), or(shl(FID_POS, VELOV2_FID), shl(FEE_POS, f)))
+                }
+            }
+        }
+        if (slot == 0) {
+            return 0;
+        }
+        slot |= ((sqrt(reserve0) << 48) | sqrt(reserve1));
+    }
+
+    function getUniV2Pool(
+        address t0,
+        address t1,
+        uint8 pid,
+        address factory
     ) public view returns (uint256 slot) {
         unchecked {
-            require(pid != 0);
-            require(t0 != t1);
-            if (t0 > t1) {
-                (t0, t1) = (t1, t0);
-            }
-            address factory;
-            assembly {
-                extcodecopy(callercont, 0x00, sub(extcodesize(callercont), mul(add(shr(4, pid), 17), 0x14)), 0x20)
-                factory := mload(0x00)
-            }
-            pid &= 0x0f;
             uint256 reserve0;
             uint256 reserve1;
-            uint256 stateHash;
-            uint256 s;
-            uint256 f;
-            if (pid <= UNIV3_PID) {
-                assembly ("memory-safe") {
-                    switch pid
-                    case 1 {
-                        f := 100
-                        s := 1
-                    }
-                    case 2 {
-                        f := 500
-                        s := 10
-                    }
-                    case 3 {
-                        f := 3000
-                        s := 60
-                    }
-                    case 4 {
-                        f := 10000
-                        s := 200
-                    }
-                    default {
-                        revert(0, 0)
-                    }
-                    mstore(0x00, UNIV3POOL_SEL)
-                    mstore(0x04, t0)
-                    mstore(0x24, t1)
-                    mstore(0x44, f)
-                    pop(staticcall(gas(), factory, 0x00, 0x64, 0x00, 0x20))
-                    let pool := mload(0x00)
-                    if pool {
-                        mstore(0x00, UNIV3LIQ_SEL)
-                        pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x20))
-                        let liquidity := mload(0x00)
-                        if liquidity {
-                            mstore(0x00, UNIV3STATE_SEL)
-                            pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x40))
-                            let sqrtPX64 := shr(32, mload(0x00))
-                            reserve0 := div(shl(64, liquidity), add(sqrtPX64, 1))
-                            reserve1 := shr(64, mul(liquidity, sqrtPX64))
-                            stateHash := keccak256(0x00, 0x20)
-                        }
-                    }
-                }
-            } else if (pid <= VELOV3_PID) {
-                assembly ("memory-safe") {
-                    switch pid
-                    case 5 {
-                        s := 1
-                    }
-                    case 6 {
-                        s := 50
-                    }
-                    case 7 {
-                        s := 100
-                    }
-                    case 8 {
-                        s := 200
-                    }
-                    case 9 {
-                        s := 2000
-                    }
-                    default {
-                        revert(0, 0)
-                    }
-                    mstore(0x00, UNIV3POOL_SEL)
-                    mstore(0x04, t0)
-                    mstore(0x24, t1)
-                    mstore(0x44, s)
-                    pop(staticcall(gas(), factory, 0x00, 0x64, 0x00, 0x20))
-                    let pool := mload(0x00)
-                    if pool {
-                        mstore(0x00, UNIV3LIQ_SEL) //selliq
-                        pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x20))
-                        let liquidity := mload(0x00)
-                        if liquidity {
-                            mstore(0x00, VELOV3FEE_SEL) //selfee
-                            mstore(0x04, pool)
-                            pop(staticcall(gas(), factory, 0x00, 0x24, 0x00, 0x20))
-                            f := mload(0x00)
-                            mstore(0x00, UNIV3STATE_SEL) //selstate
-                            pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x40))
-                            let sqrtPX64 := shr(32, mload(0x00))
-                            reserve0 := div(shl(64, liquidity), add(sqrtPX64, 1))
-                            reserve1 := shr(64, mul(liquidity, sqrtPX64))
-                            stateHash := keccak256(0x00, 0x20)
-                        }
-                    }
-                }
-            } else if (pid <= ALGB_PID) {
-                assembly ("memory-safe") {
-                    mstore(0x00, 0x00000)
-                    mstore(0x04, t0)
-                    mstore(0x24, t1)
-                    pop(staticcall(gas(), factory, 0x00, 0x44, 0x00, 0x20))
-                    let pool := mload(0x00)
-                    if pool {
-                        mstore(0x00, 0x00000) //selliq
-                        pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x20))
-                        let liquidity := mload(0x00)
-                        if liquidity {
-                            mstore(0x00, 0x00000) //selstate
-                            pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x60))
-                            let sqrtPX64 := shr(32, mload(0x00))
-                            reserve0 := div(shl(64, liquidity), add(sqrtPX64, 1))
-                            reserve1 := shr(64, mul(liquidity, sqrtPX64))
-                            stateHash := keccak256(0x00, 0x20)
-                            f := mload(0xc0)
-                            s := 60
-                        }
-                    }
-                }
-            } else if (pid <= VELOV2_PID) {
-                assembly ("memory-safe") {
-                    let stable
-                    switch pid
-                    case 11 {
-                        stable := 0x00
-                    }
-                    case 12 {
-                        stable := 0x01
-                    }
-                    default {
-                        revert(0, 0)
-                    }
-                    mstore(0x00, 0x00000)
-                    mstore(0x04, t0)
-                    mstore(0x24, t1)
-                    mstore(0x44, stable)
-                    pop(staticcall(gas(), factory, 0x00, 0x64, 0x00, 0x20))
-                    let pool := mload(0x00)
-                    if pool {
-                        mstore(0x00, 0x00000) //selstate
-                        pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x40))
-                        reserve0 := mload(0x00)
-                        reserve1 := mload(0xa0)
-                        stateHash := keccak256(0x00, 0x20)
-                        mstore(0x00, 0x00000) //selfee
-                        mstore(0x04, pool)
-                        mstore(0x24, stable)
-                        pop(staticcall(gas(), factory, 0x00, 0x44, 0x00, 0x20))
-                        f := mul(mload(0x00), 100)
-                    }
-                }
-            } else if (pid <= UNIV2_PID) {
-                assembly ("memory-safe") {
-                    mstore(0x00, 0x00000) ///////
-                    mstore(0x04, t0)
-                    mstore(0x24, t1)
-                    pop(staticcall(gas(), factory, 0x00, 0x64, 0x00, 0x20))
-                    let pool := mload(0x00)
-                    if pool {
-                        mstore(0x00, 0x00000) //State
-                        pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x40))
-                        reserve0 := mload(0x00)
-                        reserve1 := mload(0x20)
-                        stateHash := keccak256(0x00, 0x20)
-                        f := 3000
-                    }
+            assembly ("memory-safe") {
+                mstore(0x00, 0x00000) ///////
+                mstore(0x04, t0)
+                mstore(0x24, t1)
+                pop(staticcall(gas(), factory, 0x00, 0x64, 0x00, 0x20))
+                let pool := mload(0x00)
+                if pool {
+                    mstore(0x00, 0x00000) //State
+                    pop(staticcall(gas(), pool, 0x00, 0x04, 0x00, 0x40))
+                    reserve0 := mload(0x00)
+                    reserve1 := mload(0x20)
+                    let stateHash := keccak256(0x00, 0x20)
+                    let f:=3000
+                    slot := or(shl(PID_POS, pid), or(shl(FID_POS, UNIV2_FID), shl(FEE_POS, f)))
                 }
             }
-            if (stateHash == 0) return 0;
-            slot = ((sqrt(reserve0) << 48) | sqrt(reserve1));
-            assembly {
-                slot := or(and(stateHash, STATE_MASK), or(shl(PID_POS, pid), or(shl(SPACING_POS, s), shl(FEE_POS, f))))
+            if (slot == 0) {
+                return 0;
             }
+            slot |= ((sqrt(reserve0) << 48) | sqrt(reserve1));
         }
     }
 
