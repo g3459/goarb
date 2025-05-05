@@ -82,8 +82,8 @@ contract CRouter {
                             assembly {
                                 slot := calldataload(add(_pools.offset, p))
                             }
-                            uint256 r0 = uint48(slot >> 48);
-                            uint256 r1 = uint48(slot);
+                            uint256 r0 = uint48(slot >> 176);
+                            uint256 r1 = uint48(slot >> 128);
                             if (r0 == 0 || r1 == 0 || (direc ? r0 : r1) > amIn) continue;
                             uint128 liquidity = uint128(r0 * r1);
                             uint160 sqrtPriceCurrentX96 = uint160((r1 << 96) / r0);

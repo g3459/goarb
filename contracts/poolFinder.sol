@@ -66,6 +66,7 @@ contract CPoolFinder {
                     bytes memory _pools;
                     assembly {
                         _pools := fmp
+                        fmp:=add(fmp,0x20)
                     }
                     for (uint256 fix; fix < factories.length; fix++) {
                         uint256 factory = factories[fix];
@@ -78,8 +79,8 @@ contract CPoolFinder {
                                 uint256 slot = getUniV3Pool(tokens[t0], tokens[t1], uint8((fix << 4) | pid), address(uint160(factory)));
                                 if (slot == 0) continue;
                                 assembly {
-                                    fmp := add(fmp, 0x20)
                                     mstore(fmp, slot)
+                                    fmp := add(fmp, 0x10)
                                 }
                             }
                         } else if (fid == VELOV3_FID) {
@@ -87,8 +88,8 @@ contract CPoolFinder {
                                 uint256 slot = getVeloV3Pool(tokens[t0], tokens[t1], uint8((fix << 4) | pid), address(uint160(factory)));
                                 if (slot == 0) continue;
                                 assembly {
-                                    fmp := add(fmp, 0x20)
                                     mstore(fmp, slot)
+                                    fmp := add(fmp, 0x10)
                                 }
                             }
                         } else if (fid == ALGB_FID) {
@@ -96,8 +97,8 @@ contract CPoolFinder {
                                 uint256 slot = getAlgbPool(tokens[t0], tokens[t1], uint8((fix << 4) | pid), address(uint160(factory)));
                                 if (slot == 0) continue;
                                 assembly {
-                                    fmp := add(fmp, 0x20)
                                     mstore(fmp, slot)
+                                    fmp := add(fmp, 0x10)
                                 }
                             }
                         } else if (fid == VELOV2_FID) {
@@ -105,8 +106,8 @@ contract CPoolFinder {
                                 uint256 slot = getVeloV2Pool(tokens[t0], tokens[t1], uint8((fix << 4) | pid), address(uint160(factory)));
                                 if (slot == 0) continue;
                                 assembly {
-                                    fmp := add(fmp, 0x20)
                                     mstore(fmp, slot)
+                                    fmp := add(fmp, 0x10)
                                 }
                             }
                         } else if (fid == UNIV2_FID) {
@@ -114,20 +115,21 @@ contract CPoolFinder {
                                 uint256 slot = getUniV2Pool(tokens[t0], tokens[t1], uint8((fix << 4) | pid), address(uint160(factory)));
                                 if (slot == 0) continue;
                                 assembly {
-                                    fmp := add(fmp, 0x20)
                                     mstore(fmp, slot)
+                                    fmp := add(fmp, 0x10)
                                 }
                             }
                         }
                     }
                     uint256 len;
                     assembly {
-                        len := sub(fmp, pools)
+                        len := sub(fmp, add(pools,0x20))
                     }
-                    if (len != 0) {
+                    if (len == 0) {
+                        fmp-=0x20;
+                    }else{
                         assembly {
                             mstore(pools, len)
-                            fmp := add(fmp, 0x20)
                         }
                         pools[t0][t1] = _pools;
                     }
@@ -213,7 +215,7 @@ contract CPoolFinder {
         if (slot == 0) {
             return 0;
         }
-        slot |= ((sqrt(reserve0) << 48) | sqrt(reserve1));
+        slot |= ((sqrt(reserve0) << 176) | (sqrt(reserve1) << 128));
     }
 
     function getVeloV3Pool(
@@ -275,7 +277,7 @@ contract CPoolFinder {
         if (slot == 0) {
             return 0;
         }
-        slot |= ((sqrt(reserve0) << 48) | sqrt(reserve1));
+        slot |= ((sqrt(reserve0) << 176) | (sqrt(reserve1) << 128));
     }
 
     function getAlgbPool(
@@ -313,7 +315,7 @@ contract CPoolFinder {
         if (slot == 0) {
             return 0;
         }
-        slot |= ((sqrt(reserve0) << 48) | sqrt(reserve1));
+        slot |= ((sqrt(reserve0) << 176) | (sqrt(reserve1) << 128));
     }
 
     function getVeloV2Pool(
@@ -351,7 +353,7 @@ contract CPoolFinder {
         if (slot == 0) {
             return 0;
         }
-        slot |= ((sqrt(reserve0) << 48) | sqrt(reserve1));
+        slot |= ((sqrt(reserve0) << 176) | (sqrt(reserve1) << 128));
     }
 
     function getUniV2Pool(
@@ -375,14 +377,14 @@ contract CPoolFinder {
                     reserve0 := mload(0x00)
                     reserve1 := mload(0x20)
                     let stateHash := keccak256(0x00, 0x20)
-                    let f:=3000
+                    let f := 3000
                     slot := or(shl(PID_POS, pid), or(shl(FID_POS, UNIV2_FID), shl(FEE_POS, f)))
                 }
             }
             if (slot == 0) {
                 return 0;
             }
-            slot |= ((sqrt(reserve0) << 48) | sqrt(reserve1));
+            slot |= ((sqrt(reserve0) << 176) | (sqrt(reserve1) << 128));
         }
     }
 
